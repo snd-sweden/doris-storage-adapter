@@ -6,7 +6,7 @@ Documentation to be done.
 
 ```mermaid
 ---
-title: Storing a file, authorization flow
+title: Authorization flow - Storing file
 ---
 sequenceDiagram
     actor R as Researcher
@@ -30,7 +30,7 @@ sequenceDiagram
 ```
 ```mermaid
 ---
-title: Flow for publishing dataset version
+title: Authorization flow - Publishing dataset version
 ---
 sequenceDiagram
     actor R as Researcher
@@ -38,20 +38,20 @@ sequenceDiagram
     participant SA as Storage adapter
     participant S as Storage (e.g. S3)
     R->>+D: Publish dataset version
-    D->>D: Generate signed service token
+    D->>D: Generate signed service token for dataset version
     D->>+SA: Publish dataset version<br/>with service token
     D-->>SA: Fetch public key from<br/>https://doris.snd.se/.well-known/jwks.json
     SA->>SA: Validate token signature, audience,<br/>issuer and claims
     break Invalid token
         SA-->>D: Denied
     end
-    SA->>S: Store metadata<br/>(published, open or restricted)
+    SA->>S: Store metadata<br/>(set as published, indicate if open or restricted etc.)
     SA-->>-D: Return success
     D-->>-R: Return success
 ```
 ```mermaid
 ---
-title: Flow for reading restricted or not yet published file
+title: Authorization flow - Reading restricted or not yet published file
 ---
 sequenceDiagram
     actor R as Researcher
