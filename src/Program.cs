@@ -36,6 +36,10 @@ builder.Services.AddOptionsWithValidateOnStart<StorageConfiguration>()
     .Bind(builder.Configuration.GetSection(StorageConfiguration.ConfigurationSection))
     .ValidateDataAnnotations();
 
+builder.Services.AddOptionsWithValidateOnStart<StorageLimitsDatasetVersionPayloadConfiguration>()
+    .Bind(builder.Configuration.GetSection(StorageLimitsDatasetVersionPayloadConfiguration.ConfigurationSection))
+    .ValidateDataAnnotations();
+
 static void SetupJsonSerializer(JsonSerializerOptions options)
 {
     options.Converters.Add(new JsonStringEnumConverter());

@@ -30,6 +30,18 @@ internal sealed class InMemoryStorageService(InMemoryStorage storage) : IStorage
         return Task.CompletedTask;
     }
 
+    public Task<StorageServiceFile?> GetFileMetadata(string filePath, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (storage.TryGet(filePath, out var file))
+        {
+            return Task.FromResult<StorageServiceFile?>(file.Metadata);
+        }
+
+        return Task.FromResult<StorageServiceFile?>(null);
+    }
+
     public Task<FileData?> GetFileData(string filePath, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

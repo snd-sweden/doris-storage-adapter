@@ -221,6 +221,14 @@ internal sealed class NextCloudStorageService : IStorageService
         }
     }
 
+
+    public Task<StorageServiceFile?> GetFileMetadata(string filePath, CancellationToken cancellationToken)
+    {
+        // Behöver byggas med propfind
+
+        return Task.FromResult<StorageServiceFile?>(null);
+    }
+
     public async Task<FileData?> GetFileData(string filePath, CancellationToken cancellationToken)
     {
         var response = await webDavClient.GetFileResponse(GetWebDavFileUri(filePath), true, new()

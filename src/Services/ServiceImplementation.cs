@@ -23,12 +23,14 @@ namespace DorisStorageAdapter.Services;
 public class ServiceImplementation(
     IStorageService storageService,
     ILockService lockService,
-    IOptions<GeneralConfiguration> generalConfiguration)
+    IOptions<GeneralConfiguration> generalConfiguration,
+    IOptions<StorageLimitsDatasetVersionPayloadConfiguration> payloadLimitsConfiguration)
 {
     private readonly IStorageService storageService = storageService;
     private readonly ILockService lockService = lockService;
 
     private readonly GeneralConfiguration generalConfiguration = generalConfiguration.Value;
+    private readonly StorageLimitsDatasetVersionPayloadConfiguration payloadLimitsConfiguration = payloadLimitsConfiguration.Value;
 
     private const string payloadManifestSha256FileName = "manifest-sha256.txt";
     private const string tagManifestSha256FileName = "tagmanifest-sha256.txt";
@@ -173,7 +175,7 @@ public class ServiceImplementation(
     {
         var bagInfo = await LoadBagInfo(datasetVersion, cancellationToken);
 
-        if (bagInfo == null)
+        if (bagInfo.DatasetStatus == null)
         {
             // Do we need to throw an exception here?
             return;
@@ -212,6 +214,7 @@ public class ServiceImplementation(
             lockSuccessful = await lockService.TryLockPath(fullFilePath, async () =>
             {
                 await ThrowIfHasBeenPublished(datasetVersion, cancellationToken);
+
                 result = await StoreFileImpl(
                     datasetVersion,
                     filePath,
@@ -271,6 +274,46 @@ public class ServiceImplementation(
                 UrlEncodePath(GetVersionPath(prevDatasetVersion)) + '/' +
                 UrlEncodePath(itemsWithEqualChecksum.First().FilePath);
         }*/
+
+        // Här eller i StoreFile ovanför? 
+        if (payloadLimitsConfiguration.MaxFileSize > -1 &&
+            data.Length > payloadLimitsConfiguration.MaxFileSize)
+        {
+            throw new Exception("File too large");
+        }
+
+        // Måste avgöra om filen redan fanns eller inte för att kunna
+        // räkna ut OctetCount. För MaxTotalSize måste vi dessutom
+        // veta storleken på befintlig fil.
+        // Måste alltså göra en GetFileMetadata...
+
+
+        if (payloadLimitsConfiguration.MaxFileCount > -1 ||
+            payloadLimitsConfiguration.MaxTotalSize > -1)
+        {
+            using (await lockService.LockPath(GetBagInfoFilePath(datasetVersion), cancellationToken))
+            {
+                var bagInfo = await LoadBagInfo(datasetVersion, cancellationToken);
+
+                bagInfo.PayloadOxum = new(
+                    (bagInfo.PayloadOxum?.OctetCount ?? 0) + data.Length,
+                    (bagInfo.PayloadOxum?.StreamCount ?? 0) + 1);
+
+                if (payloadLimitsConfiguration.MaxFileCount > -1 &&
+                    bagInfo.PayloadOxum?.StreamCount > payloadLimitsConfiguration.MaxFileCount)
+                {
+                    throw new Exception("Too many files");
+                }
+
+                if (payloadLimitsConfiguration.MaxTotalSize > -1 &&
+                    bagInfo.PayloadOxum?.OctetCount > payloadLimitsConfiguration.MaxTotalSize)
+                {
+                    throw new Exception("Max total size exceeded");
+                }
+
+                await StoreBagInfo(datasetVersion, bagInfo.Serialize(), cancellationToken);
+            }
+        }
 
         StorageServiceFileBase result;
         byte[] checksum;
@@ -355,6 +398,9 @@ public class ServiceImplementation(
         string fullFilePath,
         CancellationToken cancellationToken)
     {
+        // Ladda bara om det behövs
+        var fileMetadata = await storageService.GetFileMetadata(fullFilePath, cancellationToken);
+
         await storageService.DeleteFile(fullFilePath, cancellationToken);
 
         // From this point on we do not want to cancel the operation,
@@ -362,6 +408,22 @@ public class ServiceImplementation(
 
         await RemoveItemFromPayloadManifest(datasetVersion, filePath, CancellationToken.None);
         await RemoveItemFromFetch(datasetVersion, filePath, CancellationToken.None);
+
+        if (fileMetadata != null &&
+            (payloadLimitsConfiguration.MaxFileCount > -1 ||
+            payloadLimitsConfiguration.MaxTotalSize > -1))
+        {          
+            using (await lockService.LockPath(GetBagInfoFilePath(datasetVersion), CancellationToken.None))
+            {
+                var bagInfo = await LoadBagInfo(datasetVersion, CancellationToken.None);
+
+                bagInfo.PayloadOxum = new(
+                    (bagInfo.PayloadOxum?.OctetCount ?? 0) - fileMetadata.Length,
+                    (bagInfo.PayloadOxum?.StreamCount ?? 0) - 1);
+
+                await StoreBagInfo(datasetVersion, bagInfo.Serialize(), CancellationToken.None);
+            }
+        }
     }
 
     public async Task ImportFiles(
@@ -479,11 +541,6 @@ public class ServiceImplementation(
             // access right is public.
 
             var bagInfo = await LoadBagInfo(datasetVersion, cancellationToken);
-
-            if (bagInfo == null)
-            {
-                return null;
-            }
 
             if (bagInfo.DatasetStatus != DatasetStatus.completed ||
                 type == FileType.data && bagInfo.AccessRight != AccessRight.@public)
@@ -640,7 +697,7 @@ public class ServiceImplementation(
 
         string[] legacyPrefixes = ["ecds", "ext", "snd"];
 
-        string basePath = legacyPrefixes.FirstOrDefault(p => 
+        string basePath = legacyPrefixes.FirstOrDefault(p =>
             datasetVersion.Identifier.StartsWith(p, StringComparison.Ordinal)) ?? "";
 
         if (string.IsNullOrEmpty(basePath))
@@ -765,7 +822,7 @@ public class ServiceImplementation(
         }
     }
 
-    private async Task<BagItInfo?> LoadBagInfo(DatasetVersion datasetVersion, CancellationToken cancellationToken)
+    private async Task<BagItInfo> LoadBagInfo(DatasetVersion datasetVersion, CancellationToken cancellationToken)
     {
         var data = await storageService.GetFileData(
             GetBagInfoFilePath(datasetVersion),
@@ -773,7 +830,7 @@ public class ServiceImplementation(
 
         if (data == null)
         {
-            return null;
+            return new();
         }
 
         using (data.Stream)
@@ -782,7 +839,10 @@ public class ServiceImplementation(
         }
     }
 
-    private async Task<StorageServiceFileBase> StoreFileAndDispose(string filePath, FileData data, CancellationToken cancellationToken)
+    private async Task<StorageServiceFileBase> StoreFileAndDispose(
+        string filePath,
+        FileData data,
+        CancellationToken cancellationToken)
     {
         using (data.Stream)
         {
@@ -849,6 +909,22 @@ public class ServiceImplementation(
             }
         }
     }
+
+    private async Task LockAndUpdateBagInfo(
+        DatasetVersion datasetVersion,
+        Action<BagItInfo> action,
+        CancellationToken cancellationToken)
+    {
+        // This method assumes that there is no exlusive lock on datasetVersion
+
+        using (await lockService.LockPath(GetBagInfoFilePath(datasetVersion), cancellationToken))
+        {
+            var bagInfo = await LoadBagInfo(datasetVersion, cancellationToken);
+            action(bagInfo);
+            await StoreBagInfo(datasetVersion, bagInfo.Serialize(), cancellationToken);
+        }
+    }
+
 
     private Task StoreManifest(
         DatasetVersion datasetVersion,
@@ -925,20 +1001,8 @@ public class ServiceImplementation(
     private static FileData CreateFileDataFromByteArray(byte[] data) =>
         new(new MemoryStream(data), data.LongLength, "text/plain");
 
-    private async Task<bool> VersionHasBeenPublished(DatasetVersion datasetVersion, CancellationToken cancellationToken)
-    {
-        var data = await storageService.GetFileData(GetBagItFilePath(datasetVersion), cancellationToken);
-
-        if (data == null)
-        {
-            return false;
-        }
-
-        using (data.Stream)
-        {
-            return true;
-        }
-    }
+    private async Task<bool> VersionHasBeenPublished(DatasetVersion datasetVersion, CancellationToken cancellationToken) =>
+        await storageService.GetFileMetadata(GetBagItFilePath(datasetVersion), cancellationToken) != null;
 
     private async Task ThrowIfHasBeenPublished(DatasetVersion datasetVersion, CancellationToken cancellationToken)
     {
