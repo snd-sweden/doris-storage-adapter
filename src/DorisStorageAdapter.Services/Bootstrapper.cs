@@ -3,8 +3,11 @@ using DorisStorageAdapter.Services.Implementation;
 using DorisStorageAdapter.Services.Implementation.Configuration;
 using DorisStorageAdapter.Services.Implementation.Lock;
 using DorisStorageAdapter.Services.Implementation.Storage;
+using Medallion.Threading;
+using Medallion.Threading.Redis;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using StackExchange.Redis;
 using System;
 using System.Linq;
 
@@ -21,11 +24,16 @@ public static class Bootstrapper
             .Bind(configuration.GetSection(StorageConfiguration.ConfigurationSection))
             .ValidateDataAnnotations();
 
-        services.AddSingleton<ILockService, InProcessLockService>();
+        services.AddSingleton<ILockService, RedisLockService>();
         services.AddTransient<IDatasetVersionService, DatasetVersionService>();
         services.AddTransient<IFileService, FileService>();
         services.AddTransient<MetadataService>();
         services.AddSingleton<IStoragePathLock, StoragePathLock>();
+
+        var connection = ConnectionMultiplexer.Connect("localhost"); // uses StackExchange.Redis
+        var redisLockProvider = new RedisDistributedSynchronizationProvider(connection.GetDatabase());
+        services.AddSingleton<IDistributedLockProvider>(redisLockProvider);
+        services.AddSingleton<IDistributedReaderWriterLockProvider>(redisLockProvider);
 
         SetupStorageService(services, configuration);
     }
