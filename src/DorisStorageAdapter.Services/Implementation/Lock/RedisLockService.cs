@@ -21,7 +21,7 @@ internal class RedisLockService(
     public async Task<bool> TryLockDatasetVersionExclusive(DatasetVersion datasetVersion, Func<Task> task, CancellationToken cancellationToken)
     {
         using var handle = await readerWriterLockProvider.TryAcquireWriteLockAsync(
-            datasetVersion.Identifier + '-' + datasetVersion.Version, default, cancellationToken);
+            datasetVersion.Identifier + '-' + datasetVersion.Version, TimeSpan.Zero, cancellationToken);
 
         if (handle != null)
         {
@@ -35,7 +35,7 @@ internal class RedisLockService(
     public async Task<bool> TryLockDatasetVersionShared(DatasetVersion datasetVersion, Func<Task> task, CancellationToken cancellationToken)
     {
         using var handle = await readerWriterLockProvider.TryAcquireReadLockAsync(
-            datasetVersion.Identifier + '-' + datasetVersion.Version, default, cancellationToken);
+            datasetVersion.Identifier + '-' + datasetVersion.Version, TimeSpan.Zero, cancellationToken);
 
         if (handle != null)
         {
@@ -48,7 +48,7 @@ internal class RedisLockService(
 
     public async Task<bool> TryLockPath(string path, Func<Task> task, CancellationToken cancellationToken)
     {
-        using var handle = await lockProvider.TryAcquireLockAsync(path, default, cancellationToken);
+        using var handle = await lockProvider.TryAcquireLockAsync(path, TimeSpan.Zero, cancellationToken);
 
         if (handle != null)
         {
