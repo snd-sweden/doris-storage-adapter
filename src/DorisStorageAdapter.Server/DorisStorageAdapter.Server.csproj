@@ -1,14 +1,15 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
-    <PackageReference Include="Invio.Extensions.Authentication.JwtBearer" Version="2.0.1" />
-    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="8.0.1" /> <!-- Overrides transitive dependency version with security vulnerabilities -->
-    <PackageReference Include="NetDevPack.Security.Jwt.AspNetCore" Version="8.2.2" />
-    <PackageReference Include="NetDevPack.Security.JwtExtensions" Version="8.0.0" />
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="8.1.4" />
-    <PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="8.1.4" />
-    <PackageReference Include="System.Formats.Asn1" Version="8.0.2" /> <!-- Overrides transitive dependency version with security vulnerabilities -->
-    <PackageReference Include="System.Text.Json" Version="8.0.6" /> <!--  Overrides transitive dependency version with security vulnerabilities -->
+    <PackageReference Include="Invio.Extensions.Authentication.JwtBearer" />
+    <PackageReference Include="MinVer">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="NetDevPack.Security.Jwt.AspNetCore" />
+    <PackageReference Include="NetDevPack.Security.JwtExtensions" />
+    <PackageReference Include="Swashbuckle.AspNetCore" />
+    <PackageReference Include="Swashbuckle.AspNetCore.Annotations" />
   </ItemGroup>
 
   <ItemGroup>

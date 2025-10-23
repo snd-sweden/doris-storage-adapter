@@ -1,9 +1,16 @@
 <Project>
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <AnalysisMode>All</AnalysisMode>
     <Nullable>enable</Nullable>
     <WarningsAsErrors>$(WarningsAsErrors);Nullable;CA1307;CA1309;CA1310</WarningsAsErrors>
     <NoWarn>$(NoWarn);VSTHRD200;CA2007;CA1812</NoWarn>
+    <MinVerTagPrefix>v</MinVerTagPrefix>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(CI)' == 'true'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+    <RestoreLockedMode>true</RestoreLockedMode>
   </PropertyGroup>
 </Project>

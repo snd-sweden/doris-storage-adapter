@@ -7,28 +7,91 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
 
 jobs:
-  build-and-push-latest:
-    if: github.ref == 'refs/heads/main'
+  build-and-push:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+      actions: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # Needed for MinVer to access tags
+
+      # If this is a tag push, only continue if the tag points to a commit reachable from main
+      - name: Determine if tag target is on main
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG_SHA=$(git rev-list -n 1 "$GITHUB_REF_NAME")
+          if ! git merge-base --is-ancestor "$TAG_SHA" origin/main; then
+            echo "Tag $GITHUB_REF_NAME is not on main, aborting."
+            gh run cancel ${{ github.run_id }}
+            gh run watch ${{ github.run_id }}
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Calculate version with MinVer
+        run: echo "MINVERVERSIONOVERRIDE=$(bash calculate-version.sh)" >> "$GITHUB_ENV"
+                
+      - name: Set SOURCE_DATE_EPOCH to timestamp of latest git commit
+        run: echo "SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct)" >> "$GITHUB_ENV"
+
+      - name: Compose Docker tags
+        id: tags
+        shell: bash
+        run: |
+          IMAGE="ghcr.io/${{ github.repository }}"
+          VERSION="$MINVERVERSIONOVERRIDE"
+
+          # Always add MinVer version and :current
+          TAGS="$IMAGE:$VERSION
+          $IMAGE:current"
+
+          if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            MAJOR="${VERSION%%.*}"        # Everything before first dot
+            MINOR="${VERSION#${MAJOR}.}"  # Strip "<major>." from the front
+            MINOR="${MINOR%%.*}"          # Remove everything after next dot
+
+            echo "Release build; adding :latest, :$MAJOR and :$MAJOR.$MINOR"
+            TAGS="$TAGS
+            $IMAGE:latest
+            $IMAGE:$MAJOR
+            $IMAGE:$MAJOR.$MINOR"
+          else
+            echo "Not a release build"
+          fi
+
+          # Expose as a multi-line output for build-push-action
+          {
+            echo "list<<EOF"
+            echo "$TAGS"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+      
+      # Build and push Docker image
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push Docker image (latest)
-        uses: docker/build-push-action@v5
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: ghcr.io/${{ github.repository }}:latest
+          build-args: |
+            CI=true
+            VERSION=${{ env.MINVERVERSIONOVERRIDE }}
+            SOURCE_DATE_EPOCH=${{ env.SOURCE_DATE_EPOCH }}
+          tags: ${{ steps.tags.outputs.list }}
