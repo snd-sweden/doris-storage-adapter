@@ -221,9 +221,17 @@ internal sealed class FileService(
         ArgumentNullException.ThrowIfNull(datasetVersion);
         ArgumentException.ThrowIfNullOrEmpty(fromVersion);
 
-        if (datasetVersion.Version == fromVersion)
+        var fromDatasetVersion = new DatasetVersion(datasetVersion.Identifier, fromVersion);
+
+        if (datasetVersion == fromDatasetVersion)
         {
-            // Importing from and to the same version, make no-op by simply returning
+            // Importing from and to the same version, do nothing.
+            return;
+        }
+
+        if (!await metadataService.VersionHasBeenPublished(fromDatasetVersion, cancellationToken))
+        {
+            // fromVersion is not published, do nothing.
             return;
         }
 
@@ -232,7 +240,7 @@ internal sealed class FileService(
             await ThrowIfHasBeenPublished(datasetVersion, cancellationToken);
             await ImportImpl(
                 datasetVersion,
-                new(datasetVersion.Identifier, fromVersion),
+                fromDatasetVersion,
                 cancellationToken);
         },
         cancellationToken);
@@ -267,7 +275,7 @@ internal sealed class FileService(
         if (await metadataService.ListPayloadFiles(datasetVersion, null, cancellationToken)
             .GetAsyncEnumerator(cancellationToken).MoveNextAsync())
         {
-            // Payload files present, abort.
+            // Payload files present, do nothing.
             return;
         }
 
