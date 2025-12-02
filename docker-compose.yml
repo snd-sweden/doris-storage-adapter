@@ -12,6 +12,9 @@ services:
       - Storage__ActiveStorageService=FileSystemStorageService
       - Storage__FileSystemStorageService__BasePath=/tmp/doris-data
       - Storage__FileSystemStorageService__TempFilePath=/tmp
+      - Limits__MaxFileCount=2000
+      - Limits__MaxFileSize=5368709120
+      - Limits__MaxTotalSize=53687091200
       - Authorization__JwksUri=http://doris-storage-adapter:8080/jwks
       - Authorization__CorsAllowedOrigins__0=http://doris-storage-adapter:8080
       - PublicUrl=http://doris-storage-adapter:8080
