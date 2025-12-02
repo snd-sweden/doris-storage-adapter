@@ -17,6 +17,10 @@ public static class Bootstrapper
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
 
+        services.AddOptionsWithValidateOnStart<LimitsConfiguration>()
+            .Bind(configuration.GetSection(LimitsConfiguration.ConfigurationSection))
+            .ValidateDataAnnotations();
+
         services.AddOptionsWithValidateOnStart<StorageConfiguration>()
             .Bind(configuration.GetSection(StorageConfiguration.ConfigurationSection))
             .ValidateDataAnnotations();
@@ -26,6 +30,7 @@ public static class Bootstrapper
         services.AddTransient<IFileService, FileService>();
         services.AddTransient<MetadataService>();
         services.AddSingleton<IStoragePathLock, StoragePathLock>();
+        services.AddSingleton<ISystemService, SystemService>();
 
         SetupStorageService(services, configuration);
     }
