@@ -15,6 +15,7 @@ using Microsoft.OpenApi.Models;
 using NetDevPack.Security.Jwt.Core.Jwa;
 using NetDevPack.Security.JwtExtensions;
 using System;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -150,7 +151,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy(FileController.storeCorsPolicyName, policy =>
     {
         policy
-            .WithOrigins(authorizationConfiguration.CorsAllowedOrigins)
+            .WithOrigins([.. authorizationConfiguration.CorsAllowedOrigins])
             .WithHeaders(
                 HeaderNames.Authorization, 
                 HeaderNames.ContentLength, 
@@ -160,7 +161,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy(FileController.deleteCorsPolicyName, policy =>
     {
         policy
-            .WithOrigins(authorizationConfiguration.CorsAllowedOrigins)
+            .WithOrigins([.. authorizationConfiguration.CorsAllowedOrigins])
             .WithHeaders(HeaderNames.Authorization)
             .WithMethods(HttpMethods.Delete);
     });

@@ -13,15 +13,19 @@ using DorisStorageAdapter.Services.Implementation.BagIt.Fetch;
 using DorisStorageAdapter.Services.Implementation.BagIt.Info;
 using DorisStorageAdapter.Services.Implementation.BagIt.Manifest;
 using DorisStorageAdapter.Services.Implementation.Lock;
+using Microsoft.Extensions.Options;
+using DorisStorageAdapter.Services.Implementation.Configuration;
 
 namespace DorisStorageAdapter.Services.Implementation;
 
 internal sealed class DatasetVersionService(
     ILockService lockService,
-    MetadataService metadataService) : IDatasetVersionService
+    MetadataService metadataService,
+    IOptions<StorageConfiguration> storageConfiguration) : IDatasetVersionService
 {
     private readonly ILockService lockService = lockService;
     private readonly MetadataService metadataService = metadataService;
+    private readonly StorageConfiguration storageConfiguration = storageConfiguration.Value;
 
     private static readonly byte[] bagItSha256 = SHA256.HashData(BagItDeclaration.Instance.Serialize());
 
@@ -35,6 +39,12 @@ internal sealed class DatasetVersionService(
         ArgumentNullException.ThrowIfNull(datasetVersion);
         ArgumentException.ThrowIfNullOrEmpty(doi);
         Validation.ThrowIfInvalidDatasetVersion(datasetVersion);
+
+        if (accessRight == AccessRight.@public &&
+            !storageConfiguration.AllowPublicData)
+        {
+            throw new PublicDataNotAllowedException();
+        }
 
         await ExecuteWithLock(datasetVersion, async () =>
         {

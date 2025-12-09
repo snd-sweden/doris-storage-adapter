@@ -1,4 +1,5 @@
 using DorisStorageAdapter.Helpers;
+using DorisStorageAdapter.Server.Configuration;
 using DorisStorageAdapter.Server.Controllers.Attributes;
 using DorisStorageAdapter.Server.Controllers.Authorization;
 using DorisStorageAdapter.Services.Contract;
@@ -9,6 +10,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Microsoft.Extensions.Options;
 using Swashbuckle.AspNetCore.Annotations;
 using System;
 using System.Collections.Generic;
@@ -20,9 +22,12 @@ using System.Threading.Tasks;
 namespace DorisStorageAdapter.Server.Controllers;
 
 [ApiController]
-public sealed class FileController(IFileService fileService) : ControllerBase
+public sealed class FileController(
+    IFileService fileService,
+    IOptions<AuthorizationConfiguration> authorizationConfiguration) : ControllerBase
 {
     private readonly IFileService fileService = fileService;
+    private readonly AuthorizationConfiguration authorizationConfiguration = authorizationConfiguration.Value;
 
     private const string corsPrefix = nameof(FileController) + "_";
 
@@ -127,7 +132,7 @@ public sealed class FileController(IFileService fileService) : ControllerBase
 
     [HttpHead("file/{identifier}/{version}/{type}")]
     [HttpGet("file/{identifier}/{version}/{type}")]
-    [Authorize(Roles = Roles.ReadData)]
+    [Authorize(Roles = Roles.ReadUnpublishedData)]
     [SwaggerResponse(StatusCodes.Status200OK, null, typeof(FileStreamResult), "*/*")]
     [SwaggerResponse(StatusCodes.Status206PartialContent, null, typeof(FileStreamResult), "*/*")]
     [ProducesResponseType(typeof(void), StatusCodes.Status416RangeNotSatisfiable)]
@@ -142,6 +147,11 @@ public sealed class FileController(IFileService fileService) : ControllerBase
         [FromQuery, BindRequired] string filePath,
         CancellationToken cancellationToken)
     {
+        if (!authorizationConfiguration.AllowReadUnpublishedData)
+        {
+            return TypedResults.Forbid();
+        }
+
         var datasetVersion = new DatasetVersion(identifier, version);
 
         if (!CheckClaims(datasetVersion))
@@ -149,7 +159,7 @@ public sealed class FileController(IFileService fileService) : ControllerBase
             return TypedResults.Forbid();
         }
 
-        var result = await GetData(datasetVersion, type, filePath, false, cancellationToken);
+        var result = await GetData(datasetVersion, type, filePath, true, cancellationToken);
 
         if (result == null)
         {
@@ -176,7 +186,7 @@ public sealed class FileController(IFileService fileService) : ControllerBase
     {
         var datasetVersion = new DatasetVersion(identifier, version);
 
-        var result = await GetData(datasetVersion, type, filePath, true, cancellationToken);
+        var result = await GetData(datasetVersion, type, filePath, false, cancellationToken);
 
         if (result == null)
         {
@@ -187,7 +197,7 @@ public sealed class FileController(IFileService fileService) : ControllerBase
     }
 
     [HttpGet("file/{identifier}/{version}/zip")]
-    [Authorize(Roles = Roles.ReadData)]
+    [Authorize(Roles = Roles.ReadUnpublishedData)]
     [SwaggerResponse(StatusCodes.Status200OK, null, typeof(FileStreamResult), MediaTypeNames.Application.Zip)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
@@ -198,6 +208,11 @@ public sealed class FileController(IFileService fileService) : ControllerBase
         [FromQuery] string[] path,
         CancellationToken cancellationToken)
     {
+        if (!authorizationConfiguration.AllowReadUnpublishedData)
+        {
+            return TypedResults.Forbid();
+        }
+
         var datasetVersion = new DatasetVersion(identifier, version);
 
         if (!CheckClaims(datasetVersion))
@@ -207,10 +222,11 @@ public sealed class FileController(IFileService fileService) : ControllerBase
 
         return TypedResults.Stream(_ =>
             fileService.WriteDataAsZip(
-                datasetVersion,
-                path,
-                Response.BodyWriter.AsStream(),
-                cancellationToken),
+                datasetVersion: datasetVersion,
+                paths: path,
+                stream: Response.BodyWriter.AsStream(),
+                allowUnpublished: true,
+                cancellationToken: cancellationToken),
             MediaTypeNames.Application.Zip,
             identifier + '-' + version + ".zip");
     }
@@ -263,7 +279,7 @@ public sealed class FileController(IFileService fileService) : ControllerBase
         DatasetVersion datasetVersion,
         FileType type,
         string filePath,
-        bool restrictToPubliclyAccessible,
+        bool allowUnpublished,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(filePath);
@@ -286,7 +302,7 @@ public sealed class FileController(IFileService fileService) : ControllerBase
             filePath: filePath,
             isHeadRequest: Request.Method == HttpMethods.Head,
             byteRange: ParseByteRange(),
-            restrictToPubliclyAccessible: restrictToPubliclyAccessible,
+            allowUnpublished: allowUnpublished,
             cancellationToken: cancellationToken);
 
         if (data == null)

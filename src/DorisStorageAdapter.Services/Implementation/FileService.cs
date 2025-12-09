@@ -5,8 +5,10 @@ using DorisStorageAdapter.Services.Implementation.BagIt;
 using DorisStorageAdapter.Services.Implementation.BagIt.Fetch;
 using DorisStorageAdapter.Services.Implementation.BagIt.Info;
 using DorisStorageAdapter.Services.Implementation.BagIt.Manifest;
+using DorisStorageAdapter.Services.Implementation.Configuration;
 using DorisStorageAdapter.Services.Implementation.Lock;
 using DorisStorageAdapter.Services.Implementation.Storage;
+using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -22,11 +24,13 @@ namespace DorisStorageAdapter.Services.Implementation;
 internal sealed class FileService(
     IStorageService storageService,
     ILockService lockService,
-    MetadataService metadataService) : IFileService
+    MetadataService metadataService,
+    IOptions<StorageConfiguration> storageConfiguration) : IFileService
 {
     private readonly IStorageService storageService = storageService;
     private readonly ILockService lockService = lockService;
     private readonly MetadataService metadataService = metadataService;
+    private readonly StorageConfiguration storageConfiguration = storageConfiguration.Value;
 
     public async Task<FileMetadata> Store(
         DatasetVersion datasetVersion,
@@ -296,7 +300,7 @@ internal sealed class FileService(
         string filePath,
         bool isHeadRequest,
         ByteRange? byteRange,
-        bool restrictToPubliclyAccessible,
+        bool allowUnpublished,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
@@ -307,29 +311,12 @@ internal sealed class FileService(
 
         filePath = GetFilePathOrThrow(type, filePath);
 
-        if (restrictToPubliclyAccessible)
+        var accessibleFileTypes = await GetAccessibleFileTypes(
+            datasetVersion, allowUnpublished, cancellationToken);
+
+        if (!accessibleFileTypes.Contains(type))
         {
-            // Do not return file data unless dataset version has been published, is not withdrawn,
-            // and file type is either documentation (which entails publically accessible) or
-            // access right is public.
-
-            if (!await metadataService.VersionHasBeenPublished(datasetVersion, cancellationToken))
-            {
-                return null;
-            }
-
-            var bagInfo = await metadataService.LoadBagItElement<BagItInfo>(datasetVersion, cancellationToken);
-
-            if (bagInfo == null)
-            {
-                return null;
-            }
-
-            if (bagInfo.GetDatasetVersionStatus() != DatasetVersionStatus.published ||
-                type == FileType.data && bagInfo.GetAccessRight() != AccessRight.@public)
-            {
-                return null;
-            }
+            return null;
         }
 
         var fetch = await metadataService.LoadBagItElement<BagItFetch>(datasetVersion, cancellationToken);
@@ -439,12 +426,16 @@ internal sealed class FileService(
         DatasetVersion datasetVersion,
         string[] paths,
         Stream stream,
+        bool allowUnpublished,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
         ArgumentNullException.ThrowIfNull(paths);
         ArgumentNullException.ThrowIfNull(stream);
         Validation.ThrowIfInvalidDatasetVersion(datasetVersion);
+
+        var accessibleFileTypes = await GetAccessibleFileTypes(
+           datasetVersion, allowUnpublished, cancellationToken);
 
         static Stream CreateZipEntryStream(ZipArchive zipArchive, string filePath)
         {
@@ -461,6 +452,11 @@ internal sealed class FileService(
 
         foreach (var manifestItem in payloadManifest.Items)
         {
+            if (!accessibleFileTypes.Contains(GetFileType(manifestItem.FilePath)))
+            {
+                continue;
+            }
+
             string zipFilePath = manifestItem.FilePath[5..]; // Strip "data/"
 
             if (paths.Length > 0 &&
@@ -512,7 +508,6 @@ internal sealed class FileService(
             }
         }
     }
-
 
     private static string GetFilePathOrThrow(FileType type, string filePath)
     {
@@ -566,6 +561,47 @@ internal sealed class FileService(
         {
             throw new DatasetStatusException();
         }
+    }
+
+    private async Task<IEnumerable<FileType>> GetAccessibleFileTypes(
+        DatasetVersion datasetVersion, bool allowUnpublished, CancellationToken cancellationToken)
+    {
+        if (await metadataService.VersionHasBeenPublished(datasetVersion, cancellationToken))
+        {
+            var bagInfo = await metadataService.LoadBagItElement<BagItInfo>(datasetVersion, cancellationToken);
+
+            if (bagInfo == null)
+            {
+                return [];
+            }
+
+            // Check that version is not withdrawn.
+            if (bagInfo.GetDatasetVersionStatus() != DatasetVersionStatus.published)
+            {
+                return [];
+            }
+
+            // If we reach here, we know we can allow access to documentation files.
+            // Check if we also allow access to data files.
+            if (storageConfiguration.AllowPublicData &&
+                bagInfo.GetAccessRight() == AccessRight.@public)
+            {
+                // Yes, we allow public data files and access right
+                // is set to public.
+                return [FileType.data, FileType.documentation];
+            }
+
+            // No, only allow access to documentation files.
+            return [FileType.documentation];
+        }
+        else if (allowUnpublished)
+        {
+            // Dataset version is unpublished and allowUnpublished is true,
+            // allow access to all files.
+            return [FileType.data, FileType.documentation];
+        }
+
+        return [];
     }
 
     private Task AddOrUpdatePayloadManifestItem(

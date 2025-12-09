@@ -8,4 +8,7 @@ internal sealed record StorageConfiguration
 
     [Required]
     public required string ActiveStorageService { get; init; }
+
+    [Required]
+    public required bool AllowPublicData { get; init; }
 }
