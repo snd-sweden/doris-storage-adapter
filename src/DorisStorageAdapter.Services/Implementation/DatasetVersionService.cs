@@ -41,9 +41,9 @@ internal sealed class DatasetVersionService(
         Validation.ThrowIfInvalidDatasetVersion(datasetVersion);
 
         if (accessRight == AccessRight.@public &&
-            !storageConfiguration.AllowPublicData)
+            !storageConfiguration.AllowPublicAccessRight)
         {
-            throw new PublicDataNotAllowedException();
+            throw new PublicAccessRightNotAllowedException();
         }
 
         await ExecuteWithLock(datasetVersion, async () =>

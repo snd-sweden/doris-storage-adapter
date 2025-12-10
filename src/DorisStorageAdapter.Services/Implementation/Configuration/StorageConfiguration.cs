@@ -10,5 +10,5 @@ internal sealed record StorageConfiguration
     public required string ActiveStorageService { get; init; }
 
     [Required]
-    public required bool AllowPublicData { get; init; }
+    public required bool AllowPublicAccessRight { get; init; }
 }

@@ -583,7 +583,7 @@ internal sealed class FileService(
 
             // If we reach here, we know we can allow access to documentation files.
             // Check if we also allow access to data files.
-            if (storageConfiguration.AllowPublicData &&
+            if (storageConfiguration.AllowPublicAccessRight &&
                 bagInfo.GetAccessRight() == AccessRight.@public)
             {
                 // Yes, we allow public data files and access right
