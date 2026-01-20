@@ -35,7 +35,7 @@ public sealed class FileController(
     public const string deleteCorsPolicyName = corsPrefix + nameof(Delete);
     public const string getPublicDataCorsPolicyName = corsPrefix + nameof(GetPublicData);
 
-    [HttpPut("file/{identifier}/{version}/{type}")]
+    [HttpPut("datasets/{identifier}/versions/{version}/files/{type}/{**filePath}")]
     [Authorize(Roles = Roles.WriteData)]
     [DisableRequestSizeLimit] // Disable request size limit to allow streaming large files
     // DisableFormValueModelBinding makes sure that ASP.NET does not try to parse the body as form data
@@ -53,7 +53,7 @@ public sealed class FileController(
         string identifier,
         string version,
         FileType type,
-        [FromQuery, BindRequired] string filePath,
+        string filePath,
         CancellationToken cancellationToken)
     {
         var datasetVersion = new DatasetVersion(identifier, version);
@@ -80,7 +80,7 @@ public sealed class FileController(
         return TypedResults.Ok(ToFile(result));
     }
 
-    [HttpDelete("file/{identifier}/{version}/{type}")]
+    [HttpDelete("datasets/{identifier}/versions/{version}/files/{type}/{**filePath}")]
     [Authorize(Roles = Roles.WriteData)]
     [EnableCors(deleteCorsPolicyName)]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -92,7 +92,7 @@ public sealed class FileController(
         string identifier,
         string version,
         FileType type,
-        [FromQuery, BindRequired] string filePath,
+        string filePath,
         CancellationToken cancellationToken)
     {
         var datasetVersion = new DatasetVersion(identifier, version);
@@ -107,7 +107,7 @@ public sealed class FileController(
         return TypedResults.Ok();
     }
 
-    [HttpPut("file/{identifier}/{version}/import")]
+    [HttpPut("datasets/{identifier}/versions/{version}/files/import")]
     [Authorize(Roles = Roles.Service)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
@@ -115,7 +115,7 @@ public sealed class FileController(
     public async Task<Results<Ok, ForbidHttpResult>> Import(
         string identifier,
         string version,
-        [FromQuery, BindRequired] string fromVersion,
+        [FromQuery, BindRequired] string fromVersion, // ändra till body? json eller form-data?
         CancellationToken cancellationToken)
     {
         var datasetVersion = new DatasetVersion(identifier, version);
@@ -130,8 +130,8 @@ public sealed class FileController(
         return TypedResults.Ok();
     }
 
-    [HttpHead("file/{identifier}/{version}/{type}")]
-    [HttpGet("file/{identifier}/{version}/{type}")]
+    [HttpHead("datasets/{identifier}/versions/{version}/files/{type}/{**filePath}")]
+    [HttpGet("datasets/{identifier}/versions/{version}/files/{type}/{**filePath}")]
     [Authorize(Roles = Roles.ReadUnpublishedData)]
     [SwaggerResponse(StatusCodes.Status200OK, null, typeof(FileStreamResult), "*/*")]
     [SwaggerResponse(StatusCodes.Status206PartialContent, null, typeof(FileStreamResult), "*/*")]
@@ -144,7 +144,7 @@ public sealed class FileController(
         string identifier,
         string version,
         FileType type,
-        [FromQuery, BindRequired] string filePath,
+        string filePath,
         CancellationToken cancellationToken)
     {
         if (!authorizationConfiguration.AllowReadUnpublishedData)
@@ -169,8 +169,8 @@ public sealed class FileController(
         return result;
     }
 
-    [HttpHead("file/public/{identifier}/{version}/{type}")]
-    [HttpGet("file/public/{identifier}/{version}/{type}")]
+    [HttpHead("public/datasets/{identifier}/versions/{version}/files/{type}/{**filePath}")]
+    [HttpGet("public/datasets/{identifier}/versions/{version}/files/{type}/{**filePath}")]
     [EnableCors(getPublicDataCorsPolicyName)]
     [SwaggerResponse(StatusCodes.Status200OK, null, typeof(FileStreamResult), "*/*")]
     [SwaggerResponse(StatusCodes.Status206PartialContent, null, typeof(FileStreamResult), "*/*")]
@@ -181,7 +181,7 @@ public sealed class FileController(
        string identifier,
        string version,
        FileType type,
-       [FromQuery, BindRequired] string filePath,
+       string filePath,
        CancellationToken cancellationToken)
     {
         var datasetVersion = new DatasetVersion(identifier, version);
@@ -196,7 +196,7 @@ public sealed class FileController(
         return result;
     }
 
-    [HttpGet("file/{identifier}/{version}/zip")]
+    [HttpGet("datasets/{identifier}/versions/{version}/exports/zip")]
     [Authorize(Roles = Roles.ReadUnpublishedData)]
     [SwaggerResponse(StatusCodes.Status200OK, null, typeof(FileStreamResult), MediaTypeNames.Application.Zip)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
@@ -231,7 +231,7 @@ public sealed class FileController(
             identifier + '-' + version + ".zip");
     }
 
-    [HttpGet("file/{identifier}/{version}")]
+    [HttpGet("datasets/{identifier}/versions/{version}/files")]
     [Authorize(Roles = Roles.Service)]
     [ProducesResponseType<IEnumerable<File>>(StatusCodes.Status200OK, MediaTypeNames.Application.Json)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
