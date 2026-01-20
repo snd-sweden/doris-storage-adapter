@@ -40,6 +40,7 @@ internal sealed class FileService(
         ArgumentNullException.ThrowIfNull(datasetVersion);
         ArgumentException.ThrowIfNullOrEmpty(filePath);
         ArgumentNullException.ThrowIfNull(data);
+        Validation.ThrowIfInvalidDatasetVersion(datasetVersion);
 
         filePath = GetFilePathOrThrow(type, filePath);
         FileMetadata? result = default;
@@ -175,6 +176,7 @@ internal sealed class FileService(
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
         ArgumentException.ThrowIfNullOrEmpty(filePath);
+        Validation.ThrowIfInvalidDatasetVersion(datasetVersion);
 
         filePath = GetFilePathOrThrow(type, filePath);
 
@@ -220,8 +222,10 @@ internal sealed class FileService(
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
         ArgumentException.ThrowIfNullOrEmpty(fromVersion);
+        Validation.ThrowIfInvalidDatasetVersion(datasetVersion);
 
         var fromDatasetVersion = new DatasetVersion(datasetVersion.Identifier, fromVersion);
+        Validation.ThrowIfInvalidDatasetVersion(fromDatasetVersion);
 
         if (datasetVersion == fromDatasetVersion)
         {
@@ -297,6 +301,7 @@ internal sealed class FileService(
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
         ArgumentException.ThrowIfNullOrEmpty(filePath);
+        Validation.ThrowIfInvalidDatasetVersion(datasetVersion);
 
         // Add some kind of locking here for read consistency?
 
@@ -374,6 +379,7 @@ internal sealed class FileService(
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
+        Validation.ThrowIfInvalidDatasetVersion(datasetVersion);
 
         // Add some kind of locking here?
         // Checksums and fetch can potentially be changed while processing this request,
@@ -438,6 +444,7 @@ internal sealed class FileService(
         ArgumentNullException.ThrowIfNull(datasetVersion);
         ArgumentNullException.ThrowIfNull(paths);
         ArgumentNullException.ThrowIfNull(stream);
+        Validation.ThrowIfInvalidDatasetVersion(datasetVersion);
 
         static Stream CreateZipEntryStream(ZipArchive zipArchive, string filePath)
         {
@@ -515,7 +522,7 @@ internal sealed class FileService(
                 pathComponent == "." ||
                 pathComponent == "..")
             {
-                throw new IllegalPathException();
+                throw new ValidationException("Invalid path.");
             }
         }
 

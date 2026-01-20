@@ -271,7 +271,7 @@ internal sealed class FileSystemStorageService(
 
     private string GetFullPathOrThrow(string path)
     {
-        static void Throw() => throw new IllegalFileSystemPathException();
+        static void Throw() => throw new InvalidFileSystemPathException();
 
         if (path.Split('/').Any(c => c.Any(invalidFileNameChars.Contains)))
         {

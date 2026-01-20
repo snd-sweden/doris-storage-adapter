@@ -1,4 +1,6 @@
-﻿namespace DorisStorageAdapter.Services.Contract.Exceptions;
+﻿using System;
+
+namespace DorisStorageAdapter.Services.Contract.Exceptions;
 
 public sealed class ConflictException : ServiceException
 {
@@ -10,7 +12,7 @@ public sealed class ConflictException : ServiceException
     {
     }
 
-    public ConflictException(string message, System.Exception innerException) : base(message, innerException)
+    public ConflictException(string message, Exception innerException) : base(message, innerException)
     {
     }
 }

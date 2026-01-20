@@ -1,4 +1,6 @@
-﻿namespace DorisStorageAdapter.Services.Contract.Exceptions;
+﻿using System;
+
+namespace DorisStorageAdapter.Services.Contract.Exceptions;
 
 public sealed class DatasetStatusException : ServiceException
 {
@@ -10,7 +12,7 @@ public sealed class DatasetStatusException : ServiceException
     {
     }
 
-    public DatasetStatusException(string message, System.Exception innerException) : base(message, innerException)
+    public DatasetStatusException(string message, Exception innerException) : base(message, innerException)
     {
     }
 }

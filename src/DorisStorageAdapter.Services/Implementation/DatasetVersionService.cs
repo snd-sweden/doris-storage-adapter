@@ -34,6 +34,7 @@ internal sealed class DatasetVersionService(
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
         ArgumentException.ThrowIfNullOrEmpty(doi);
+        Validation.ThrowIfInvalidDatasetVersion(datasetVersion);
 
         await ExecuteWithLock(datasetVersion, async () =>
         {
@@ -119,6 +120,7 @@ internal sealed class DatasetVersionService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
+        Validation.ThrowIfInvalidDatasetVersion(datasetVersion);
 
         await ExecuteWithLock(datasetVersion, async () =>
         {
