@@ -9,7 +9,7 @@ public sealed record AuthorizationConfiguration
     public const string ConfigurationSection = "Authorization";
 
     [Required]
-    public required bool AllowReadUnpublishedData { get; init; }
+    public required bool AllowReadDraftFiles { get; init; }
 
     [Required]
     public required IEnumerable<string> CorsAllowedOrigins { get; init; }

@@ -35,8 +35,8 @@ public sealed class FilesController(
     public const string deleteCorsPolicyName = corsPrefix + nameof(Delete);
     public const string getPublicDataCorsPolicyName = corsPrefix + nameof(GetPublicData);
 
-    [HttpPut("datasets/{identifier}/versions/{version}/files/unpublished/file/{type}/{**filePath}")]
-    [Authorize(Roles = Roles.WriteData)]
+    [HttpPut("datasets/{identifier}/versions/{version}/files/draft/file/{type}/{**filePath}")]
+    [Authorize(Roles = Roles.WriteDraftFiles)]
     [DisableRequestSizeLimit] // Disable request size limit to allow streaming large files
     // DisableFormValueModelBinding makes sure that ASP.NET does not try to parse the body as form data
     // when Content-Type is "multipart/form-data" or "application/x-www-form-urlencoded".
@@ -80,8 +80,8 @@ public sealed class FilesController(
         return TypedResults.Ok(ToFile(result));
     }
 
-    [HttpDelete("datasets/{identifier}/versions/{version}/files/unpublished/file/{type}/{**filePath}")]
-    [Authorize(Roles = Roles.WriteData)]
+    [HttpDelete("datasets/{identifier}/versions/{version}/files/draft/file/{type}/{**filePath}")]
+    [Authorize(Roles = Roles.WriteDraftFiles)]
     [EnableCors(deleteCorsPolicyName)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
@@ -107,7 +107,7 @@ public sealed class FilesController(
         return TypedResults.Ok();
     }
 
-    [HttpPut("datasets/{identifier}/versions/{version}/files/unpublished/import")]
+    [HttpPut("datasets/{identifier}/versions/{version}/files/draft/import")]
     [Authorize(Roles = Roles.Service)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
@@ -130,9 +130,9 @@ public sealed class FilesController(
         return TypedResults.Ok();
     }
 
-    [HttpHead("datasets/{identifier}/versions/{version}/files/unpublished/file/{type}/{**filePath}")]
-    [HttpGet("datasets/{identifier}/versions/{version}/files/unpublished/file/{type}/{**filePath}")]
-    [Authorize(Roles = Roles.ReadUnpublishedData)]
+    [HttpHead("datasets/{identifier}/versions/{version}/files/draft/file/{type}/{**filePath}")]
+    [HttpGet("datasets/{identifier}/versions/{version}/files/draft/file/{type}/{**filePath}")]
+    [Authorize(Roles = Roles.ReadDraftFiles)]
     [SwaggerResponse(StatusCodes.Status200OK, null, typeof(FileStreamResult), "*/*")]
     [SwaggerResponse(StatusCodes.Status206PartialContent, null, typeof(FileStreamResult), "*/*")]
     [ProducesResponseType(typeof(void), StatusCodes.Status416RangeNotSatisfiable)]
@@ -140,14 +140,14 @@ public sealed class FilesController(
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(void), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(void), StatusCodes.Status404NotFound)]
-    public async Task<Results<FileStreamHttpResult, ForbidHttpResult, NotFound>> GetUnpublishedData(
+    public async Task<Results<FileStreamHttpResult, ForbidHttpResult, NotFound>> GetDraftData(
         string identifier,
         string version,
         FileType type,
         string filePath,
         CancellationToken cancellationToken)
     {
-        if (!authorizationConfiguration.AllowReadUnpublishedData)
+        if (!authorizationConfiguration.AllowReadDraftFiles)
         {
             return TypedResults.Forbid();
         }
@@ -196,19 +196,19 @@ public sealed class FilesController(
         return result;
     }
 
-    [HttpGet("datasets/{identifier}/versions/{version}/files/unpublished/archive")]
-    [Authorize(Roles = Roles.ReadUnpublishedData)]
+    [HttpGet("datasets/{identifier}/versions/{version}/files/draft/archive")]
+    [Authorize(Roles = Roles.ReadDraftFiles)]
     [SwaggerResponse(StatusCodes.Status200OK, null, typeof(FileStreamResult), MediaTypeNames.Application.Zip)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(void), StatusCodes.Status403Forbidden)]
-    public Results<PushStreamHttpResult, ForbidHttpResult> GetUnpublishedDataArchive(
+    public Results<PushStreamHttpResult, ForbidHttpResult> GetDraftDataArchive(
         string identifier,
         string version,
         [FromQuery] string[] path,
         CancellationToken cancellationToken)
     {
-        if (!authorizationConfiguration.AllowReadUnpublishedData)
+        if (!authorizationConfiguration.AllowReadDraftFiles)
         {
             return TypedResults.Forbid();
         }
@@ -285,7 +285,7 @@ public sealed class FilesController(
         DatasetVersion datasetVersion,
         FileType type,
         string filePath,
-        bool allowUnpublished,
+        bool allowDraft,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(filePath);
@@ -308,7 +308,7 @@ public sealed class FilesController(
             filePath: filePath,
             isHeadRequest: Request.Method == HttpMethods.Head,
             byteRange: ParseByteRange(),
-            allowUnpublished: allowUnpublished,
+            allowDraft: allowDraft,
             cancellationToken: cancellationToken);
 
         if (data == null)
@@ -337,7 +337,7 @@ public sealed class FilesController(
     private PushStreamHttpResult WriteDataAsZip(
         DatasetVersion datasetVersion,
         string[] paths,
-        bool allowUnpublished,
+        bool allowDraft,
         CancellationToken cancellationToken)
     {
         return TypedResults.Stream(_ =>
@@ -345,7 +345,7 @@ public sealed class FilesController(
                datasetVersion: datasetVersion,
                paths: paths,
                stream: Response.BodyWriter.AsStream(),
-               allowUnpublished: allowUnpublished,
+               allowDraft: allowDraft,
                cancellationToken: cancellationToken),
            MediaTypeNames.Application.Zip,
            datasetVersion.Identifier + '-' + datasetVersion.Version + ".zip");

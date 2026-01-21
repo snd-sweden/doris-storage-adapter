@@ -300,7 +300,7 @@ internal sealed class FileService(
         string filePath,
         bool isHeadRequest,
         ByteRange? byteRange,
-        bool allowUnpublished,
+        bool allowDraft,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
@@ -312,7 +312,7 @@ internal sealed class FileService(
         filePath = GetFilePathOrThrow(type, filePath);
 
         var accessibleFileTypes = await GetAccessibleFileTypes(
-            datasetVersion, allowUnpublished, cancellationToken);
+            datasetVersion, allowDraft, cancellationToken);
 
         if (!accessibleFileTypes.Contains(type))
         {
@@ -426,7 +426,7 @@ internal sealed class FileService(
         DatasetVersion datasetVersion,
         string[] paths,
         Stream stream,
-        bool allowUnpublished,
+        bool allowDraft,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
@@ -435,7 +435,7 @@ internal sealed class FileService(
         Validation.ThrowIfInvalidDatasetVersion(datasetVersion);
 
         var accessibleFileTypes = await GetAccessibleFileTypes(
-           datasetVersion, allowUnpublished, cancellationToken);
+           datasetVersion, allowDraft, cancellationToken);
 
         static Stream CreateZipEntryStream(ZipArchive zipArchive, string filePath)
         {
@@ -564,7 +564,7 @@ internal sealed class FileService(
     }
 
     private async Task<IEnumerable<FileType>> GetAccessibleFileTypes(
-        DatasetVersion datasetVersion, bool allowUnpublished, CancellationToken cancellationToken)
+        DatasetVersion datasetVersion, bool allowDraft, CancellationToken cancellationToken)
     {
         if (await metadataService.VersionHasBeenPublished(datasetVersion, cancellationToken))
         {
@@ -594,9 +594,9 @@ internal sealed class FileService(
             // No, only allow access to documentation files.
             return [FileType.documentation];
         }
-        else if (allowUnpublished)
+        else if (allowDraft)
         {
-            // Dataset version is unpublished and allowUnpublished is true,
+            // Dataset version has not been published and allowDraft is true,
             // allow access to all files.
             return [FileType.data, FileType.documentation];
         }

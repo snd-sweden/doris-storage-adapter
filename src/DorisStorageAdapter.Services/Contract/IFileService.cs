@@ -34,7 +34,7 @@ public interface IFileService
         string filePath,
         bool isHeadRequest,
         ByteRange? byteRange,
-        bool allowUnpublished,
+        bool allowDraft,
         CancellationToken cancellationToken);
 
     IAsyncEnumerable<FileMetadata> List(
@@ -45,6 +45,6 @@ public interface IFileService
         DatasetVersion datasetVersion,
         string[] paths,
         Stream stream,
-        bool allowUnpublished,
+        bool allowDraft,
         CancellationToken cancellationToken);
 }

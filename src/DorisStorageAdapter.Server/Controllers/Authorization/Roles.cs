@@ -3,6 +3,6 @@
 internal static class Roles
 {
     public const string Service = "service";
-    public const string ReadUnpublishedData = "read-unpublished-data";
-    public const string WriteData = "write-data";
+    public const string ReadDraftFiles = "read-draft-files";
+    public const string WriteDraftFiles = "write-draft-files";
 }
