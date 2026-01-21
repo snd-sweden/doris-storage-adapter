@@ -22,20 +22,20 @@ using System.Threading.Tasks;
 namespace DorisStorageAdapter.Server.Controllers;
 
 [ApiController]
-public sealed class FileController(
+public sealed class FilesController(
     IFileService fileService,
     IOptions<AuthorizationConfiguration> authorizationConfiguration) : ControllerBase
 {
     private readonly IFileService fileService = fileService;
     private readonly AuthorizationConfiguration authorizationConfiguration = authorizationConfiguration.Value;
 
-    private const string corsPrefix = nameof(FileController) + "_";
+    private const string corsPrefix = nameof(FilesController) + "_";
 
     public const string storeCorsPolicyName = corsPrefix + nameof(Store);
     public const string deleteCorsPolicyName = corsPrefix + nameof(Delete);
     public const string getPublicDataCorsPolicyName = corsPrefix + nameof(GetPublicData);
 
-    [HttpPut("datasets/{identifier}/versions/{version}/files/{type}/{**filePath}")]
+    [HttpPut("datasets/{identifier}/versions/{version}/files/draft/file/{type}/{**filePath}")]
     [Authorize(Roles = Roles.WriteData)]
     [DisableRequestSizeLimit] // Disable request size limit to allow streaming large files
     // DisableFormValueModelBinding makes sure that ASP.NET does not try to parse the body as form data
@@ -80,7 +80,7 @@ public sealed class FileController(
         return TypedResults.Ok(ToFile(result));
     }
 
-    [HttpDelete("datasets/{identifier}/versions/{version}/files/{type}/{**filePath}")]
+    [HttpDelete("datasets/{identifier}/versions/{version}/files/draft/file/{type}/{**filePath}")]
     [Authorize(Roles = Roles.WriteData)]
     [EnableCors(deleteCorsPolicyName)]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -107,7 +107,7 @@ public sealed class FileController(
         return TypedResults.Ok();
     }
 
-    [HttpPut("datasets/{identifier}/versions/{version}/files/import")]
+    [HttpPut("datasets/{identifier}/versions/{version}/files/draft/import")]
     [Authorize(Roles = Roles.Service)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
@@ -130,8 +130,8 @@ public sealed class FileController(
         return TypedResults.Ok();
     }
 
-    [HttpHead("datasets/{identifier}/versions/{version}/files/{type}/{**filePath}")]
-    [HttpGet("datasets/{identifier}/versions/{version}/files/{type}/{**filePath}")]
+    [HttpHead("datasets/{identifier}/versions/{version}/files/draft/file/{type}/{**filePath}")]
+    [HttpGet("datasets/{identifier}/versions/{version}/files/draft/file/{type}/{**filePath}")]
     [Authorize(Roles = Roles.ReadUnpublishedData)]
     [SwaggerResponse(StatusCodes.Status200OK, null, typeof(FileStreamResult), "*/*")]
     [SwaggerResponse(StatusCodes.Status206PartialContent, null, typeof(FileStreamResult), "*/*")]
@@ -140,7 +140,7 @@ public sealed class FileController(
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(void), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(void), StatusCodes.Status404NotFound)]
-    public async Task<Results<FileStreamHttpResult, ForbidHttpResult, NotFound>> GetData(
+    public async Task<Results<FileStreamHttpResult, ForbidHttpResult, NotFound>> GetUnpublishedData(
         string identifier,
         string version,
         FileType type,
@@ -169,8 +169,8 @@ public sealed class FileController(
         return result;
     }
 
-    [HttpHead("public/datasets/{identifier}/versions/{version}/files/{type}/{**filePath}")]
-    [HttpGet("public/datasets/{identifier}/versions/{version}/files/{type}/{**filePath}")]
+    [HttpHead("datasets/{identifier}/versions/{version}/files/public/file/{type}/{**filePath}")]
+    [HttpGet("datasets/{identifier}/versions/{version}/files/public/file/{type}/{**filePath}")]
     [EnableCors(getPublicDataCorsPolicyName)]
     [SwaggerResponse(StatusCodes.Status200OK, null, typeof(FileStreamResult), "*/*")]
     [SwaggerResponse(StatusCodes.Status206PartialContent, null, typeof(FileStreamResult), "*/*")]
@@ -196,13 +196,13 @@ public sealed class FileController(
         return result;
     }
 
-    [HttpGet("datasets/{identifier}/versions/{version}/exports/zip")]
+    [HttpGet("datasets/{identifier}/versions/{version}/files/draft/archive")]
     [Authorize(Roles = Roles.ReadUnpublishedData)]
     [SwaggerResponse(StatusCodes.Status200OK, null, typeof(FileStreamResult), MediaTypeNames.Application.Zip)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(void), StatusCodes.Status403Forbidden)]
-    public Results<PushStreamHttpResult, ForbidHttpResult> GetDataAsZip(
+    public Results<PushStreamHttpResult, ForbidHttpResult> GetUnpublishedDataArchive(
         string identifier,
         string version,
         [FromQuery] string[] path,
@@ -220,15 +220,21 @@ public sealed class FileController(
             return TypedResults.Forbid();
         }
 
-        return TypedResults.Stream(_ =>
-            fileService.WriteDataAsZip(
-                datasetVersion: datasetVersion,
-                paths: path,
-                stream: Response.BodyWriter.AsStream(),
-                allowUnpublished: true,
-                cancellationToken: cancellationToken),
-            MediaTypeNames.Application.Zip,
-            identifier + '-' + version + ".zip");
+        return WriteDataAsZip(datasetVersion, path, true, cancellationToken);
+    }
+
+    [HttpGet("datasets/{identifier}/versions/{version}/files/public/archive")]
+    [SwaggerResponse(StatusCodes.Status200OK, null, typeof(FileStreamResult), MediaTypeNames.Application.Zip)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
+    public Results<PushStreamHttpResult, ForbidHttpResult> GetPublicDataArchive(
+        string identifier,
+        string version,
+        [FromQuery] string[] path,
+        CancellationToken cancellationToken)
+    {
+        var datasetVersion = new DatasetVersion(identifier, version);
+
+        return WriteDataAsZip(datasetVersion, path, false, cancellationToken);
     }
 
     [HttpGet("datasets/{identifier}/versions/{version}/files")]
@@ -326,5 +332,22 @@ public sealed class FileController(
             contentType: data.ContentType,
             fileDownloadName: filePath.Split('/').Last(),
             enableRangeProcessing: true);
+    }
+
+    private PushStreamHttpResult WriteDataAsZip(
+        DatasetVersion datasetVersion,
+        string[] paths,
+        bool allowUnpublished,
+        CancellationToken cancellationToken)
+    {
+        return TypedResults.Stream(_ =>
+           fileService.WriteDataAsZip(
+               datasetVersion: datasetVersion,
+               paths: paths,
+               stream: Response.BodyWriter.AsStream(),
+               allowUnpublished: allowUnpublished,
+               cancellationToken: cancellationToken),
+           MediaTypeNames.Application.Zip,
+           datasetVersion.Identifier + '-' + datasetVersion.Version + ".zip");
     }
 }
