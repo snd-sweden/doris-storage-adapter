@@ -13,7 +13,7 @@ services:
       - Storage__ActiveStorageService=FileSystemStorageService
       - Storage__FileSystemStorageService__BasePath=/tmp/doris-data
       - Storage__FileSystemStorageService__TempFilePath=/tmp
-      - Authorization__AllowReadUnpublishedData=true
+      - Authorization__AllowReadDraftFiles=true
       - Authorization__JwksUri=http://doris-storage-adapter:8080/jwks
       - Authorization__CorsAllowedOrigins__0=http://doris-storage-adapter:8080
       - PublicUrl=http://doris-storage-adapter:8080
