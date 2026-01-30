@@ -21,12 +21,17 @@ public static class Bootstrapper
             .Bind(configuration.GetSection(StorageConfiguration.ConfigurationSection))
             .ValidateDataAnnotations();
 
+        services.AddOptionsWithValidateOnStart<StorageLimitsConfiguration>()
+            .Bind(configuration.GetSection(StorageLimitsConfiguration.ConfigurationSection))
+            .ValidateDataAnnotations();
+
         services.AddSingleton<ILockService, InProcessLockService>();
         services.AddTransient<IStatusService, StatusService>();
         services.AddTransient<IFileService, FileService>();
         services.AddTransient<MetadataService>();
         services.AddSingleton<IStoragePathLock, StoragePathLock>();
         services.AddSingleton<ISystemService, SystemService>();
+        services.AddTransient<IStorageLimitsService, StorageLimitsService>();
 
         SetupStorageService(services, configuration);
     }

@@ -15,9 +15,11 @@ using System.Threading.Tasks;
 namespace DorisStorageAdapter.Server.Controllers;
 
 public sealed class FilesController(
-    IFileService fileService) : BaseController
+    IFileService fileService,
+    IStorageLimitsService limitsService) : BaseController
 {
     private readonly IFileService fileService = fileService;
+    private readonly IStorageLimitsService limitsService = limitsService;
 
     [HttpPut("datasets/{identifier}/versions/{version}/files/import")]
     [Authorize(Roles = Roles.Service)]
@@ -79,7 +81,7 @@ public sealed class FilesController(
     {
         var datasetVersion = new DatasetVersion(identifier, version);
 
-        var result = await service.GetStorageLimits(datasetVersion, cancellationToken);
+        var result = await limitsService.GetStorageLimits(datasetVersion, cancellationToken);
 
         return TypedResults.Ok(result);
     }
@@ -93,7 +95,7 @@ public sealed class FilesController(
     {
         var datasetVersion = new DatasetVersion(identifier, version);
 
-        await service.SetStorageLimits(datasetVersion, storageLimits, cancellationToken);
+        await limitsService.SetStorageLimits(datasetVersion, storageLimits, cancellationToken);
 
         return TypedResults.Ok();
     }

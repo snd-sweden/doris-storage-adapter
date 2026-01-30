@@ -16,6 +16,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -25,12 +26,14 @@ internal sealed class FileService(
     IStorageService storageService,
     ILockService lockService,
     MetadataService metadataService,
-    IOptions<StorageConfiguration> storageConfiguration) : IFileService
+    IOptions<StorageConfiguration> storageConfiguration,
+    IOptions<StorageLimitsConfiguration> limitsConfiguration) : IFileService
 {
     private readonly IStorageService storageService = storageService;
     private readonly ILockService lockService = lockService;
     private readonly MetadataService metadataService = metadataService;
     private readonly StorageConfiguration storageConfiguration = storageConfiguration.Value;
+    private readonly StorageLimitsConfiguration limitsConfiguration = limitsConfiguration.Value;
 
     public async Task<FileMetadata> Store(
         DatasetVersion datasetVersion,
@@ -161,6 +164,36 @@ internal sealed class FileService(
 
         // Update payload manifest
         await AddOrUpdatePayloadManifestItem(datasetVersion, new(filePath, checksum), CancellationToken.None);
+
+        // Update limits if not already present
+        string limitsPath = Paths.GetDatasetPath(datasetVersion) + "limits.json";
+        if (await storageService.GetMetadata(limitsPath, CancellationToken.None) == null)
+        {
+            await lockService.TryLockPath(limitsPath, async () =>
+            {
+                using var stream = new MemoryStream();
+
+                await JsonSerializer.SerializeAsync(
+                    stream,
+                    new StorageLimitsConfiguration
+                    {
+                        MaxFileCount = limitsConfiguration.MaxFileCount,
+                        MaxFileSize = limitsConfiguration.MaxFileSize,
+                        MaxTotalSize = limitsConfiguration.MaxTotalSize
+                    },
+                    cancellationToken: cancellationToken);
+
+                stream.Position = 0;
+
+                await storageService.Store(
+                    limitsPath,
+                    stream,
+                    stream.Length,
+                    "application/json",
+                    CancellationToken.None);
+            },
+            CancellationToken.None);
+        }
 
         return new(
             ContentType: result.ContentType ?? MimeTypes.GetMimeType(filePath),
