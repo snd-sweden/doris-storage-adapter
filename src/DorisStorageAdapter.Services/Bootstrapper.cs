@@ -26,6 +26,7 @@ public static class Bootstrapper
         services.AddTransient<IFileService, FileService>();
         services.AddTransient<MetadataService>();
         services.AddSingleton<IStoragePathLock, StoragePathLock>();
+        services.AddSingleton<ISystemService, SystemService>();
 
         SetupStorageService(services, configuration);
     }
