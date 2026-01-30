@@ -17,10 +17,6 @@ public static class Bootstrapper
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
 
-        services.AddOptionsWithValidateOnStart<LimitsConfiguration>()
-            .Bind(configuration.GetSection(LimitsConfiguration.ConfigurationSection))
-            .ValidateDataAnnotations();
-
         services.AddOptionsWithValidateOnStart<StorageConfiguration>()
             .Bind(configuration.GetSection(StorageConfiguration.ConfigurationSection))
             .ValidateDataAnnotations();

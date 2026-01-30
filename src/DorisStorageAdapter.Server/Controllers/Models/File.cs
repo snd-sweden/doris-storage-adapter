@@ -1,9 +1,9 @@
 ﻿using DorisStorageAdapter.Services.Contract.Models;
 using System;
 
-namespace DorisStorageAdapter.Server.Controllers.Dtos;
+namespace DorisStorageAdapter.Server.Controllers.Models;
 
-public record FileDto(
+public record File(
     long ContentSize,
     DateTime? DateCreated,
     DateTime? DateModified,

@@ -1,7 +1,6 @@
 using DorisStorageAdapter.Helpers;
 using DorisStorageAdapter.Server.Controllers.Attributes;
 using DorisStorageAdapter.Server.Controllers.Authorization;
-using DorisStorageAdapter.Server.Controllers.Dtos;
 using DorisStorageAdapter.Services.Contract;
 using DorisStorageAdapter.Services.Contract.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -39,13 +38,13 @@ public sealed class FileController(IFileService fileService) : ControllerBase
     [DisableFormValueModelBinding]
     [EnableCors(storeCorsPolicyName)]
     [BinaryRequestBody("*/*")]
-    [ProducesResponseType<FileDto>(StatusCodes.Status200OK, MediaTypeNames.Application.Json)]
+    [ProducesResponseType<Models.File>(StatusCodes.Status200OK, MediaTypeNames.Application.Json)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(void), StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, MediaTypeNames.Application.ProblemJson)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status411LengthRequired, MediaTypeNames.Application.ProblemJson)]
-    public async Task<Results<Ok<FileDto>, ForbidHttpResult, ProblemHttpResult>> Store(
+    public async Task<Results<Ok<Models.File>, ForbidHttpResult, ProblemHttpResult>> Store(
         string identifier,
         string version,
         FileType type,
@@ -73,7 +72,7 @@ public sealed class FileController(IFileService fileService) : ControllerBase
             contentType: Request.Headers.ContentType,
             cancellationToken: cancellationToken);
 
-        return TypedResults.Ok(ToFileDto(result));
+        return TypedResults.Ok(ToFile(result));
     }
 
     [HttpDelete("file/{identifier}/{version}/{type}")]
@@ -218,22 +217,22 @@ public sealed class FileController(IFileService fileService) : ControllerBase
 
     [HttpGet("file/{identifier}/{version}")]
     [Authorize(Roles = Roles.Service)]
-    [ProducesResponseType<IEnumerable<FileDto>>(StatusCodes.Status200OK, MediaTypeNames.Application.Json)]
+    [ProducesResponseType<IEnumerable<Models.File>>(StatusCodes.Status200OK, MediaTypeNames.Application.Json)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(void), StatusCodes.Status403Forbidden)]
-    public Results<Ok<IAsyncEnumerable<FileDto>>, ForbidHttpResult> List(
+    public Results<Ok<IAsyncEnumerable<Models.File>>, ForbidHttpResult> List(
         string identifier,
         string version,
         CancellationToken cancellationToken)
     {
         var datasetVersion = new DatasetVersion(identifier, version);
 
-        async IAsyncEnumerable<FileDto> List()
+        async IAsyncEnumerable<Models.File> List()
         {
             await foreach (var file in fileService.List(datasetVersion, cancellationToken))
             {
-                yield return ToFileDto(file);
+                yield return ToFile(file);
             }
         }
 
@@ -248,7 +247,7 @@ public sealed class FileController(IFileService fileService) : ControllerBase
     private bool CheckClaims(DatasetVersion datasetVersion) =>
         Claims.CheckClaims(datasetVersion, User.Claims);
 
-    private static FileDto ToFileDto(FileMetadata file) => new(
+    private static Models.File ToFile(FileMetadata file) => new(
         ContentSize: file.Size,
         DateCreated: file.DateCreated,
         DateModified: file.DateModified,

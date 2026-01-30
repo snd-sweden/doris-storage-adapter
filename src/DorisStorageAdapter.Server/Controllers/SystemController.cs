@@ -1,5 +1,4 @@
 ﻿using DorisStorageAdapter.Server.Controllers.Authorization;
-using DorisStorageAdapter.Server.Controllers.Dtos;
 using DorisStorageAdapter.Services.Contract;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -20,17 +19,14 @@ public sealed class SystemController(ISystemService systemService) : ControllerB
 
     [HttpGet("system/information")]
     [Authorize(Roles = Roles.Service)]
-    [ProducesResponseType<SystemInformationDto>(StatusCodes.Status200OK, MediaTypeNames.Application.Json)]
+    [ProducesResponseType<Models.SystemInformation>(StatusCodes.Status200OK, MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
-    public SystemInformationDto GetInformation()
+    public Models.SystemInformation GetInformation()
     {
         var info = systemService.GetSystemInformation();
 
         return new(
             StorageType: info.StorageType, 
-            MaxFileCount: info.MaxFileCount, 
-            MaxFileSize: info.MaxFileSize, 
-            MaxTotalSize:info.MaxTotalSize, 
             Version: version);
     }
 }
