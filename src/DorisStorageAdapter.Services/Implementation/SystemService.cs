@@ -9,6 +9,7 @@ internal sealed class SystemService(
     IOptions<StorageConfiguration> storageConfiguration) : ISystemService
 {
     private readonly SystemInformation systemInformation = new(
+        storageConfiguration.Value.AllowPublicAccessRight,
         storageConfiguration.Value.ActiveStorageService);
 
     public SystemInformation GetSystemInformation() => systemInformation;

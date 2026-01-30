@@ -1,15 +1,19 @@
-﻿using DorisStorageAdapter.Server.Controllers.Authorization;
+﻿using DorisStorageAdapter.Server.Configuration;
+using DorisStorageAdapter.Server.Controllers.Authorization;
+using DorisStorageAdapter.Server.Controllers.Models;
 using DorisStorageAdapter.Services.Contract;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using System.Diagnostics;
 using System.Net.Mime;
 
 namespace DorisStorageAdapter.Server.Controllers;
 
-[ApiController]
-public sealed class SystemController(ISystemService systemService) : ControllerBase
+public sealed class SystemController(
+    ISystemService systemService,
+    IOptions<AuthorizationConfiguration> authorizationConfiguration) : BaseController
 {
     private readonly ISystemService systemService = systemService;
 
@@ -19,13 +23,15 @@ public sealed class SystemController(ISystemService systemService) : ControllerB
 
     [HttpGet("system/information")]
     [Authorize(Roles = Roles.Service)]
-    [ProducesResponseType<Models.SystemInformation>(StatusCodes.Status200OK, MediaTypeNames.Application.Json)]
+    [ProducesResponseType<SystemInformation>(StatusCodes.Status200OK, MediaTypeNames.Application.Json)]
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
-    public Models.SystemInformation GetInformation()
+    public SystemInformation GetInformation()
     {
         var info = systemService.GetSystemInformation();
 
         return new(
+            AllowPublicAccessRight: info.AllowPublicAccessRight,
+            AllowReadDraftFiles: authorizationConfiguration.Value.AllowReadDraftFiles,
             StorageType: info.StorageType, 
             Version: version);
     }
