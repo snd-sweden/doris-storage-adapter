@@ -70,4 +70,31 @@ public sealed class FilesController(
 
         return TypedResults.Ok(List());
     }
+
+    [HttpGet("datasets/{identifier}/versions/{version}/files/limits")]
+    public async Task<Results<Ok<StorageLimits>, ForbidHttpResult>> GetStorageLimits(
+     string identifier,
+     string version,
+     CancellationToken cancellationToken)
+    {
+        var datasetVersion = new DatasetVersion(identifier, version);
+
+        var result = await service.GetStorageLimits(datasetVersion, cancellationToken);
+
+        return TypedResults.Ok(result);
+    }
+
+    [HttpPut("datasets/{identifier}/versions/{version}/files/limits")]
+    public async Task<Results<Ok, ForbidHttpResult>> SetStorageLimits(
+        string identifier,
+        string version,
+        StorageLimits storageLimits,
+        CancellationToken cancellationToken)
+    {
+        var datasetVersion = new DatasetVersion(identifier, version);
+
+        await service.SetStorageLimits(datasetVersion, storageLimits, cancellationToken);
+
+        return TypedResults.Ok();
+    }
 }
