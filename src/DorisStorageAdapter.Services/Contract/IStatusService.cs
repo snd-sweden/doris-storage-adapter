@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 
 namespace DorisStorageAdapter.Services.Contract;
 
-public interface IDatasetVersionService
+public interface IStatusService
 {
     Task Publish(
         DatasetVersion datasetVersion, 

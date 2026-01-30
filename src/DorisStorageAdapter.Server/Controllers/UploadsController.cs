@@ -1,0 +1,97 @@
+﻿using DorisStorageAdapter.Server.Controllers.Attributes;
+using DorisStorageAdapter.Server.Controllers.Authorization;
+using DorisStorageAdapter.Server.Controllers.Models;
+using DorisStorageAdapter.Services.Contract;
+using DorisStorageAdapter.Services.Contract.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
+using System.Net.Mime;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace DorisStorageAdapter.Server.Controllers;
+
+public sealed class UploadsController(
+    IFileService fileService) : BaseController
+{
+    private readonly IFileService fileService = fileService;
+
+    private const string corsPrefix = nameof(UploadsController) + "_";
+    public const string uploadCorsPolicyName = corsPrefix + nameof(Upload);
+    public const string deleteCorsPolicyName = corsPrefix + nameof(Delete);
+
+    [HttpPut("uploads/{identifier}/{version}/{type}/{**filePath}")]
+    [Authorize(Roles = Roles.WriteDraftFiles)]
+    [DisableRequestSizeLimit] // Disable request size limit to allow streaming large files
+    // DisableFormValueModelBinding makes sure that ASP.NET does not try to parse the body as form data
+    // when Content-Type is "multipart/form-data" or "application/x-www-form-urlencoded".
+    [DisableFormValueModelBinding]
+    [EnableCors(uploadCorsPolicyName)]
+    [BinaryRequestBody("*/*")]
+    [ProducesResponseType<File>(StatusCodes.Status200OK, MediaTypeNames.Application.Json)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
+    [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(void), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, MediaTypeNames.Application.ProblemJson)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status411LengthRequired, MediaTypeNames.Application.ProblemJson)]
+    public async Task<Results<Ok<File>, ForbidHttpResult, ProblemHttpResult>> Upload(
+        string identifier,
+        string version,
+        FileType type,
+        string filePath,
+        CancellationToken cancellationToken)
+    {
+        var datasetVersion = new DatasetVersion(identifier, version);
+
+        if (!CheckClaims(datasetVersion))
+        {
+            return TypedResults.Forbid();
+        }
+
+        if (Request.Headers.ContentLength == null)
+        {
+            return TypedResults.Problem("Missing Content-Length.", statusCode: 411);
+        }
+
+        var result = await fileService.Store(
+            datasetVersion: datasetVersion,
+            type: type,
+            filePath: filePath,
+            data: Request.Body,
+            size: Request.Headers.ContentLength.Value,
+            contentType: Request.Headers.ContentType,
+            cancellationToken: cancellationToken);
+
+        return TypedResults.Ok(Models.File.FromFileMetadata(result));
+    }
+
+    [HttpDelete("uploads/{identifier}/{version}/{type}/{**filePath}")]
+    [Authorize(Roles = Roles.WriteDraftFiles)]
+    [EnableCors(deleteCorsPolicyName)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
+    [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(void), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, MediaTypeNames.Application.ProblemJson)]
+    public async Task<Results<Ok, ForbidHttpResult>> Delete(
+        string identifier,
+        string version,
+        FileType type,
+        string filePath,
+        CancellationToken cancellationToken)
+    {
+        var datasetVersion = new DatasetVersion(identifier, version);
+
+        if (!CheckClaims(datasetVersion))
+        {
+            return TypedResults.Forbid();
+        }
+
+        await fileService.Delete(datasetVersion, type, filePath, cancellationToken);
+
+        return TypedResults.Ok();
+    }
+}

@@ -22,7 +22,7 @@ public static class Bootstrapper
             .ValidateDataAnnotations();
 
         services.AddSingleton<ILockService, InProcessLockService>();
-        services.AddTransient<IDatasetVersionService, DatasetVersionService>();
+        services.AddTransient<IStatusService, StatusService>();
         services.AddTransient<IFileService, FileService>();
         services.AddTransient<MetadataService>();
         services.AddSingleton<IStoragePathLock, StoragePathLock>();

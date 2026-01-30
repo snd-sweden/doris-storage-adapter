@@ -11,12 +11,11 @@ using System.Threading.Tasks;
 
 namespace DorisStorageAdapter.Server.Controllers;
 
-[ApiController]
-public sealed class StatusController(IDatasetVersionService service) : ControllerBase
+public sealed class StatusController(IStatusService service) : BaseController
 {
-    private readonly IDatasetVersionService service = service;
+    private readonly IStatusService service = service;
 
-    [HttpPut("datasets/{identifier}/versions/{version}/publish")]
+    [HttpPut("datasets/{identifier}/versions/{version}/status/publish")]
     [Authorize(Roles = Roles.Service)]
     [Consumes("application/x-www-form-urlencoded")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -69,7 +68,4 @@ public sealed class StatusController(IDatasetVersionService service) : Controlle
 
         return TypedResults.Ok();
     }
-
-    private bool CheckClaims(DatasetVersion datasetVersion) =>
-       Claims.CheckClaims(datasetVersion, User.Claims);
 }

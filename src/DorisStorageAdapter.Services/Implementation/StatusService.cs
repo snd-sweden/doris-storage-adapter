@@ -18,10 +18,10 @@ using DorisStorageAdapter.Services.Implementation.Configuration;
 
 namespace DorisStorageAdapter.Services.Implementation;
 
-internal sealed class DatasetVersionService(
+internal sealed class StatusService(
     ILockService lockService,
     MetadataService metadataService,
-    IOptions<StorageConfiguration> storageConfiguration) : IDatasetVersionService
+    IOptions<StorageConfiguration> storageConfiguration) : IStatusService
 {
     private readonly ILockService lockService = lockService;
     private readonly MetadataService metadataService = metadataService;

@@ -147,7 +147,7 @@ builder.Services
 // Set up CORS policys per endpoint
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy(FilesController.storeCorsPolicyName, policy =>
+    options.AddPolicy(UploadsController.uploadCorsPolicyName, policy =>
     {
         policy
             .WithOrigins([.. authorizationConfiguration.CorsAllowedOrigins])
@@ -157,23 +157,31 @@ builder.Services.AddCors(options =>
                 HeaderNames.ContentType)
             .WithMethods(HttpMethods.Put);
     });
-    options.AddPolicy(FilesController.deleteCorsPolicyName, policy =>
+    options.AddPolicy(UploadsController.deleteCorsPolicyName, policy =>
     {
         policy
             .WithOrigins([.. authorizationConfiguration.CorsAllowedOrigins])
             .WithHeaders(HeaderNames.Authorization)
             .WithMethods(HttpMethods.Delete);
     });
-    options.AddPolicy(FilesController.getPublicDataCorsPolicyName, policy =>
+    options.AddPolicy(DownloadsController.downloadPublicFileCorsPolicyName, policy =>
+    {
+        policy
+            .AllowAnyOrigin()
+            .AllowAnyHeader()
+            .WithMethods(HttpMethods.Get, HttpMethods.Head)
+            .WithExposedHeaders(
+                HeaderNames.AcceptRanges, 
+                HeaderNames.ContentDisposition, 
+                HeaderNames.ContentRange);
+    });
+    options.AddPolicy(DownloadsController.downloadPublicFilesAsZipCorsPolicyName, policy =>
     {
         policy
             .AllowAnyOrigin()
             .AllowAnyHeader()
             .WithMethods(HttpMethods.Get)
-            .WithExposedHeaders(
-                HeaderNames.AcceptRanges, 
-                HeaderNames.ContentDisposition, 
-                HeaderNames.ContentRange);
+            .WithExposedHeaders(HeaderNames.ContentDisposition);
     });
 });
 
