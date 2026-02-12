@@ -113,15 +113,17 @@ builder.Services
     {
         if (builder.Environment.IsDevelopment())
         {
+            options.IncludeErrorDetails = true;
             // Disable HTTPS requirement to enable using regular HTTP in development
             options.RequireHttpsMetadata = false;
         }
         else
         {
+            options.IncludeErrorDetails = false;
             // MUST be true in production for security reasons!
             options.RequireHttpsMetadata = true; 
         }
-    
+
         // SetJwkOptions sets ValidIssuer and ValidAudience
         options.SetJwksOptions(
             new(
