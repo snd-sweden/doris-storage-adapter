@@ -15,7 +15,7 @@ internal static class Validation
                 value == "." ||
                 value == "..")
             {
-                throw new ValidationException("Invalid dataset version.");
+                throw new ValidationException([new("Invalid dataset version.")]);
             }
         }
 

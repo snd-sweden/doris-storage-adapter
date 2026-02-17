@@ -517,7 +517,7 @@ internal sealed class FileService(
                 pathComponent == "." ||
                 pathComponent == "..")
             {
-                throw new ValidationException("Invalid path.");
+                throw new ValidationException([new("Invalid path.")]);
             }
         }
 

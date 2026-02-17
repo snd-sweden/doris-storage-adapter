@@ -1,6 +1,6 @@
 ﻿namespace DorisStorageAdapter.Services.Contract.Exceptions;
 
-internal class PublicAccessRightNotAllowedException : ServiceException
+public sealed class PublicAccessRightNotAllowedException : ServiceException
 {
     public PublicAccessRightNotAllowedException() : base("Public access right not allowed.")
     {

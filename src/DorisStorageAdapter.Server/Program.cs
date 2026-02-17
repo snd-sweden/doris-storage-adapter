@@ -47,10 +47,18 @@ builder.Services.AddProblemDetails(options =>
         if (exception != null && exception is ServiceException serviceException)
         {
             ctx.ProblemDetails.Detail = serviceException.Message;
+            ctx.ProblemDetails.Title = serviceException.Title;
+
+            if (serviceException.Errors.Count > 0)
+            {
+                ctx.ProblemDetails.Extensions.Add("errors", serviceException.Errors);
+            }
 
             int statusCode = serviceException switch
             {
                 ConflictException => StatusCodes.Status409Conflict,
+                DatasetInconsistentException => StatusCodes.Status500InternalServerError,
+                DatasetStatusException => StatusCodes.Status409Conflict,
                 _ => StatusCodes.Status400BadRequest
             };
             ctx.ProblemDetails.Status = statusCode;

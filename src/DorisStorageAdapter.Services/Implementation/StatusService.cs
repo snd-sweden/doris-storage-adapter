@@ -105,7 +105,7 @@ internal sealed class StatusService(
 
         if (errors.Any())
         {
-            throw new ValidationException(string.Join(@"\\n", errors));
+            throw new DatasetInconsistentException(errors);
         }
 
         var bagInfo = new BagItInfo
@@ -141,29 +141,34 @@ internal sealed class StatusService(
         await metadataService.StoreBagItElement(datasetVersion, BagItDeclaration.Instance, CancellationToken.None);
     }
 
-    private async Task<IEnumerable<string>> PrePublishValidate(
+    private async Task<IEnumerable<ErrorItem>> PrePublishValidate(
         DatasetVersion datasetVersion,
         HashSet<string> payloadFilePaths,
         BagItFetch? fetch,
         BagItPayloadManifest? payloadManifest,
         CancellationToken cancellationToken)
     {
-        var errors = new List<string>();
+        var errors = new List<ErrorItem>();
+
+        void AddError(string target, string message) => 
+            errors.Add(new ErrorItem(message, target));
 
         void CheckPayloadFilePaths()
         {
             foreach (var filePath in payloadFilePaths)
             {
+                string target = $"Payload directory:{filePath}";
+
                 if (fetch != null &&
                     fetch.Contains(filePath))
                 {
-                    errors.Add($"Payload directory:{filePath} - Found in fetch file.");
+                    AddError(target, "Found in fetch file.");
                 }
 
                 if (payloadManifest == null ||
                     !payloadManifest.Contains(filePath))
                 {
-                    errors.Add($"Payload directory:{filePath} - Not found in payload manifest.");
+                    AddError(target, "Not found in payload manifest.");
                 }
             }
         }
@@ -218,38 +223,40 @@ internal sealed class StatusService(
                     previousVersion = itemVersion;
                 }
 
+                string target = $"Fetch file:{item.FilePath}";
+
                 if (!isPublished)
                 {
-                    errors.Add($"Fetch file:{item.FilePath} - Does not reference a published dataset version.");
+                    AddError(target, "Does not reference a published dataset version.");
                 }
 
                 if (item.Length == null)
                 {
-                    errors.Add($"Fetch file:{item.FilePath} - Missing length.");
+                    AddError(target, "Missing length.");
                 }
 
                 if (!files.TryGetValue(item.FilePath, out var referencedFile))
                 {
-                    errors.Add($"Fetch file:{item.FilePath} - Referenced payload file not found.");
+                    AddError(target, "Referenced payload file not found.");
                 }
                 else if (
                     item.Length != null &&
                     item.Length != referencedFile.Size)
                 {
-                    errors.Add($"Fetch file:{item.FilePath} - Size does not match referenced payload file's size.");
+                    AddError(target, "Size does not match referenced payload file's size.");
                 }
 
                 if (payloadManifest == null ||
                     !payloadManifest.TryGetItem(item.FilePath, out var itemThisManifest))
                 {
-                    errors.Add($"Fetch file:{item.FilePath} - Not found in payload manifest.");
+                    AddError(target, "Not found in payload manifest.");
                 }
                 else if (
                     itemManifest == null ||
                     !itemManifest.TryGetItem(itemPayloadPath, out var itemPreviousManifest) ||
                     !itemThisManifest.Checksum.SequenceEqual(itemPreviousManifest.Checksum))
                 {
-                    errors.Add($"Fetch file:{item.FilePath} - Payload manifest checksum does not match referenced file's payload manifest checksum.");
+                    AddError(target, "Payload manifest checksum does not match referenced file's payload manifest checksum.");
                 }
             }
         }
@@ -258,11 +265,13 @@ internal sealed class StatusService(
         {
             foreach (var item in payloadManifest?.Items ?? [])
             {
+                string target = $"Payload manifest:{item.FilePath}";
+
                 if ((fetch == null ||
                     !fetch.Contains(item.FilePath))
                     && !payloadFilePaths.Contains(item.FilePath))
                 {
-                    errors.Add($"Payload manifest:{item.FilePath} - Not found in payload directory or fetch file.");
+                    AddError(target,  "Not found in payload directory or fetch file.");
                 }
             }
         }
