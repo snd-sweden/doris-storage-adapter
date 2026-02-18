@@ -1,11 +1,10 @@
+using DorisStorageAdapter.Server;
 using DorisStorageAdapter.Server.Configuration;
 using DorisStorageAdapter.Server.Controllers;
 using DorisStorageAdapter.Server.Controllers.Attributes;
-using DorisStorageAdapter.Services.Contract.Exceptions;
 using Invio.Extensions.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -38,34 +37,20 @@ static void SetupJsonSerializer(JsonSerializerOptions options)
 builder.Services.AddControllers().AddJsonOptions(options => SetupJsonSerializer(options.JsonSerializerOptions));
 builder.Services.ConfigureHttpJsonOptions(options => SetupJsonSerializer(options.SerializerOptions));
 
-// Map ApiExceptions to problem details response
-builder.Services.AddProblemDetails(options =>
+
+builder.Services.AddProblemDetails(o =>
 {
-    options.CustomizeProblemDetails = ctx =>
+    o.CustomizeProblemDetails = ctx =>
     {
-        var exception = ctx.HttpContext.Features.Get<IExceptionHandlerPathFeature>()?.Error;
-        if (exception != null && exception is ServiceException serviceException)
-        {
-            ctx.ProblemDetails.Detail = serviceException.Message;
-            ctx.ProblemDetails.Title = serviceException.Title;
+        ctx.ProblemDetails.Instance = ctx.HttpContext.Request.Path;
 
-            if (serviceException.Errors.Count > 0)
-            {
-                ctx.ProblemDetails.Extensions.Add("errors", serviceException.Errors);
-            }
-
-            int statusCode = serviceException switch
-            {
-                ConflictException => StatusCodes.Status409Conflict,
-                DatasetInconsistentException => StatusCodes.Status500InternalServerError,
-                DatasetStatusException => StatusCodes.Status409Conflict,
-                _ => StatusCodes.Status400BadRequest
-            };
-            ctx.ProblemDetails.Status = statusCode;
-            ctx.HttpContext.Response.StatusCode = statusCode;
-        }
+        ctx.ProblemDetails.Extensions["traceId"] =
+            System.Diagnostics.Activity.Current?.Id
+            ?? ctx.HttpContext.TraceIdentifier;
     };
 });
+// Map ServiceExceptions to problem details response
+builder.Services.AddExceptionHandler<ServiceExceptionHandler>();
 
 builder.Services.AddSwaggerGen(options =>
 {
