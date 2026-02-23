@@ -19,15 +19,15 @@ internal sealed class InProcessLockService : ILockService, IDisposable
 
     public async Task<bool> TryLockPath(
         string path,
-        Func<CancellationToken, Task> task,
+        Func<Task> task,
         CancellationToken cancellationToken)
     {
-        return await pathLocks.TryLockAsync(path, async () => await task(cancellationToken), 0, cancellationToken);
+        return await pathLocks.TryLockAsync(path, task, 0, cancellationToken);
     }
 
     public async Task<bool> TryLockDatasetVersionExclusive(
         DatasetVersion datasetVersion,
-        Func<CancellationToken, Task> task,
+        Func<Task> task,
         CancellationToken cancellationToken)
     {
         bool noSharedLocks = true;
@@ -40,7 +40,7 @@ internal sealed class InProcessLockService : ILockService, IDisposable
                 return;
             }
 
-            await task(cancellationToken);
+            await task();
         },
         millisecondsTimeout: 0,
         cancellationToken);
@@ -50,7 +50,7 @@ internal sealed class InProcessLockService : ILockService, IDisposable
 
     public async Task<bool> TryLockDatasetVersionShared(
         DatasetVersion datasetVersion,
-        Func<CancellationToken, Task> task,
+        Func<Task> task,
         CancellationToken cancellationToken)
     {
         using (await datasetVersionSharedLocks.LockAsync(datasetVersion, cancellationToken))
@@ -60,7 +60,7 @@ internal sealed class InProcessLockService : ILockService, IDisposable
                 return false;
             }
 
-            await task(cancellationToken);
+            await task();
             return true;
         }
     }
