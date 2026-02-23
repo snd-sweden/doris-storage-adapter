@@ -25,12 +25,19 @@ internal sealed class FileService(
     IStorageService storageService,
     ILockService lockService,
     MetadataService metadataService,
-    IOptions<StorageConfiguration> storageConfiguration) : IFileService
+    IOptions<StorageConfiguration> storageConfiguration,
+    IDatasetVersionRepository datasetVersionRepository,
+    IDatasetVersionWriteCoordinator writeCoordinator,
+    IDatasetVersionStateRepository datasetVersionStateRepository) : IFileService
 {
     private readonly IStorageService storageService = storageService;
     private readonly ILockService lockService = lockService;
     private readonly MetadataService metadataService = metadataService;
     private readonly StorageConfiguration storageConfiguration = storageConfiguration.Value;
+
+    private readonly IDatasetVersionRepository datasetVersionRepository = datasetVersionRepository;
+    private readonly IDatasetVersionWriteCoordinator writeCoordinator = writeCoordinator;
+    private readonly IDatasetVersionStateRepository datasetVersionStateRepository = datasetVersionStateRepository;
 
     public async Task<FileMetadata> Store(
         DatasetVersion datasetVersion,
@@ -45,39 +52,15 @@ internal sealed class FileService(
         ArgumentException.ThrowIfNullOrEmpty(filePath);
         ArgumentNullException.ThrowIfNull(data);
         Validation.ThrowIfInvalidDatasetVersion(datasetVersion);
+        ThrowIfInvalidPath(filePath);
 
-        filePath = GetFilePathOrThrow(type, filePath);
-        FileMetadata? result = default;
-
-        bool lockSuccessful = false;
-        await lockService.TryLockDatasetVersionShared(datasetVersion, async () =>
-        {
-            string fullFilePath = Paths.GetFullFilePath(datasetVersion, filePath);
-
-            lockSuccessful = await lockService.TryLockPath(fullFilePath, async () =>
+        return await writeCoordinator.WithWriteAccess(datasetVersion,
+            async ct =>
             {
                 await ThrowIfHasBeenPublished(datasetVersion, cancellationToken);
-                result = await StoreImpl(
-                    datasetVersion,
-                    type,
-                    filePath,
-                    fullFilePath,
-                    data,
-                    size,
-                    contentType,
-                    cancellationToken);
+                return await datasetVersionRepository.StoreFile(datasetVersion, type, filePath, data, size, contentType, ct);
             },
             cancellationToken);
-
-        },
-        cancellationToken);
-
-        if (!lockSuccessful)
-        {
-            throw new ConflictException();
-        }
-
-        return result!;
     }
 
     private async Task<FileMetadata> StoreImpl(
@@ -509,6 +492,20 @@ internal sealed class FileService(
         }
     }
 
+    private static void ThrowIfInvalidPath(string filePath)
+    {
+        foreach (string pathComponent in filePath.Split('/'))
+        {
+            if (string.IsNullOrEmpty(pathComponent) ||
+                pathComponent == "." ||
+                pathComponent == "..")
+            {
+                throw new ValidationException([new("Invalid path.")]);
+            }
+        }
+
+    }
+
     private static string GetFilePathOrThrow(FileType type, string filePath)
     {
         foreach (string pathComponent in filePath.Split('/'))
@@ -557,7 +554,7 @@ internal sealed class FileService(
 
     private async Task ThrowIfHasBeenPublished(DatasetVersion datasetVersion, CancellationToken cancellationToken)
     {
-        if (await metadataService.VersionHasBeenPublished(datasetVersion, cancellationToken))
+        if (await datasetVersionStateRepository.IsPublished(datasetVersion, cancellationToken))
         {
             throw new DatasetStatusException();
         }

@@ -13,16 +13,16 @@ internal interface ILockService
 
     Task<bool> TryLockPath(
         string path,
-        Func<Task> task,
+        Func<CancellationToken, Task> task,
         CancellationToken cancellationToken);
 
     Task<bool> TryLockDatasetVersionExclusive(
         DatasetVersion datasetVersion,
-        Func<Task> task,
+        Func<CancellationToken, Task> task,
         CancellationToken cancellationToken);
 
     Task<bool> TryLockDatasetVersionShared(
         DatasetVersion datasetVersion,
-        Func<Task> task,
+        Func<CancellationToken, Task> task,
         CancellationToken cancellationToken);
 }
