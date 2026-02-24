@@ -235,7 +235,7 @@ internal sealed class StatusService(
                     AddError(target, "Missing length.");
                 }
 
-                if (!files.TryGetValue(item.FilePath, out var referencedFile))
+                if (!files.TryGetValue(itemPayloadPath, out var referencedFile))
                 {
                     AddError(target, "Referenced payload file not found.");
                 }
