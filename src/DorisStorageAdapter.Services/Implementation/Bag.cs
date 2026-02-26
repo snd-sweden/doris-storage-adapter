@@ -1,6 +1,4 @@
-﻿using DorisStorageAdapter.Services.Contract.Models;
-using DorisStorageAdapter.Services.Implementation.BagIt;
-using DorisStorageAdapter.Services.Implementation.BagIt.Fetch;
+﻿using DorisStorageAdapter.Services.Implementation.BagIt;
 using DorisStorageAdapter.Services.Implementation.Storage;
 using System.Collections.Generic;
 using System.IO;
@@ -10,11 +8,15 @@ using System.Threading.Tasks;
 
 namespace DorisStorageAdapter.Services.Implementation;
 
-internal sealed class BagRoot(string rootPath, IStorageService storageService)
+internal sealed class Bag(string path, IStorageService storageService)
 {
     private readonly IStorageService _storageService = storageService;
 
-    public string RootPath { get; } = rootPath;
+    // Härleda dataset-path? Eller är det utanför scope så att säga?
+
+    public string Path { get; } = path;
+
+    public string BagGroupPath { get; } = path[..(path.TrimEnd('/').LastIndexOf('/') + 1)];
 
     public async Task<T> LoadBagItElement<T>(CancellationToken cancellationToken)
         where T : class, IBagItElement<T>, new()
@@ -51,7 +53,7 @@ internal sealed class BagRoot(string rootPath, IStorageService storageService)
         T element, CancellationToken cancellationToken)
         where T : IBagItElement<T>
     {
-        string filePath = RootPath + T.FileName;
+        string filePath = Path + T.FileName;
 
         if (element.HasValues())
         {
@@ -73,22 +75,19 @@ internal sealed class BagRoot(string rootPath, IStorageService storageService)
     }
 
     public async IAsyncEnumerable<StorageFileMetadata> ListPayloadFiles(
-        FileType? type,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        await foreach (var file in _storageService.List(
-            RootPath + Paths.GetPayloadPath(type),
-            cancellationToken))
+        await foreach (var file in _storageService.List(Path, cancellationToken))
         {
-            yield return file with { Path = file.Path[RootPath.Length..] };
+            yield return file with { Path = file.Path[Path.Length..] };
         }
     }
 
     public async Task<bool> HasBeenPublished(CancellationToken cancellationToken) =>
-        await _storageService.GetMetadata(RootPath + BagItDeclaration.FileName, cancellationToken) != null;
+        await _storageService.GetMetadata(Path + BagItDeclaration.FileName, cancellationToken) != null;
 
     private Task<StorageFileData?> GetBagItElementFileData<T>(CancellationToken cancellationToken)
        where T : IBagItElement<T> =>
        _storageService.GetData(
-           RootPath + T.FileName, null, cancellationToken);
+           Path + T.FileName, null, cancellationToken);
 }

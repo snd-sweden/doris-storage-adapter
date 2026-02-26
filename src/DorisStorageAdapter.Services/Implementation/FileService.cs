@@ -24,12 +24,12 @@ namespace DorisStorageAdapter.Services.Implementation;
 internal sealed class FileService(
     IStorageService storageService,
     ILockService lockService,
-    IBagRootProvider bagRootProvider,
+    IBagProvider bagProvider,
     IOptions<StorageConfiguration> storageConfiguration) : IFileService
 {
     private readonly IStorageService _storageService = storageService;
     private readonly ILockService _lockService = lockService;
-    private readonly IBagRootProvider _bagRootProvider = bagRootProvider;
+    private readonly IBagProvider _bagProvider = bagProvider;
     private readonly StorageConfiguration _storageConfiguration = storageConfiguration.Value;
 
     public async Task<FileMetadata> Store(
@@ -52,15 +52,15 @@ internal sealed class FileService(
         bool lockSuccessful = false;
         await _lockService.TryLockDatasetVersionShared(datasetVersion, async () =>
         {
-            var bagRoot = _bagRootProvider.Create(Paths.GetDatasetVersionPath(datasetVersion));
-            string fullFilePath = bagRoot.RootPath + filePath;
+            var bag = _bagProvider.Create(datasetVersion);
+            string fullFilePath = bag.Path + filePath;
 
             lockSuccessful = await _lockService.TryLockPath(fullFilePath, async () =>
             {          
-                await ThrowIfHasBeenPublished(bagRoot, cancellationToken);
+                await ThrowIfHasBeenPublished(bag, cancellationToken);
 
                 result = await StoreImpl(
-                    bagRoot,
+                    bag,
                     type,
                     filePath,
                     data,
@@ -82,7 +82,7 @@ internal sealed class FileService(
     }
 
     private async Task<FileMetadata> StoreImpl(
-        BagRoot bagRoot,
+        Bag bag,
         FileType type,
         string filePath,
         Stream data,
@@ -130,7 +130,7 @@ internal sealed class FileService(
         using (var hashStream = new CountedHashStream(data))
         {
             result = await _storageService.Store(
-                bagRoot.RootPath + filePath,
+                bag.Path + filePath,
                 hashStream,
                 size,
                 contentType,
@@ -157,10 +157,10 @@ internal sealed class FileService(
         }*/
 
         // Remove from fetch if present there
-        await RemoveItemFromFetch(bagRoot, filePath, CancellationToken.None);
+        await RemoveItemFromFetch(bag, filePath, CancellationToken.None);
 
         // Update payload manifest
-        await AddOrUpdatePayloadManifestItem(bagRoot, new(filePath, checksum), CancellationToken.None);
+        await AddOrUpdatePayloadManifestItem(bag, new(filePath, checksum), CancellationToken.None);
 
         return new(
             ContentType: result.ContentType ?? MimeTypes.GetMimeType(filePath),
@@ -187,13 +187,13 @@ internal sealed class FileService(
         bool lockSuccessful = false;
         await _lockService.TryLockDatasetVersionShared(datasetVersion, async () =>
         {
-            var bagRoot = _bagRootProvider.Create(Paths.GetDatasetVersionPath(datasetVersion));
-            string fullFilePath = bagRoot.RootPath + filePath;
+            var bag = _bagProvider.Create(datasetVersion);
+            string fullFilePath = bag.Path + filePath;
 
             lockSuccessful = await _lockService.TryLockPath(fullFilePath, async () =>
             {
-                await ThrowIfHasBeenPublished(bagRoot, cancellationToken);
-                await DeleteImpl(bagRoot, filePath, cancellationToken);
+                await ThrowIfHasBeenPublished(bag, cancellationToken);
+                await DeleteImpl(bag, filePath, cancellationToken);
             },
             cancellationToken);
         },
@@ -206,17 +206,17 @@ internal sealed class FileService(
     }
 
     private async Task DeleteImpl(
-        BagRoot bagRoot,
+        Bag bag,
         string filePath,
         CancellationToken cancellationToken)
     {
-        await _storageService.Delete(bagRoot.RootPath + filePath, cancellationToken);
+        await _storageService.Delete(bag.Path + filePath, cancellationToken);
 
         // Do not cancel the operation from this point on,
         // since the file has been successfully deleted.
 
-        await RemoveItemFromPayloadManifest(bagRoot, filePath, CancellationToken.None);
-        await RemoveItemFromFetch(bagRoot, filePath, CancellationToken.None);
+        await RemoveItemFromPayloadManifest(bag, filePath, CancellationToken.None);
+        await RemoveItemFromFetch(bag, filePath, CancellationToken.None);
     }
 
     public async Task Import(
@@ -237,10 +237,10 @@ internal sealed class FileService(
             return;
         }
 
-        var bagRoot = _bagRootProvider.Create(Paths.GetDatasetVersionPath(datasetVersion));
-        var fromBagRoot = _bagRootProvider.Create(Paths.GetDatasetVersionPath(fromDatasetVersion));
+        var bag = _bagProvider.Create(datasetVersion);
+        var fromBag = _bagProvider.Create(fromDatasetVersion);
      
-        if (!await fromBagRoot.HasBeenPublished(cancellationToken))
+        if (!await fromBag.HasBeenPublished(cancellationToken))
         {
             // fromVersion is not published, do nothing.
             return;
@@ -248,10 +248,10 @@ internal sealed class FileService(
 
         bool lockSuccessful = await _lockService.TryLockDatasetVersionExclusive(datasetVersion, async () =>
         {
-            await ThrowIfHasBeenPublished(bagRoot, cancellationToken);
+            await ThrowIfHasBeenPublished(bag, cancellationToken);
             await ImportImpl(
-                bagRoot,
-                fromBagRoot,
+                bag,
+                fromBag,
                 cancellationToken);
         },
         cancellationToken);
@@ -263,20 +263,20 @@ internal sealed class FileService(
     }
 
     private static async Task ImportImpl(
-        BagRoot bagRoot,
-        BagRoot fromBagRoot,
+        Bag bag,
+        Bag fromBag,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(bagRoot);
-        ArgumentNullException.ThrowIfNull(fromBagRoot);
+        ArgumentNullException.ThrowIfNull(bag);
+        ArgumentNullException.ThrowIfNull(fromBag);
 
         async Task<BagItFetch> PrepareFetch()
         {
-            var fetch = await fromBagRoot.LoadBagItElement<BagItFetch>(cancellationToken);
+            var fetch = await fromBag.LoadBagItElement<BagItFetch>(cancellationToken);
             // TODO refactor handle fetch URL
-            string fromVersionUrl = "../" + UrlEncodePath(fromBagRoot.RootPath.TrimEnd('/').Split('/').Last()) + '/';
+            string fromVersionUrl = "../" + UrlEncodePath(fromBag.Path.TrimEnd('/').Split('/').Last()) + '/';
 
-            await foreach (var file in fromBagRoot.ListPayloadFiles(null, cancellationToken))
+            await foreach (var file in fromBag.ListPayloadFiles(cancellationToken))
             {
                 fetch.AddOrUpdateItem(new(file.Path, file.Size, fromVersionUrl + UrlEncodePath(file.Path)));
             }
@@ -284,7 +284,7 @@ internal sealed class FileService(
             return fetch;
         }
 
-        if (await bagRoot.ListPayloadFiles(null, cancellationToken)
+        if (await bag.ListPayloadFiles(cancellationToken)
             .GetAsyncEnumerator(cancellationToken).MoveNextAsync())
         {
             // Payload files present, do nothing.
@@ -292,10 +292,10 @@ internal sealed class FileService(
         }
 
         var fetch = await PrepareFetch();
-        var manifest = await fromBagRoot.LoadBagItElement<BagItPayloadManifest>(cancellationToken);
+        var manifest = await fromBag.LoadBagItElement<BagItPayloadManifest>(cancellationToken);
 
-        await bagRoot.StoreBagItElement(fetch, cancellationToken);
-        await bagRoot.StoreBagItElement(manifest, CancellationToken.None);
+        await bag.StoreBagItElement(fetch, cancellationToken);
+        await bag.StoreBagItElement(manifest, CancellationToken.None);
     }
 
     public async Task<FileData?> GetData(
@@ -314,18 +314,18 @@ internal sealed class FileService(
         // Add some kind of locking here for read consistency?
 
         filePath = GetFilePathOrThrow(type, filePath);
-        var bagRoot = _bagRootProvider.Create(Paths.GetDatasetVersionPath(datasetVersion));
+        var bag = _bagProvider.Create(datasetVersion);
 
         var accessibleFileTypes = await GetAccessibleFileTypes(
-            bagRoot, allowDraft, cancellationToken);
+            bag, allowDraft, cancellationToken);
 
         if (!accessibleFileTypes.Contains(type))
         {
             return null;
         }
 
-        var fetch = await bagRoot.LoadBagItElement<BagItFetch>(cancellationToken);
-        filePath = GetActualFilePath(bagRoot.RootPath, fetch, filePath);
+        var fetch = await bag.LoadBagItElement<BagItFetch>(cancellationToken);
+        filePath = GetActualFilePath(bag, fetch, filePath);
 
         FileData? result = null;
         if (isHeadRequest)
@@ -377,17 +377,14 @@ internal sealed class FileService(
         // Checksums and fetch can potentially be changed while processing this request,
         // leading to returning faulty checksums and other problems.
 
-        var bagRoot = _bagRootProvider.Create(Paths.GetDatasetVersionPath(datasetVersion));
+        var bag = _bagProvider.Create(datasetVersion);
 
-        var payloadManifest = await bagRoot.LoadBagItElement<BagItPayloadManifest>(cancellationToken);
-        var fetch = await bagRoot.LoadBagItElement<BagItFetch>(cancellationToken);
+        var payloadManifest = await bag.LoadBagItElement<BagItPayloadManifest>(cancellationToken);
+        var fetch = await bag.LoadBagItElement<BagItFetch>(cancellationToken);
 
         byte[]? GetChecksum(string filePath) =>
             payloadManifest.TryGetItem(filePath, out var value) ? value.Checksum : null;
 
-        // Detta bör brytas ut till generell funktion på något sätt?
-        string datasetPath =
-            bagRoot.RootPath[..(bagRoot.RootPath.LastIndexOf('/', bagRoot.RootPath.Length - 2) + 1)];
         var result = new List<StorageFileMetadata>();
 
         string previousPath = "";
@@ -395,12 +392,12 @@ internal sealed class FileService(
         foreach (var item in fetch.Items.OrderBy(i => i.Url, StringComparer.Ordinal))
         {
             (string versionPath, string filePath) = Paths.ParseFetchUrl(item.Url);
-            var referencedBagRoot = _bagRootProvider.Create(datasetPath + versionPath);
+            var referencedBag = _bagProvider.Create(bag.BagGroupPath + versionPath);
 
-            if (referencedBagRoot.RootPath != previousPath)
+            if (referencedBag.Path != previousPath)
             {
                 dict = [];
-                await foreach (var file in bagRoot.ListPayloadFiles(null, cancellationToken))
+                await foreach (var file in bag.ListPayloadFiles(cancellationToken))
                 {
                     dict[file.Path] = file;
                 }
@@ -408,10 +405,10 @@ internal sealed class FileService(
 
             result.Add(dict[filePath] with { Path = item.FilePath });
 
-            previousPath = referencedBagRoot.RootPath;
+            previousPath = referencedBag.Path;
         }
 
-        await foreach (var file in bagRoot.ListPayloadFiles(null, cancellationToken))
+        await foreach (var file in bag.ListPayloadFiles(cancellationToken))
         {
             result.Add(file);
         }
@@ -443,10 +440,10 @@ internal sealed class FileService(
         ArgumentNullException.ThrowIfNull(stream);
         Validation.ThrowIfInvalidDatasetVersion(datasetVersion);
 
-        var bagRoot = _bagRootProvider.Create(Paths.GetDatasetVersionPath(datasetVersion));
+        var bag = _bagProvider.Create(datasetVersion);
  
         var accessibleFileTypes = await GetAccessibleFileTypes(
-           bagRoot, allowDraft, cancellationToken);
+           bag, allowDraft, cancellationToken);
 
         static Stream CreateZipEntryStream(ZipArchive zipArchive, string filePath)
         {
@@ -454,9 +451,9 @@ internal sealed class FileService(
             return entry.Open();
         }
 
-        var payloadManifest = await bagRoot.LoadBagItElement<BagItPayloadManifest>(cancellationToken);
-        var fetch = await bagRoot.LoadBagItElement<BagItFetch>(cancellationToken);
-        string versionPath = Paths.GetVersionPath(datasetVersion);
+        var payloadManifest = await bag.LoadBagItElement<BagItPayloadManifest>(cancellationToken);
+        var fetch = await bag.LoadBagItElement<BagItFetch>(cancellationToken);
+        string versionPath = datasetVersion.Identifier + '-' + datasetVersion.Version;
 
         using var zipArchive = new ZipArchive(stream, ZipArchiveMode.Create, false);
         var sent = new List<BagItManifestItem>();
@@ -476,7 +473,7 @@ internal sealed class FileService(
                 continue;
             }
 
-            string actualFilePath = GetActualFilePath(bagRoot.RootPath, fetch, manifestItem.FilePath);
+            string actualFilePath = GetActualFilePath(bag, fetch, manifestItem.FilePath);
             var fileData = await _storageService.GetData(actualFilePath, null, cancellationToken);
 
             if (fileData != null)
@@ -554,37 +551,33 @@ internal sealed class FileService(
     }
 
     // TODO refactor
-    private static string GetActualFilePath(string datasetVersionPath, BagItFetch fetch, string filePath)
+    private static string GetActualFilePath(Bag bag, BagItFetch fetch, string filePath)
     {
         if (fetch.TryGetItem(filePath, out var fetchItem))
         {
-            // Detta bör brytas ut till generell funktion på något sätt?
-            string datasetPath = 
-                datasetVersionPath[..(datasetVersionPath.LastIndexOf('/', datasetVersionPath.Length - 2) + 1)];
-
             // Eftersom jag eg. vill ha hela här så blir det lite konstigt
             (string fetchVersionPath, string fetchFilePath) = Paths.ParseFetchUrl(fetchItem.Url);
 
-            return datasetPath + fetchVersionPath + fetchFilePath;
+            return bag.Path + fetchVersionPath + fetchFilePath;
         }
 
-        return datasetVersionPath + filePath;
+        return bag.Path + filePath;
     }
 
-    private static async Task ThrowIfHasBeenPublished(BagRoot bagRoot, CancellationToken cancellationToken)
+    private static async Task ThrowIfHasBeenPublished(Bag bag, CancellationToken cancellationToken)
     {
-        if (await bagRoot.HasBeenPublished(cancellationToken))
+        if (await bag.HasBeenPublished(cancellationToken))
         {
             throw new DatasetStatusException();
         }
     }
 
     private async Task<IEnumerable<FileType>> GetAccessibleFileTypes(
-        BagRoot bagRoot, bool allowDraft, CancellationToken cancellationToken)
+        Bag bag, bool allowDraft, CancellationToken cancellationToken)
     {
-        if (await bagRoot.HasBeenPublished(cancellationToken))
+        if (await bag.HasBeenPublished(cancellationToken))
         {
-            var bagInfo = await bagRoot.LoadBagItElement<BagItInfo>(cancellationToken);
+            var bagInfo = await bag.LoadBagItElement<BagItInfo>(cancellationToken);
 
             if (bagInfo == null)
             {
@@ -621,40 +614,40 @@ internal sealed class FileService(
     }
 
     private Task AddOrUpdatePayloadManifestItem(
-        BagRoot bagRoot,
+        Bag bag,
         BagItManifestItem item,
         CancellationToken cancellationToken) =>
         LockAndUpdateBagItElement<BagItPayloadManifest>(
-            bagRoot, manifest => manifest.AddOrUpdateItem(item), cancellationToken);
+            bag, manifest => manifest.AddOrUpdateItem(item), cancellationToken);
 
     private Task RemoveItemFromPayloadManifest(
-        BagRoot bagRoot,
+        Bag bag,
         string filePath,
         CancellationToken cancellationToken) =>
         LockAndUpdateBagItElement<BagItPayloadManifest>(
-            bagRoot, manifest => manifest.RemoveItem(filePath), cancellationToken);
+            bag, manifest => manifest.RemoveItem(filePath), cancellationToken);
 
     private Task RemoveItemFromFetch(
-        BagRoot bagRoot,
+        Bag bag,
         string filePath,
         CancellationToken cancellationToken) =>
-        LockAndUpdateBagItElement<BagItFetch>(bagRoot, fetch => fetch.RemoveItem(filePath), cancellationToken);
+        LockAndUpdateBagItElement<BagItFetch>(bag, fetch => fetch.RemoveItem(filePath), cancellationToken);
 
     private async Task LockAndUpdateBagItElement<T>(
-        BagRoot bagRoot,
+        Bag bag,
         Func<T, bool> action,
         CancellationToken cancellationToken)
         where T : class, IBagItElement<T>, new()
     {
         // This method assumes that there is no exlusive lock on datasetVersion
 
-        using (await _lockService.LockPath(bagRoot.RootPath + T.FileName, cancellationToken))
+        using (await _lockService.LockPath(bag.Path + T.FileName, cancellationToken))
         {
-            var element = await bagRoot.LoadBagItElement<T>(cancellationToken);
+            var element = await bag.LoadBagItElement<T>(cancellationToken);
 
             if (action(element))
             {
-                await bagRoot.StoreBagItElement(element, cancellationToken);
+                await bag.StoreBagItElement(element, cancellationToken);
             }
         }
     }

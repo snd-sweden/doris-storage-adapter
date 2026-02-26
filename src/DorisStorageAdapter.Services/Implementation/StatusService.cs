@@ -22,11 +22,11 @@ namespace DorisStorageAdapter.Services.Implementation;
 
 internal sealed class StatusService(
     ILockService lockService,
-    IBagRootProvider bagRootProvider,
+    IBagProvider bagProvider,
     IOptions<StorageConfiguration> storageConfiguration) : IStatusService
 {
     private readonly ILockService _lockService = lockService;
-    private readonly IBagRootProvider _bagRootProvider = bagRootProvider;
+    private readonly IBagProvider _bagProvider = bagProvider;
     private readonly StorageConfiguration _storageConfiguration = storageConfiguration.Value;
 
     private static readonly byte[] bagItSha256 = SHA256.HashData(BagItDeclaration.Instance.Serialize());
@@ -48,34 +48,34 @@ internal sealed class StatusService(
             throw new PublicAccessRightNotAllowedException();
         }
 
-        var bagRoot = _bagRootProvider.Create(Paths.GetDatasetVersionPath(datasetVersion));
+        var bag = _bagProvider.Create(datasetVersion);
 
         await ExecuteWithLock(datasetVersion, async () =>
         {
-            if (await bagRoot.HasBeenPublished(cancellationToken))
+            if (await bag.HasBeenPublished(cancellationToken))
             {
                 throw new DatasetStatusException();
             }
 
-            await PublishImpl(datasetVersion, bagRoot, accessRight, canonicalDoi, doi, cancellationToken);
+            await PublishImpl(datasetVersion, bag, accessRight, canonicalDoi, doi, cancellationToken);
         },
         cancellationToken);
     }
 
     private async Task PublishImpl(
         DatasetVersion datasetVersion,
-        BagRoot bagRoot,
+        Bag bag,
         AccessRight accessRight,
         string canonicalDoi,
         string doi,
         CancellationToken cancellationToken)
     {
-        var fetch = await bagRoot.LoadBagItElementWithChecksum<BagItFetch>(cancellationToken);
+        var fetch = await bag.LoadBagItElementWithChecksum<BagItFetch>(cancellationToken);
 
         var payloadFilePaths = new HashSet<string>();
         long octetCount = 0;
         bool payloadFileFound = false;
-        await foreach (var file in bagRoot.ListPayloadFiles(null, cancellationToken))
+        await foreach (var file in bag.ListPayloadFiles(cancellationToken))
         {
             payloadFilePaths.Add(file.Path);
             payloadFileFound = true;
@@ -96,11 +96,11 @@ internal sealed class StatusService(
             return;
         }
 
-        var payloadManifest = await bagRoot
+        var payloadManifest = await bag
             .LoadBagItElementWithChecksum<BagItPayloadManifest>(cancellationToken);
 
         var errors = await CheckBagConsistency(
-            bagRoot,
+            bag,
             payloadFilePaths,
             fetch?.BagItElement,
             payloadManifest?.BagItElement,
@@ -125,10 +125,10 @@ internal sealed class StatusService(
         bagInfo.SetDatasetVersionStatus(DatasetVersionStatus.published);
         bagInfo.SetVersion(datasetVersion.Version);
 
-        byte[] bagInfoContents = await bagRoot.StoreBagItElement(bagInfo, cancellationToken);
+        byte[] bagInfoContents = await bag.StoreBagItElement(bagInfo, cancellationToken);
 
         // Add bagit.txt, bag-info.txt and manifest-sha256.txt to tagmanifest-sha256.txt
-        var tagManifest = await bagRoot.LoadBagItElement<BagItTagManifest>(CancellationToken.None);
+        var tagManifest = await bag.LoadBagItElement<BagItTagManifest>(CancellationToken.None);
         tagManifest.AddOrUpdateItem(new(BagItDeclaration.FileName, bagItSha256));
         tagManifest.AddOrUpdateItem(new(BagItInfo.FileName, SHA256.HashData(bagInfoContents)));
         if (payloadManifest != null)
@@ -140,12 +140,12 @@ internal sealed class StatusService(
             tagManifest.AddOrUpdateItem(new(BagItFetch.FileName, fetch.Value.Checksum));
         }
 
-        await bagRoot.StoreBagItElement(tagManifest, CancellationToken.None);
-        await bagRoot.StoreBagItElement(BagItDeclaration.Instance, CancellationToken.None);
+        await bag.StoreBagItElement(tagManifest, CancellationToken.None);
+        await bag.StoreBagItElement(BagItDeclaration.Instance, CancellationToken.None);
     }
 
     private async Task<IEnumerable<ErrorItem>> CheckBagConsistency(
-        BagRoot bagRoot,
+        Bag bag,
         HashSet<string> payloadFilePaths,
         BagItFetch? fetch,
         BagItPayloadManifest? payloadManifest,
@@ -178,10 +178,6 @@ internal sealed class StatusService(
 
         async Task CheckFetch()
         {
-            // TODO refactor
-            string datasetPath =
-                bagRoot.RootPath[..(bagRoot.RootPath.LastIndexOf('/', bagRoot.RootPath.Length - 2) + 1)];
-
             Dictionary<string, StorageFileMetadata> referencedVersionFiles = new(StringComparer.Ordinal);
             BagItPayloadManifest? referencedVerisonManifest = null;
             bool referencedVersionIsPublished = false;
@@ -190,23 +186,23 @@ internal sealed class StatusService(
             foreach (var item in (fetch?.Items ?? []).OrderBy(i => i.Url, StringComparer.Ordinal))
             {
                 (string versionPath, string referencedFilePath) = Paths.ParseFetchUrl(item.Url);
-                var referencedBagRoot = _bagRootProvider.Create(datasetPath + versionPath);
+                var referencedBag = _bagProvider.Create(bag.BagGroupPath + versionPath);
 
-                if (referencedBagRoot.RootPath != previousPath)
+                if (referencedBag.Path != previousPath)
                 {
-                    referencedVerisonManifest = await referencedBagRoot
+                    referencedVerisonManifest = await referencedBag
                         .LoadBagItElement<BagItPayloadManifest>(cancellationToken);
 
                     referencedVersionFiles = [];
-                    await foreach (var file in referencedBagRoot.ListPayloadFiles(null, cancellationToken))
+                    await foreach (var file in referencedBag.ListPayloadFiles(cancellationToken))
                     {
                         referencedVersionFiles[file.Path] = file;
                     }
 
                     referencedVersionIsPublished =
-                        await referencedBagRoot.HasBeenPublished(cancellationToken);
+                        await referencedBag.HasBeenPublished(cancellationToken);
 
-                    previousPath = referencedBagRoot.RootPath;
+                    previousPath = referencedBag.Path;
                 }
 
                 string target = $"Fetch file:{item.FilePath}";
@@ -277,26 +273,26 @@ internal sealed class StatusService(
         ArgumentNullException.ThrowIfNull(datasetVersion);
         Validation.ThrowIfInvalidDatasetVersion(datasetVersion);
 
-        var bagRoot = _bagRootProvider.Create(Paths.GetDatasetVersionPath(datasetVersion));
+        var bag = _bagProvider.Create(datasetVersion);
 
         await ExecuteWithLock(datasetVersion, async () =>
         {
-            if (!await bagRoot.HasBeenPublished(cancellationToken))
+            if (!await bag.HasBeenPublished(cancellationToken))
             {
                 throw new DatasetStatusException();
             }
 
-            await SetStatusImpl(bagRoot, status, cancellationToken);
+            await SetStatusImpl(bag, status, cancellationToken);
         },
         cancellationToken);
     }
 
     private static async Task SetStatusImpl(
-        BagRoot bagRoot,
+        Bag bag,
         DatasetVersionStatus status,
         CancellationToken cancellationToken)
     {
-        var bagInfo = await bagRoot.LoadBagItElement<BagItInfo>(cancellationToken);
+        var bagInfo = await bag.LoadBagItElement<BagItInfo>(cancellationToken);
 
         if (!bagInfo.HasValues())
         {
@@ -311,11 +307,11 @@ internal sealed class StatusService(
         }
 
         bagInfo.SetDatasetVersionStatus(status);
-        byte[] bagInfoContents = await bagRoot.StoreBagItElement(bagInfo, cancellationToken);
+        byte[] bagInfoContents = await bag.StoreBagItElement(bagInfo, cancellationToken);
 
-        var tagManifest = await bagRoot.LoadBagItElement<BagItTagManifest>(CancellationToken.None);
+        var tagManifest = await bag.LoadBagItElement<BagItTagManifest>(CancellationToken.None);
         tagManifest.AddOrUpdateItem(new(BagItInfo.FileName, SHA256.HashData(bagInfoContents)));
-        await bagRoot.StoreBagItElement(tagManifest, CancellationToken.None);
+        await bag.StoreBagItElement(tagManifest, CancellationToken.None);
     }
 
     private async Task ExecuteWithLock(

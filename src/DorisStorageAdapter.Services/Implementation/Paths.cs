@@ -8,10 +8,13 @@ internal static class Paths
 {
     private static readonly string[] legacyPrefixes = ["ecds", "ext", "snd"];
 
+    // Används för att lägga till och strippa bort "data/"
+    // och för att få ut typ från sökväg
     public static string GetPayloadPath(FileType? type) =>
        "data/" + (type == null ? "" : type.ToString() + '/');
 
-    public static string GetDatasetPath(DatasetVersion datasetVersion)
+    // Används endast internt
+    private static string GetDatasetPath(DatasetVersion datasetVersion)
     {
         // If dataset identifier begins with one of the legacy prefixes,
         // use that prefix as a base path.
@@ -39,12 +42,10 @@ internal static class Paths
         return basePath + datasetVersion.Identifier + '/';
     }
 
-    public static string GetVersionPath(DatasetVersion datasetVersion) =>
-        datasetVersion.Identifier + '-' + datasetVersion.Version;
-
     public static string GetDatasetVersionPath(DatasetVersion datasetVersion) =>
-        GetDatasetPath(datasetVersion) + GetVersionPath(datasetVersion) + '/';
+        GetDatasetPath(datasetVersion) + datasetVersion.Identifier + '-' + datasetVersion.Version + '/';
 
+    // ListFiles, GetActualFilePath, CheckValidBag
     public static (string VersionPath, string FilePath) ParseFetchUrl(string url)
     {
         string path = Uri.UnescapeDataString(url[3..]);
