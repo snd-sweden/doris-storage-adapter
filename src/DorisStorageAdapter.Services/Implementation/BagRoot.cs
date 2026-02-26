@@ -1,5 +1,6 @@
 ﻿using DorisStorageAdapter.Services.Contract.Models;
 using DorisStorageAdapter.Services.Implementation.BagIt;
+using DorisStorageAdapter.Services.Implementation.BagIt.Fetch;
 using DorisStorageAdapter.Services.Implementation.Storage;
 using System.Collections.Generic;
 using System.IO;
@@ -9,15 +10,16 @@ using System.Threading.Tasks;
 
 namespace DorisStorageAdapter.Services.Implementation;
 
-internal sealed class MetadataService(IStorageService storageService)
+internal sealed class BagRoot(string rootPath, IStorageService storageService)
 {
-    private readonly IStorageService storageService = storageService;
+    private readonly IStorageService _storageService = storageService;
 
-    public async Task<T> LoadBagItElement<T>(
-        DatasetVersion datasetVersion, CancellationToken cancellationToken)
+    public string RootPath { get; } = rootPath;
+
+    public async Task<T> LoadBagItElement<T>(CancellationToken cancellationToken)
         where T : class, IBagItElement<T>, new()
     {
-        var fileData = await GetBagItElementFileData<T>(datasetVersion, cancellationToken);
+        var fileData = await GetBagItElementFileData<T>(cancellationToken);
 
         if (fileData == null)
         {
@@ -31,10 +33,10 @@ internal sealed class MetadataService(IStorageService storageService)
     }
 
     public async Task<(T BagItElement, byte[] Checksum)?> LoadBagItElementWithChecksum<T>(
-        DatasetVersion datasetVersion, CancellationToken cancellationToken)
+        CancellationToken cancellationToken)
         where T : IBagItElement<T>
     {
-        var fileData = await GetBagItElementFileData<T>(datasetVersion, cancellationToken);
+        var fileData = await GetBagItElementFileData<T>(cancellationToken);
 
         if (fileData == null)
         {
@@ -46,17 +48,17 @@ internal sealed class MetadataService(IStorageService storageService)
     }
 
     public async Task<byte[]> StoreBagItElement<T>(
-        DatasetVersion datasetVersion, T element, CancellationToken cancellationToken)
+        T element, CancellationToken cancellationToken)
         where T : IBagItElement<T>
     {
-        string filePath = Paths.GetFullFilePath(datasetVersion, T.FileName);
+        string filePath = RootPath + T.FileName;
 
         if (element.HasValues())
         {
             var bytes = element.Serialize();
 
             using var stream = new MemoryStream(bytes);
-            await storageService.Store(
+            await _storageService.Store(
                 filePath,
                 stream,
                 stream.Length,
@@ -66,31 +68,27 @@ internal sealed class MetadataService(IStorageService storageService)
             return bytes;
         }
 
-        await storageService.Delete(filePath, cancellationToken);
+        await _storageService.Delete(filePath, cancellationToken);
         return [];
     }
 
     public async IAsyncEnumerable<StorageFileMetadata> ListPayloadFiles(
-        DatasetVersion datasetVersion,
         FileType? type,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        string path = Paths.GetDatasetVersionPath(datasetVersion);
-
-        await foreach (var file in storageService.List(
-            path + Paths.GetPayloadPath(type),
+        await foreach (var file in _storageService.List(
+            RootPath + Paths.GetPayloadPath(type),
             cancellationToken))
         {
-            yield return file with { Path = file.Path[path.Length..] };
+            yield return file with { Path = file.Path[RootPath.Length..] };
         }
     }
 
-    public async Task<bool> VersionHasBeenPublished(DatasetVersion datasetVersion, CancellationToken cancellationToken) =>
-        await storageService.GetMetadata(Paths.GetFullFilePath(datasetVersion, BagItDeclaration.FileName), cancellationToken) != null;
+    public async Task<bool> HasBeenPublished(CancellationToken cancellationToken) =>
+        await _storageService.GetMetadata(RootPath + BagItDeclaration.FileName, cancellationToken) != null;
 
-    private Task<StorageFileData?> GetBagItElementFileData<T>(
-        DatasetVersion datasetVersion, CancellationToken cancellationToken)
-        where T : IBagItElement<T> =>
-        storageService.GetData(
-            Paths.GetFullFilePath(datasetVersion, T.FileName), null, cancellationToken);
+    private Task<StorageFileData?> GetBagItElementFileData<T>(CancellationToken cancellationToken)
+       where T : IBagItElement<T> =>
+       _storageService.GetData(
+           RootPath + T.FileName, null, cancellationToken);
 }

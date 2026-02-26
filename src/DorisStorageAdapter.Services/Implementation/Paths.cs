@@ -45,6 +45,11 @@ internal static class Paths
     public static string GetDatasetVersionPath(DatasetVersion datasetVersion) =>
         GetDatasetPath(datasetVersion) + GetVersionPath(datasetVersion) + '/';
 
-    public static string GetFullFilePath(DatasetVersion datasetVersion, string filePath) =>
-        GetDatasetVersionPath(datasetVersion) + filePath;
+    public static (string VersionPath, string FilePath) ParseFetchUrl(string url)
+    {
+        string path = Uri.UnescapeDataString(url[3..]);
+        int index = path.IndexOf('/', StringComparison.Ordinal) + 1;
+
+        return (path[index..], path[..index]);
+    }
 }

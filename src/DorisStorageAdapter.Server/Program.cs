@@ -37,7 +37,6 @@ static void SetupJsonSerializer(JsonSerializerOptions options)
 builder.Services.AddControllers().AddJsonOptions(options => SetupJsonSerializer(options.JsonSerializerOptions));
 builder.Services.ConfigureHttpJsonOptions(options => SetupJsonSerializer(options.SerializerOptions));
 
-
 builder.Services.AddProblemDetails(o =>
 {
     o.CustomizeProblemDetails = ctx =>

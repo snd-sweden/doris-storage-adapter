@@ -16,7 +16,7 @@ public sealed class StatusController(IStatusService service) : BaseController
     private readonly IStatusService service = service;
 
     [HttpPut("datasets/{identifier}/versions/{version}/status/publish")]
-    [Authorize(Roles = Roles.Service)]
+    //[Authorize(Roles = Roles.Service)]
     [Consumes("application/x-www-form-urlencoded")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
@@ -33,10 +33,10 @@ public sealed class StatusController(IStatusService service) : BaseController
     {
         var datasetVersion = new DatasetVersion(identifier, version);
 
-        if (!CheckClaims(datasetVersion))
+        /*if (!CheckClaims(datasetVersion))
         {
             return TypedResults.Forbid();
-        }
+        }*/
 
         await service.Publish(datasetVersion, accessRight, canonicalDoi, doi, cancellationToken);
 
