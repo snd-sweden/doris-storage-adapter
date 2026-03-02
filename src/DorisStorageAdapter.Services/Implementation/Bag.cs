@@ -77,7 +77,7 @@ internal sealed class Bag(string path, IStorageService storageService)
     public async IAsyncEnumerable<StorageFileMetadata> ListPayloadFiles(
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        await foreach (var file in _storageService.List(Path, cancellationToken))
+        await foreach (var file in _storageService.List(Path + Paths.GetPayloadPath(null), cancellationToken))
         {
             yield return file with { Path = file.Path[Path.Length..] };
         }
