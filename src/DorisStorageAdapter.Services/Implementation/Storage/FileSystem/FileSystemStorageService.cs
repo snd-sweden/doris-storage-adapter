@@ -326,12 +326,12 @@ internal sealed class FileSystemStorageService(
         return relativePath;
     }
 
-    private Task<IDisposable> LockPath(string directoryPath, CancellationToken cancellationToken) =>
+    private ValueTask<IAsyncDisposable> LockPath(string directoryPath, CancellationToken cancellationToken) =>
         pathLock.LockPath(GetLockPath(directoryPath), cancellationToken);
 
     private async Task CreateDirectory(string directoryPath, CancellationToken cancellationToken)
     {
-        using (await LockPath(directoryPath, cancellationToken))
+        await using (await LockPath(directoryPath, cancellationToken))
         {
             Directory.CreateDirectory(directoryPath);
         }
@@ -339,7 +339,7 @@ internal sealed class FileSystemStorageService(
 
     private async Task DeleteEmptyDirectories(string directoryPath, CancellationToken cancellationToken)
     {
-        using (await LockPath(directoryPath, cancellationToken))
+        await using (await LockPath(directoryPath, cancellationToken))
         {
             while (directoryPath != basePath)
             {

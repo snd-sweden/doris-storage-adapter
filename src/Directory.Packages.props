@@ -19,6 +19,7 @@
     <PackageVersion Include="Nerdbank.Streams" Version="2.13.16" />
     <PackageVersion Include="NetDevPack.Security.Jwt.AspNetCore" Version="9.0.4" />
     <PackageVersion Include="NetDevPack.Security.JwtExtensions" Version="9.0.1" />
+    <PackageVersion Include="Nito.AsyncEx.Coordination" Version="5.1.2" />
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="8.1.4" />
     <PackageVersion Include="Swashbuckle.AspNetCore.Annotations" Version="8.1.4" />
     <PackageVersion Include="WebDav.Client" Version="2.9.0" />

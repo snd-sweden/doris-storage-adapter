@@ -2,6 +2,7 @@
 using DorisStorageAdapter.Services.Implementation;
 using DorisStorageAdapter.Services.Implementation.Configuration;
 using DorisStorageAdapter.Services.Implementation.Lock;
+using DorisStorageAdapter.Services.Implementation.Lock.InProcess;
 using DorisStorageAdapter.Services.Implementation.Storage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,6 +22,8 @@ public static class Bootstrapper
             .Bind(configuration.GetSection(StorageConfiguration.ConfigurationSection))
             .ValidateDataAnnotations();
 
+        services.AddSingleton<ILockProvider, InProcessLockProvider>();
+        services.AddSingleton<IReaderWriterLockProvider, InProcessReaderWriterLockProvider>();
         services.AddSingleton<ILockService, InProcessLockService>();
         services.AddTransient<IStatusService, StatusService>();
         services.AddTransient<IFileService, FileService>();

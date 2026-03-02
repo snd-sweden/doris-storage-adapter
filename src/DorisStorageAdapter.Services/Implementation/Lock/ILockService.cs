@@ -7,21 +7,21 @@ namespace DorisStorageAdapter.Services.Implementation.Lock;
 
 internal interface ILockService
 {
-    Task<IDisposable> LockPath(
+    ValueTask<IAsyncDisposable> LockPath(
         string path,
         CancellationToken cancellationToken);
 
-    Task<bool> TryLockPath(
+    ValueTask<bool> TryLockPath(
         string path,
         Func<Task> task,
         CancellationToken cancellationToken);
 
-    Task<bool> TryLockDatasetVersionExclusive(
+    ValueTask<bool> TryLockDatasetVersionExclusive(
         DatasetVersion datasetVersion,
         Func<Task> task,
         CancellationToken cancellationToken);
 
-    Task<bool> TryLockDatasetVersionShared(
+    ValueTask<bool> TryLockDatasetVersionShared(
         DatasetVersion datasetVersion,
         Func<Task> task,
         CancellationToken cancellationToken);

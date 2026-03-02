@@ -6,5 +6,5 @@ namespace DorisStorageAdapter.Services.Implementation.Storage;
 
 internal interface IStoragePathLock
 {
-    Task<IDisposable> LockPath(string path, CancellationToken cancellationToken);
+    ValueTask<IAsyncDisposable> LockPath(string path, CancellationToken cancellationToken);
 }

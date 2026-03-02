@@ -10,6 +10,6 @@ internal sealed class StoragePathLock(ILockService lockService) : IStoragePathLo
 {
     private readonly ILockService lockService = lockService;
 
-    public Task<IDisposable> LockPath(string path, CancellationToken cancellationToken) =>
+    public ValueTask<IAsyncDisposable> LockPath(string path, CancellationToken cancellationToken) =>
         lockService.LockPath(path, cancellationToken);
 }

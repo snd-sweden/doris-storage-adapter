@@ -458,12 +458,12 @@ internal sealed class NextCloudStorageService : IStorageService
         return relativeUri;
     }
 
-    private Task<IDisposable> LockPath(Uri directoryUri, CancellationToken cancellationToken) =>
+    private ValueTask<IAsyncDisposable> LockPath(Uri directoryUri, CancellationToken cancellationToken) =>
         pathLock.LockPath(GetLockPath(directoryUri), cancellationToken);
 
     private async Task CreateDirectory(Uri directoryUri, CancellationToken cancellationToken)
     {
-        using (await LockPath(directoryUri, cancellationToken))
+        await using (await LockPath(directoryUri, cancellationToken))
         {
             var directoriesToCreate = new Stack<Uri>();
 
@@ -490,7 +490,7 @@ internal sealed class NextCloudStorageService : IStorageService
 
     private async Task DeleteEmptyDirectories(Uri directoryUri, CancellationToken cancellationToken)
     {
-        using (await LockPath(directoryUri, cancellationToken))
+        await using (await LockPath(directoryUri, cancellationToken))
         {
             while (!storageBaseUri.Equals(directoryUri))
             {

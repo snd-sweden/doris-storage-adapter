@@ -641,7 +641,7 @@ internal sealed class FileService(
     {
         // This method assumes that there is no exlusive lock on datasetVersion
 
-        using (await _lockService.LockPath(bag.Path + T.FileName, cancellationToken))
+        await using (await _lockService.LockPath(bag.Path + T.FileName, cancellationToken))
         {
             var element = await bag.LoadBagItElement<T>(cancellationToken);
 
