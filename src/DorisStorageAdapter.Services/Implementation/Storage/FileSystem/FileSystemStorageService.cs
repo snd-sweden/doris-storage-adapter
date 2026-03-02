@@ -21,18 +21,18 @@ namespace DorisStorageAdapter.Services.Implementation.Storage.FileSystem;
 /// base path to ensure atomic file moves.
 /// </summary>
 /// <param name="configuration">FileSystemStorageService configuration.</param>
-/// <param name="pathLock">IStoragePathLock used when creating/deleting directories.</param>
+/// <param name="lockProvider">IStorageLockProvider used when creating/deleting directories.</param>
 internal sealed class FileSystemStorageService(
     IOptions<FileSystemStorageServiceConfiguration> configuration,
-    IStoragePathLock pathLock) : IStorageService
+    IStorageLockProvider lockProvider) : IStorageService
 {
     // This is only need for supporting Windows; Linux supports all characters except '/'.
-    private static readonly HashSet<char> invalidFileNameChars = [.. Path.GetInvalidFileNameChars()];
+    private static readonly HashSet<char> _invalidFileNameChars = [.. Path.GetInvalidFileNameChars()];
 
-    private readonly IStoragePathLock pathLock = pathLock;
+    private readonly IStorageLockProvider _lockProvider = lockProvider;
 
-    private readonly string basePath = Path.GetFullPath(configuration.Value.BasePath);
-    private readonly string tempFilePath = Path.GetFullPath(configuration.Value.TempFilePath);
+    private readonly string _basePath = Path.GetFullPath(configuration.Value.BasePath);
+    private readonly string _tempFilePath = Path.GetFullPath(configuration.Value.TempFilePath);
 
     public async Task<StorageFileBaseMetadata> Store(
         string filePath,
@@ -43,13 +43,11 @@ internal sealed class FileSystemStorageService(
     {
         filePath = GetFullPathOrThrow(filePath);
 
-        string tempFile = Path.Combine(tempFilePath, Guid.NewGuid().ToString());
+        string tempFile = Path.Combine(_tempFilePath, Guid.NewGuid().ToString());
         string directoryPath = Path.GetDirectoryName(filePath)!;
 
         try
         {
-            await CreateDirectory(directoryPath, cancellationToken);
-
             using (var stream = new FileStream(tempFile, new FileStreamOptions
             {
                 Access = FileAccess.Write,
@@ -70,7 +68,11 @@ internal sealed class FileSystemStorageService(
                 await data.CopyToAsync(stream, cancellationToken);
             }
 
-            File.Move(tempFile, filePath, true);
+            await using (await _lockProvider.AcquireAsync(cancellationToken))
+            {
+                Directory.CreateDirectory(directoryPath);
+                File.Move(tempFile, filePath, true);
+            }
         }
         catch
         {
@@ -273,15 +275,15 @@ internal sealed class FileSystemStorageService(
     {
         static void Throw() => throw new InvalidFileSystemPathException();
 
-        if (path.Split('/').Any(c => c.Any(invalidFileNameChars.Contains)))
+        if (path.Split('/').Any(c => c.Any(_invalidFileNameChars.Contains)))
         {
             // This can only happen on Windows; Linux supports all characters except '/'
             Throw();
         }
 
-        string result = Path.GetFullPath(path, basePath);
+        string result = Path.GetFullPath(path, _basePath);
 
-        if (!result.StartsWith(basePath, StringComparison.Ordinal))
+        if (!result.StartsWith(_basePath, StringComparison.Ordinal))
         {
             Throw();
         }
@@ -304,58 +306,27 @@ internal sealed class FileSystemStorageService(
             ContentType: null,
             DateCreated: null,
             DateModified: file.LastWriteTimeUtc,
-            Path: NormalizePath(Path.GetRelativePath(basePath, file.FullName)),
+            Path: NormalizePath(Path.GetRelativePath(_basePath, file.FullName)),
             Size: file.Length);
-
-    /// <summary>
-    /// Returns the root directory of the given directory path
-    /// to be used as lock path when creating/deleting directories.
-    /// </summary>
-    /// <param name="directoryPath">The directory path to get lock path for.</param>
-    /// <returns>The lock path (the root directory).</returns>
-    private string GetLockPath(string directoryPath)
-    {
-        string relativePath = NormalizePath(Path.GetRelativePath(basePath, directoryPath));
-
-        int index = relativePath.IndexOf('/', StringComparison.Ordinal) + 1;
-        if (index > 0)
-        {
-            return relativePath[..index];
-        }
-
-        return relativePath;
-    }
-
-    private ValueTask<IAsyncDisposable> LockPath(string directoryPath, CancellationToken cancellationToken) =>
-        pathLock.LockPath(GetLockPath(directoryPath), cancellationToken);
-
-    private async Task CreateDirectory(string directoryPath, CancellationToken cancellationToken)
-    {
-        await using (await LockPath(directoryPath, cancellationToken))
-        {
-            Directory.CreateDirectory(directoryPath);
-        }
-    }
 
     private async Task DeleteEmptyDirectories(string directoryPath, CancellationToken cancellationToken)
     {
-        await using (await LockPath(directoryPath, cancellationToken))
+        await using var _ = await _lockProvider.AcquireAsync(cancellationToken);
+
+        while (directoryPath != _basePath)
         {
-            while (directoryPath != basePath)
+            try
             {
-                try
+                if (Directory.EnumerateFileSystemEntries(directoryPath).Any())
                 {
-                    if (Directory.EnumerateFileSystemEntries(directoryPath).Any())
-                    {
-                        return;
-                    }
-
-                    Directory.Delete(directoryPath);
+                    return;
                 }
-                catch (DirectoryNotFoundException) { }
 
-                directoryPath = Path.GetDirectoryName(directoryPath)!;
+                Directory.Delete(directoryPath);
             }
+            catch (DirectoryNotFoundException) { }
+
+            directoryPath = Path.GetDirectoryName(directoryPath)!;
         }
     }
 }

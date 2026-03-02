@@ -17,37 +17,37 @@ namespace DorisStorageAdapter.Services.Implementation.Storage.NextCloud;
 
 internal sealed class NextCloudStorageService : IStorageService
 {
-    private readonly IStoragePathLock pathLock;
-    private readonly IWebDavClient webDavClient;
-    private readonly NextCloudStorageServiceConfiguration configuration;
+    private readonly IStorageLockProvider _lockProvider;
+    private readonly IWebDavClient _webDavClient;
+    private readonly NextCloudStorageServiceConfiguration _configuration;
 
-    private readonly Uri storageBaseUri;
-    private readonly Uri chunkedUploadBaseUri;
-    private readonly Uri tmpFileBaseUri;
+    private readonly Uri _storageBaseUri;
+    private readonly Uri _chunkedUploadBaseUri;
+    private readonly Uri _tmpFileBaseUri;
 
-    private const string davNamespaceName = "DAV:";
-    private static readonly XName getLastModifiedProperty = XName.Get("getlastmodified", davNamespaceName);
-    private static readonly XName getContentLengthProperty = XName.Get("getcontentlength", davNamespaceName);
-    private static readonly XName resourceTypeProperty = XName.Get("resourcetype", davNamespaceName);
+    private const string _davNamespaceName = "DAV:";
+    private static readonly XName _getLastModifiedProperty = XName.Get("getlastmodified", _davNamespaceName);
+    private static readonly XName _getContentLengthProperty = XName.Get("getcontentlength", _davNamespaceName);
+    private static readonly XName _resourceTypeProperty = XName.Get("resourcetype", _davNamespaceName);
 
     public NextCloudStorageService(
         IWebDavClient webDavClient,
         IOptions<NextCloudStorageServiceConfiguration> configuration,
-        IStoragePathLock pathLock)
+        IStorageLockProvider pathLock)
     {
-        this.webDavClient = webDavClient;
-        this.configuration = configuration.Value;
-        this.pathLock = pathLock;
+        _webDavClient = webDavClient;
+        _configuration = configuration.Value;
+        _lockProvider = pathLock;
 
-        var filesBaseUri = GetUri(this.configuration.BaseUrl, $"remote.php/dav/files/{this.configuration.User}/");
+        var filesBaseUri = GetUri(_configuration.BaseUrl, $"remote.php/dav/files/{_configuration.User}/");
 
-        storageBaseUri = GetUri(filesBaseUri, $"{this.configuration.BasePath}" +
-            (this.configuration.BasePath.EndsWith('/') ? "" : '/'));
+        _storageBaseUri = GetUri(filesBaseUri, $"{_configuration.BasePath}" +
+            (_configuration.BasePath.EndsWith('/') ? "" : '/'));
 
-        tmpFileBaseUri = GetUri(filesBaseUri, $"{this.configuration.TempFilePath}" +
-             (this.configuration.TempFilePath.EndsWith('/') ? "" : '/'));
+        _tmpFileBaseUri = GetUri(filesBaseUri, $"{_configuration.TempFilePath}" +
+             (_configuration.TempFilePath.EndsWith('/') ? "" : '/'));
 
-        chunkedUploadBaseUri = GetUri(this.configuration.BaseUrl, $"remote.php/dav/uploads/{this.configuration.User}/");
+        _chunkedUploadBaseUri = GetUri(_configuration.BaseUrl, $"remote.php/dav/uploads/{_configuration.User}/");
     }
 
     public async Task<StorageFileBaseMetadata> Store(
@@ -64,29 +64,34 @@ internal sealed class NextCloudStorageService : IStorageService
 
         async Task<long> DoUpload()
         {
-            var tempFileUri = new Uri(tmpFileBaseUri, Guid.NewGuid().ToString());
+            var tempFileUri = new Uri(_tmpFileBaseUri, Guid.NewGuid().ToString());
             var now = GetNow();
 
             try
             {
-                EnsureSuccessStatusCode(await webDavClient.PutFile(tempFileUri, data, new PutFileParameters()
+                EnsureSuccessStatusCode(await _webDavClient.PutFile(tempFileUri, data, new PutFileParameters()
                 {
                     CancellationToken = cancellationToken,
                     Headers = [new("X-OC-MTime", now.ToString(CultureInfo.InvariantCulture))] // Explicitly sets last modified date
                 }));
 
-                EnsureSuccessStatusCode(await webDavClient.Move(tempFileUri, fileUri, new()
+                await using (await _lockProvider.AcquireAsync(cancellationToken))
                 {
-                    CancellationToken = cancellationToken,
-                    Overwrite = true
-                }));
+                    await CreateDirectory(directoryUri, cancellationToken);
+
+                    EnsureSuccessStatusCode(await _webDavClient.Move(tempFileUri, fileUri, new()
+                    {
+                        CancellationToken = cancellationToken,
+                        Overwrite = true
+                    }));
+                }
             }
             catch
             {
                 // Cancelled or failed, try to clean up.
                 try
                 {
-                    await webDavClient.Delete(tempFileUri, new()
+                    await _webDavClient.Delete(tempFileUri, new()
                     {
                         CancellationToken = CancellationToken.None
                     });
@@ -103,14 +108,14 @@ internal sealed class NextCloudStorageService : IStorageService
 
         async Task<long> DoChunkedUpload()
         {
-            var uri = new Uri(chunkedUploadBaseUri, "doris-storage-adapter-" + Guid.NewGuid().ToString() + '/');
+            var uri = new Uri(_chunkedUploadBaseUri, "doris-storage-adapter-" + Guid.NewGuid().ToString() + '/');
             // Add Destination header to all calls to ensure the v2 version of NextCloud's chunked upload API is used.
             var destinationHeader = KeyValuePair.Create("Destination", fileUri.AbsoluteUri);
             long now;
 
             try
             {
-                EnsureSuccessStatusCode(await webDavClient.Mkcol(uri, new()
+                EnsureSuccessStatusCode(await _webDavClient.Mkcol(uri, new()
                 {
                     CancellationToken = cancellationToken,
                     Headers = [destinationHeader]
@@ -121,9 +126,9 @@ internal sealed class NextCloudStorageService : IStorageService
 
                 do
                 {
-                    long bytesToRead = Math.Min(configuration.ChunkedUploadChunkSize, bytesLeft);
+                    long bytesToRead = Math.Min(_configuration.ChunkedUploadChunkSize, bytesLeft);
 
-                    EnsureSuccessStatusCode(await webDavClient.PutFile(
+                    EnsureSuccessStatusCode(await _webDavClient.PutFile(
                         new Uri(uri, chunk.ToString(CultureInfo.InvariantCulture)),
                         data.ReadSlice(bytesToRead),
                         new PutFileParameters
@@ -139,21 +144,26 @@ internal sealed class NextCloudStorageService : IStorageService
 
                 now = GetNow();
 
-                EnsureSuccessStatusCode(await webDavClient.Move(new Uri(uri, ".file"), fileUri, new()
+                await using (await _lockProvider.AcquireAsync(cancellationToken))
                 {
-                    CancellationToken = cancellationToken,
-                    Headers = [
+                    await CreateDirectory(directoryUri, cancellationToken);
+
+                    EnsureSuccessStatusCode(await _webDavClient.Move(new Uri(uri, ".file"), fileUri, new()
+                    {
+                        CancellationToken = cancellationToken,
+                        Headers = [
                         destinationHeader,
                         new("X-OC-MTime", now.ToString(CultureInfo.InvariantCulture)) // Explicitly sets last modified date
                     ]
-                }));
+                    }));
+                }
             }
             catch
             {
                 // Cancelled or failed, try to clean up.
                 try
                 {
-                    var response = await webDavClient.Delete(uri, new()
+                    var response = await _webDavClient.Delete(uri, new()
                     {
                         CancellationToken = CancellationToken.None
                     });
@@ -172,9 +182,7 @@ internal sealed class NextCloudStorageService : IStorageService
 
         try
         {
-            await CreateDirectory(directoryUri, cancellationToken);
-
-            if (size > configuration.ChunkedUploadThreshold)
+            if (size > _configuration.ChunkedUploadThreshold)
             {
                 now = await DoChunkedUpload();
             }
@@ -207,7 +215,7 @@ internal sealed class NextCloudStorageService : IStorageService
     {
         var fileUri = GetWebDavFileUri(filePath);
 
-        var response = await webDavClient.Delete(fileUri, new()
+        var response = await _webDavClient.Delete(fileUri, new()
         {
             CancellationToken = cancellationToken
         });
@@ -238,8 +246,8 @@ internal sealed class NextCloudStorageService : IStorageService
             uri,
             ApplyTo.Propfind.ResourceOnly,
             [
-                getLastModifiedProperty,
-                getContentLengthProperty
+                _getLastModifiedProperty,
+                _getContentLengthProperty
             ],
             cancellationToken);
 
@@ -269,7 +277,7 @@ internal sealed class NextCloudStorageService : IStorageService
 
         var uri = GetWebDavFileUri(filePath);
 
-        var response = await webDavClient.GetFileResponse(uri, true, new()
+        var response = await _webDavClient.GetFileResponse(uri, true, new()
         {
             CancellationToken = cancellationToken,
             Headers = headers
@@ -294,7 +302,7 @@ internal sealed class NextCloudStorageService : IStorageService
             var propFindResponse = await DoPropfind(
                 uri,
                 ApplyTo.Propfind.ResourceOnly,
-                [getContentLengthProperty],
+                [_getContentLengthProperty],
                 cancellationToken);
 
             if (NotFound(propFindResponse) || propFindResponse.Resources.Count == 0)
@@ -334,9 +342,9 @@ internal sealed class NextCloudStorageService : IStorageService
                 uri,
                 ApplyTo.Propfind.ResourceAndAncestors,
                 [
-                    getLastModifiedProperty,
-                    getContentLengthProperty,
-                    resourceTypeProperty
+                    _getLastModifiedProperty,
+                    _getContentLengthProperty,
+                    _resourceTypeProperty
                 ],
                 cancellationToken);
 
@@ -366,7 +374,7 @@ internal sealed class NextCloudStorageService : IStorageService
 
         foreach (var file in response.Resources.Where(r => !r.IsCollection))
         {
-            string filePath = DecodeUrlEncodedPath(storageBaseUri.MakeRelativeUri(new Uri(storageBaseUri, file.Uri)).ToString());
+            string filePath = DecodeUrlEncodedPath(_storageBaseUri.MakeRelativeUri(new Uri(_storageBaseUri, file.Uri)).ToString());
 
             if (filePath.StartsWith(path, StringComparison.Ordinal))
             {
@@ -389,7 +397,7 @@ internal sealed class NextCloudStorageService : IStorageService
     private static Uri GetUri(Uri baseUri, string path) =>
         new(baseUri, UrlEncodePath(path));
 
-    private Uri GetWebDavFileUri(string filePath) => GetUri(storageBaseUri, filePath);
+    private Uri GetWebDavFileUri(string filePath) => GetUri(_storageBaseUri, filePath);
 
     private static Uri GetParentUri(Uri uri)
     {
@@ -407,10 +415,10 @@ internal sealed class NextCloudStorageService : IStorageService
         ApplyTo.Propfind applyTo,
         IReadOnlyCollection<XName> customProperties,
         CancellationToken cancellationToken) =>
-        webDavClient.Propfind(uri, new PropfindParameters
+        _webDavClient.Propfind(uri, new PropfindParameters
         {
             ApplyTo = applyTo,
-            Namespaces = [new("d", davNamespaceName)],
+            Namespaces = [new("d", _davNamespaceName)],
             CustomProperties = customProperties,
             RequestType = PropfindRequestType.NamedProperties,
             CancellationToken = cancellationToken
@@ -418,7 +426,7 @@ internal sealed class NextCloudStorageService : IStorageService
 
     private async Task<bool> DirectoryExists(Uri uri, CancellationToken cancellationToken)
     {
-        var response = await webDavClient.Propfind(uri, new()
+        var response = await _webDavClient.Propfind(uri, new()
         {
             ApplyTo = ApplyTo.Propfind.ResourceOnly,
             RequestType = PropfindRequestType.NamedProperties,
@@ -439,89 +447,63 @@ internal sealed class NextCloudStorageService : IStorageService
             response.Resources.First().IsCollection;
     }
 
-    /// <summary>
-    /// Returns the root directory of the given directory
-    /// to be used as lock path when creating/deleting directories.
-    /// </summary>
-    /// <param name="directoryUri">The directory to get lock path for.</param>
-    /// <returns>The lock path (the root directory).</returns>
-    private string GetLockPath(Uri directoryUri)
-    {
-        var relativeUri = storageBaseUri.MakeRelativeUri(directoryUri).ToString();
-
-        int index = relativeUri.IndexOf('/', StringComparison.Ordinal) + 1;
-        if (index > 0)
-        {
-            return relativeUri[..index];
-        }
-
-        return relativeUri;
-    }
-
-    private ValueTask<IAsyncDisposable> LockPath(Uri directoryUri, CancellationToken cancellationToken) =>
-        pathLock.LockPath(GetLockPath(directoryUri), cancellationToken);
-
     private async Task CreateDirectory(Uri directoryUri, CancellationToken cancellationToken)
     {
-        await using (await LockPath(directoryUri, cancellationToken))
+        var directoriesToCreate = new Stack<Uri>();
+
+        while (!_storageBaseUri.Equals(directoryUri))
         {
-            var directoriesToCreate = new Stack<Uri>();
-
-            while (!storageBaseUri.Equals(directoryUri))
+            if (await DirectoryExists(directoryUri, cancellationToken))
             {
-                if (await DirectoryExists(directoryUri, cancellationToken))
-                {
-                    break;
-                }
-
-                directoriesToCreate.Push(directoryUri);
-                directoryUri = GetParentUri(directoryUri);
+                break;
             }
 
-            foreach (var directory in directoriesToCreate)
+            directoriesToCreate.Push(directoryUri);
+            directoryUri = GetParentUri(directoryUri);
+        }
+
+        foreach (var directory in directoriesToCreate)
+        {
+            EnsureSuccessStatusCode(await _webDavClient.Mkcol(directory, new()
             {
-                EnsureSuccessStatusCode(await webDavClient.Mkcol(directory, new()
-                {
-                    CancellationToken = cancellationToken
-                }));
-            }
+                CancellationToken = cancellationToken
+            }));
         }
     }
 
     private async Task DeleteEmptyDirectories(Uri directoryUri, CancellationToken cancellationToken)
     {
-        await using (await LockPath(directoryUri, cancellationToken))
+        await using var _ = await _lockProvider.AcquireAsync(cancellationToken);
+
+        while (!_storageBaseUri.Equals(directoryUri))
         {
-            while (!storageBaseUri.Equals(directoryUri))
+            var response = await _webDavClient.Propfind(directoryUri, new()
             {
-                var response = await webDavClient.Propfind(directoryUri, new()
-                {
-                    ApplyTo = ApplyTo.Propfind.ResourceAndChildren,
-                    RequestType = PropfindRequestType.NamedProperties,
-                    Namespaces = [new("d", "DAV:")],
-                    CustomProperties = [XName.Get("resourcetype", "DAV:")],
-                    CancellationToken = cancellationToken
-                });
+                ApplyTo = ApplyTo.Propfind.ResourceAndChildren,
+                RequestType = PropfindRequestType.NamedProperties,
+                Namespaces = [new("d", "DAV:")],
+                CustomProperties = [XName.Get("resourcetype", "DAV:")],
+                CancellationToken = cancellationToken
+            });
 
-                if (!NotFound(response))
-                {
-                    EnsureSuccessStatusCode(response);
+            if (!NotFound(response))
+            {
+                EnsureSuccessStatusCode(response);
 
-                    if (response.Resources.Count == 1)
+                if (response.Resources.Count == 1)
+                {
+                    EnsureSuccessStatusCode(await _webDavClient.Delete(directoryUri, new()
                     {
-                        EnsureSuccessStatusCode(await webDavClient.Delete(directoryUri, new()
-                        {
-                            CancellationToken = cancellationToken
-                        }));
-                    }
-                    else
-                    {
-                        return;
-                    }
+                        CancellationToken = cancellationToken
+                    }));
                 }
-
-                directoryUri = GetParentUri(directoryUri);
+                else
+                {
+                    return;
+                }
             }
+
+            directoryUri = GetParentUri(directoryUri);
         }
     }
 

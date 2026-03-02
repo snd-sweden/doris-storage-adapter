@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 
 namespace DorisStorageAdapter.Services.Implementation.Storage;
 
-internal interface IStoragePathLock
+internal interface IStorageLockProvider
 {
-    ValueTask<IAsyncDisposable> LockPath(string path, CancellationToken cancellationToken);
+    ValueTask<IAsyncDisposable> AcquireAsync(CancellationToken cancellationToken);
 }
