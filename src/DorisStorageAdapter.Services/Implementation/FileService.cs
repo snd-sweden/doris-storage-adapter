@@ -23,12 +23,14 @@ namespace DorisStorageAdapter.Services.Implementation;
 
 internal sealed class FileService(
     IStorageService storageService,
-    ILockService lockService,
+    ILockProvider lockProvider,
+    IReaderWriterLockProvider readerWriterLockProvider,
     IBagProvider bagProvider,
     IOptions<StorageConfiguration> storageConfiguration) : IFileService
 {
     private readonly IStorageService _storageService = storageService;
-    private readonly ILockService _lockService = lockService;
+    private readonly ILockProvider _lockProvider = lockProvider;
+    private readonly IReaderWriterLockProvider _readerWriterLockProvider = readerWriterLockProvider;
     private readonly IBagProvider _bagProvider = bagProvider;
     private readonly StorageConfiguration _storageConfiguration = storageConfiguration.Value;
 
@@ -47,38 +49,24 @@ internal sealed class FileService(
         Validation.ThrowIfInvalidDatasetVersion(datasetVersion);
 
         filePath = GetFilePathOrThrow(type, filePath);
-        FileMetadata? result = default;
 
-        bool lockSuccessful = false;
-        await _lockService.TryLockDatasetVersionShared(datasetVersion, async () =>
-        {
-            var bag = _bagProvider.Create(datasetVersion);
-            string fullFilePath = bag.Path + filePath;
+        await using var readLock = await TryAcquireReadLockAsync(datasetVersion, cancellationToken);
 
-            lockSuccessful = await _lockService.TryLockPath(fullFilePath, async () =>
-            {          
-                await ThrowIfHasBeenPublished(bag, cancellationToken);
+        var bag = _bagProvider.Create(datasetVersion);
+        string fullFilePath = bag.Path + filePath;
 
-                result = await StoreImpl(
-                    bag,
-                    type,
-                    filePath,
-                    data,
-                    size,
-                    contentType,
-                    cancellationToken);
-            },
+        await using var fileLock = await TryAcquireFileLockAsync(fullFilePath, cancellationToken);
+
+        await ThrowIfHasBeenPublished(bag, cancellationToken);
+
+        return await StoreImpl(
+            bag,
+            type,
+            filePath,
+            data,
+            size,
+            contentType,
             cancellationToken);
-
-        },
-        cancellationToken);
-
-        if (!lockSuccessful)
-        {
-            throw new ConflictException();
-        }
-
-        return result!;
     }
 
     private async Task<FileMetadata> StoreImpl(
@@ -184,25 +172,15 @@ internal sealed class FileService(
 
         filePath = GetFilePathOrThrow(type, filePath);
 
-        bool lockSuccessful = false;
-        await _lockService.TryLockDatasetVersionShared(datasetVersion, async () =>
-        {
-            var bag = _bagProvider.Create(datasetVersion);
-            string fullFilePath = bag.Path + filePath;
+        await using var readLock = await TryAcquireReadLockAsync(datasetVersion, cancellationToken);
 
-            lockSuccessful = await _lockService.TryLockPath(fullFilePath, async () =>
-            {
-                await ThrowIfHasBeenPublished(bag, cancellationToken);
-                await DeleteImpl(bag, filePath, cancellationToken);
-            },
-            cancellationToken);
-        },
-        cancellationToken);
+        var bag = _bagProvider.Create(datasetVersion);
+        string fullFilePath = bag.Path + filePath;
 
-        if (!lockSuccessful)
-        {
-            throw new ConflictException();
-        }
+        await using var fileLock = await TryAcquireFileLockAsync(fullFilePath, cancellationToken);
+
+        await ThrowIfHasBeenPublished(bag, cancellationToken);
+        await DeleteImpl(bag, filePath, cancellationToken);
     }
 
     private async Task DeleteImpl(
@@ -239,27 +217,20 @@ internal sealed class FileService(
 
         var bag = _bagProvider.Create(datasetVersion);
         var fromBag = _bagProvider.Create(fromDatasetVersion);
-     
+
         if (!await fromBag.HasBeenPublished(cancellationToken))
         {
             // fromVersion is not published, do nothing.
             return;
         }
 
-        bool lockSuccessful = await _lockService.TryLockDatasetVersionExclusive(datasetVersion, async () =>
-        {
-            await ThrowIfHasBeenPublished(bag, cancellationToken);
-            await ImportImpl(
-                bag,
-                fromBag,
-                cancellationToken);
-        },
-        cancellationToken);
+        await using var writeLock = await TryAcquireWriteLockAsync(datasetVersion, cancellationToken);
 
-        if (!lockSuccessful)
-        {
-            throw new ConflictException();
-        }
+        await ThrowIfHasBeenPublished(bag, cancellationToken);
+        await ImportImpl(
+            bag,
+            fromBag,
+            cancellationToken);
     }
 
     private static async Task ImportImpl(
@@ -441,7 +412,7 @@ internal sealed class FileService(
         Validation.ThrowIfInvalidDatasetVersion(datasetVersion);
 
         var bag = _bagProvider.Create(datasetVersion);
- 
+
         var accessibleFileTypes = await GetAccessibleFileTypes(
            bag, allowDraft, cancellationToken);
 
@@ -641,7 +612,7 @@ internal sealed class FileService(
     {
         // This method assumes that there is no exlusive lock on datasetVersion
 
-        await using (await _lockService.LockPath(bag.Path + T.FileName, cancellationToken))
+        await using (await _lockProvider.AcquireAsync(bag.Path + T.FileName, cancellationToken))
         {
             var element = await bag.LoadBagItElement<T>(cancellationToken);
 
@@ -651,4 +622,24 @@ internal sealed class FileService(
             }
         }
     }
+
+    private async ValueTask<IAsyncDisposable> TryAcquireReadLockAsync(
+      DatasetVersion datasetVersion,
+      CancellationToken cancellationToken) =>
+      await _readerWriterLockProvider.TryAcquireReadLockAsync(
+          "datasetVersion:" + datasetVersion.Identifier + "-" + datasetVersion.Version,
+          cancellationToken) ?? throw new ConflictException();
+
+    private async ValueTask<IAsyncDisposable> TryAcquireWriteLockAsync(
+      DatasetVersion datasetVersion,
+      CancellationToken cancellationToken) =>
+      await _readerWriterLockProvider.TryAcquireWriteLockAsync(
+          "datasetVersion:" + datasetVersion.Identifier + "-" + datasetVersion.Version,
+          cancellationToken) ?? throw new ConflictException();
+
+    private async ValueTask<IAsyncDisposable> TryAcquireFileLockAsync(
+     string path,
+     CancellationToken cancellationToken) =>
+     await _lockProvider.TryAcquireAsync(path, cancellationToken) ??
+        throw new ConflictException();
 }

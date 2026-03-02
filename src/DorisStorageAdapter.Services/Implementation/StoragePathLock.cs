@@ -6,10 +6,10 @@ using System.Threading.Tasks;
 
 namespace DorisStorageAdapter.Services.Implementation;
 
-internal sealed class StoragePathLock(ILockService lockService) : IStoragePathLock
+internal sealed class StoragePathLock(ILockProvider lockProvider) : IStoragePathLock
 {
-    private readonly ILockService lockService = lockService;
+    private readonly ILockProvider _lockProvider = lockProvider;
 
     public ValueTask<IAsyncDisposable> LockPath(string path, CancellationToken cancellationToken) =>
-        lockService.LockPath(path, cancellationToken);
+        _lockProvider.AcquireAsync(path, cancellationToken);
 }

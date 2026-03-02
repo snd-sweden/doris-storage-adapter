@@ -21,11 +21,11 @@ using System.Threading.Tasks;
 namespace DorisStorageAdapter.Services.Implementation;
 
 internal sealed class StatusService(
-    ILockService lockService,
+    IReaderWriterLockProvider lockProvider,
     IBagProvider bagProvider,
     IOptions<StorageConfiguration> storageConfiguration) : IStatusService
 {
-    private readonly ILockService _lockService = lockService;
+    private readonly IReaderWriterLockProvider _lockProvider = lockProvider;
     private readonly IBagProvider _bagProvider = bagProvider;
     private readonly StorageConfiguration _storageConfiguration = storageConfiguration.Value;
 
@@ -50,16 +50,14 @@ internal sealed class StatusService(
 
         var bag = _bagProvider.Create(datasetVersion);
 
-        await ExecuteWithLock(datasetVersion, async () =>
-        {
-            if (await bag.HasBeenPublished(cancellationToken))
-            {
-                throw new DatasetStatusException();
-            }
+        await using var writeLock = await TryAcquireWriteLockAsync(datasetVersion, cancellationToken);
 
-            await PublishImpl(datasetVersion, bag, accessRight, canonicalDoi, doi, cancellationToken);
-        },
-        cancellationToken);
+        if (await bag.HasBeenPublished(cancellationToken))
+        {
+            throw new DatasetStatusException();
+        }
+
+        await PublishImpl(datasetVersion, bag, accessRight, canonicalDoi, doi, cancellationToken);
     }
 
     private async Task PublishImpl(
@@ -275,16 +273,14 @@ internal sealed class StatusService(
 
         var bag = _bagProvider.Create(datasetVersion);
 
-        await ExecuteWithLock(datasetVersion, async () =>
-        {
-            if (!await bag.HasBeenPublished(cancellationToken))
-            {
-                throw new DatasetStatusException();
-            }
+        await using var writeLock = await TryAcquireWriteLockAsync(datasetVersion, cancellationToken);
 
-            await SetStatusImpl(bag, status, cancellationToken);
-        },
-        cancellationToken);
+        if (!await bag.HasBeenPublished(cancellationToken))
+        {
+            throw new DatasetStatusException();
+        }
+
+        await SetStatusImpl(bag, status, cancellationToken);
     }
 
     private static async Task SetStatusImpl(
@@ -314,16 +310,10 @@ internal sealed class StatusService(
         await bag.StoreBagItElement(tagManifest, CancellationToken.None);
     }
 
-    private async Task ExecuteWithLock(
+    private async ValueTask<IAsyncDisposable> TryAcquireWriteLockAsync(
         DatasetVersion datasetVersion,
-        Func<Task> task,
-        CancellationToken cancellationToken)
-    {
-        bool lockSuccessful = await _lockService.TryLockDatasetVersionExclusive(datasetVersion, task, cancellationToken);
-
-        if (!lockSuccessful)
-        {
-            throw new ConflictException();
-        }
-    }
+        CancellationToken cancellationToken) =>
+        await _lockProvider.TryAcquireWriteLockAsync(
+            "datasetVersion:" + datasetVersion.Identifier + "-" + datasetVersion.Version,
+            cancellationToken) ?? throw new ConflictException();
 }

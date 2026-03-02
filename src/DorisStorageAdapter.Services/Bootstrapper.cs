@@ -24,7 +24,6 @@ public static class Bootstrapper
 
         services.AddSingleton<ILockProvider, InProcessLockProvider>();
         services.AddSingleton<IReaderWriterLockProvider, InProcessReaderWriterLockProvider>();
-        services.AddSingleton<ILockService, InProcessLockService>();
         services.AddTransient<IStatusService, StatusService>();
         services.AddTransient<IFileService, FileService>();
         services.AddTransient<IBagProvider, BagProvider>();
