@@ -84,7 +84,7 @@ internal abstract class BagItManifest<T> where T : BagItManifest<T>, new()
 
     public bool HasValues() => Items.Any();
 
-    public static async Task<T> Parse(Stream stream, CancellationToken cancellationToken)
+    public static async Task<T> ParseAsync(Stream stream, CancellationToken cancellationToken)
     {
         var result = new T();
 

@@ -26,7 +26,7 @@ public sealed class DownloadsController(
     private readonly AuthorizationConfiguration authorizationConfiguration = authorizationConfiguration.Value;
 
     private const string corsPrefix = nameof(DownloadsController) + "_";
-    public const string downloadPublicFileCorsPolicyName = corsPrefix + nameof(DownloadPublicFile);
+    public const string downloadPublicFileCorsPolicyName = corsPrefix + nameof(DownloadPublicFileAsync);
     public const string downloadPublicFilesAsZipCorsPolicyName = corsPrefix + nameof(DownloadPublicFilesAsZip);
 
     [HttpHead("downloads/draft/{identifier}/{version}/{type}/{**filePath}")]
@@ -39,7 +39,7 @@ public sealed class DownloadsController(
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(void), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(void), StatusCodes.Status404NotFound)]
-    public async Task<Results<FileStreamHttpResult, ForbidHttpResult, NotFound>> DownloadDraftFile(
+    public async Task<Results<FileStreamHttpResult, ForbidHttpResult, NotFound>> DownloadDraftFileAsync(
         string identifier,
         string version,
         FileType type,
@@ -58,7 +58,7 @@ public sealed class DownloadsController(
             return TypedResults.Forbid();
         }
 
-        var result = await GetData(datasetVersion, type, filePath, true, cancellationToken);
+        var result = await GetDataAsync(datasetVersion, type, filePath, true, cancellationToken);
 
         if (result == null)
         {
@@ -76,7 +76,7 @@ public sealed class DownloadsController(
     [ProducesResponseType(typeof(void), StatusCodes.Status416RangeNotSatisfiable)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
     [ProducesResponseType(typeof(void), StatusCodes.Status404NotFound)]
-    public async Task<Results<FileStreamHttpResult, NotFound>> DownloadPublicFile(
+    public async Task<Results<FileStreamHttpResult, NotFound>> DownloadPublicFileAsync(
        string identifier,
        string version,
        FileType type,
@@ -85,7 +85,7 @@ public sealed class DownloadsController(
     {
         var datasetVersion = new DatasetVersion(identifier, version);
 
-        var result = await GetData(datasetVersion, type, filePath, false, cancellationToken);
+        var result = await GetDataAsync(datasetVersion, type, filePath, false, cancellationToken);
 
         if (result == null)
         {
@@ -137,7 +137,7 @@ public sealed class DownloadsController(
         return WriteDataAsZip(datasetVersion, path, false, cancellationToken);
     }
 
-    private async Task<FileStreamHttpResult?> GetData(
+    private async Task<FileStreamHttpResult?> GetDataAsync(
         DatasetVersion datasetVersion,
         FileType type,
         string filePath,
@@ -158,7 +158,7 @@ public sealed class DownloadsController(
             return null;
         }
 
-        var data = await fileService.GetData(
+        var data = await fileService.GetDataAsync(
             datasetVersion: datasetVersion,
             type: type,
             filePath: filePath,
@@ -197,7 +197,7 @@ public sealed class DownloadsController(
         CancellationToken cancellationToken)
     {
         return TypedResults.Stream(_ =>
-           fileService.WriteDataAsZip(
+           fileService.WriteDataAsZipAsync(
                datasetVersion: datasetVersion,
                paths: paths,
                stream: Response.BodyWriter.AsStream(),

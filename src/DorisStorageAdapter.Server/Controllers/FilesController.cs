@@ -24,7 +24,7 @@ public sealed class FilesController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(void), StatusCodes.Status403Forbidden)]
-    public async Task<Results<Ok, ForbidHttpResult>> Import(
+    public async Task<Results<Ok, ForbidHttpResult>> ImportAsync(
         string identifier,
         string version,
         [FromQuery, BindRequired] string fromVersion,
@@ -37,7 +37,7 @@ public sealed class FilesController(
             return TypedResults.Forbid();
         }
 
-        await fileService.Import(datasetVersion, fromVersion, cancellationToken);
+        await fileService.ImportAsync(datasetVersion, fromVersion, cancellationToken);
 
         return TypedResults.Ok();
     }
@@ -55,9 +55,9 @@ public sealed class FilesController(
     {
         var datasetVersion = new DatasetVersion(identifier, version);
 
-        async IAsyncEnumerable<File> List()
+        async IAsyncEnumerable<File> ListAsync()
         {
-            await foreach (var file in fileService.List(datasetVersion, cancellationToken))
+            await foreach (var file in fileService.ListAsync(datasetVersion, cancellationToken))
             {
                 yield return Models.File.FromFileMetadata(file);
             }
@@ -68,6 +68,6 @@ public sealed class FilesController(
             return TypedResults.Forbid();
         }
 
-        return TypedResults.Ok(List());
+        return TypedResults.Ok(ListAsync());
     }
 }

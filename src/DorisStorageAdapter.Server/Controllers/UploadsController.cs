@@ -20,8 +20,8 @@ public sealed class UploadsController(
     private readonly IFileService fileService = fileService;
 
     private const string corsPrefix = nameof(UploadsController) + "_";
-    public const string uploadCorsPolicyName = corsPrefix + nameof(Upload);
-    public const string deleteCorsPolicyName = corsPrefix + nameof(Delete);
+    public const string uploadCorsPolicyName = corsPrefix + nameof(UploadAsync);
+    public const string deleteCorsPolicyName = corsPrefix + nameof(DeleteAsync);
 
     [HttpPut("uploads/{identifier}/{version}/{type}/{**filePath}")]
     [Authorize(Roles = Roles.WriteDraftFiles)]
@@ -37,7 +37,7 @@ public sealed class UploadsController(
     [ProducesResponseType(typeof(void), StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, MediaTypeNames.Application.ProblemJson)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status411LengthRequired, MediaTypeNames.Application.ProblemJson)]
-    public async Task<Results<Ok<File>, ForbidHttpResult, ProblemHttpResult>> Upload(
+    public async Task<Results<Ok<File>, ForbidHttpResult, ProblemHttpResult>> UploadAsync(
         string identifier,
         string version,
         FileType type,
@@ -56,7 +56,7 @@ public sealed class UploadsController(
             return TypedResults.Problem("Missing Content-Length.", statusCode: 411);
         }
 
-        var result = await fileService.Store(
+        var result = await fileService.StoreAsync(
             datasetVersion: datasetVersion,
             type: type,
             filePath: filePath,
@@ -76,7 +76,7 @@ public sealed class UploadsController(
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(void), StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, MediaTypeNames.Application.ProblemJson)]
-    public async Task<Results<Ok, ForbidHttpResult>> Delete(
+    public async Task<Results<Ok, ForbidHttpResult>> DeleteAsync(
         string identifier,
         string version,
         FileType type,
@@ -90,7 +90,7 @@ public sealed class UploadsController(
             return TypedResults.Forbid();
         }
 
-        await fileService.Delete(datasetVersion, type, filePath, cancellationToken);
+        await fileService.DeleteAsync(datasetVersion, type, filePath, cancellationToken);
 
         return TypedResults.Ok();
     }

@@ -10,7 +10,7 @@ internal sealed class InMemoryStorageService(InMemoryStorage storage) : IStorage
 {
     private readonly InMemoryStorage storage = storage;
 
-    public async Task<StorageFileBaseMetadata> Store(
+    public async Task<StorageFileBaseMetadata> StoreAsync(
         string filePath,
         Stream data,
         long size,
@@ -26,7 +26,7 @@ internal sealed class InMemoryStorageService(InMemoryStorage storage) : IStorage
             .Metadata;
     }
 
-    public Task Delete(string filePath, CancellationToken cancellationToken)
+    public Task DeleteAsync(string filePath, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -34,7 +34,7 @@ internal sealed class InMemoryStorageService(InMemoryStorage storage) : IStorage
         return Task.CompletedTask;
     }
 
-    public Task<StorageFileMetadata?> GetMetadata(string filePath, CancellationToken cancellationToken)
+    public Task<StorageFileMetadata?> GetMetadataAsync(string filePath, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -46,7 +46,7 @@ internal sealed class InMemoryStorageService(InMemoryStorage storage) : IStorage
         return Task.FromResult<StorageFileMetadata?>(null);
     }
 
-    public Task<StorageFileData?> GetData(string filePath, StorageByteRange? byteRange, CancellationToken cancellationToken)
+    public Task<StorageFileData?> GetDataAsync(string filePath, StorageByteRange? byteRange, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -70,7 +70,7 @@ internal sealed class InMemoryStorageService(InMemoryStorage storage) : IStorage
     }
 
 #pragma warning disable CS1998 // This async method lacks 'await'
-    public async IAsyncEnumerable<StorageFileMetadata> List(
+    public async IAsyncEnumerable<StorageFileMetadata> ListAsync(
         string path,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {

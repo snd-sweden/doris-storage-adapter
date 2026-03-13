@@ -10,7 +10,7 @@ internal interface IBagItElement<T> where T : IBagItElement<T>
 
     bool HasValues();
 
-    static abstract Task<T> Parse(Stream stream, CancellationToken cancellationToken);
+    static abstract Task<T> ParseAsync(Stream stream, CancellationToken cancellationToken);
 
     byte[] Serialize();
 }

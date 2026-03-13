@@ -48,7 +48,7 @@ internal sealed class BagItFetch : IBagItElement<BagItFetch>
 
     public bool HasValues() => Items.Any();
 
-    public static async Task<BagItFetch> Parse(Stream stream, CancellationToken cancellationToken)
+    public static async Task<BagItFetch> ParseAsync(Stream stream, CancellationToken cancellationToken)
     {
         var result = new BagItFetch();
 

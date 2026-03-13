@@ -3,7 +3,7 @@ using DorisStorageAdapter.Services.Contract.Models;
 using DorisStorageAdapter.Services.Implementation.Configuration;
 using Microsoft.Extensions.Options;
 
-namespace DorisStorageAdapter.Services.Implementation;
+namespace DorisStorageAdapter.Services.Implementation.Services;
 
 internal sealed class SystemService(
     IOptions<StorageConfiguration> storageConfiguration) : ISystemService

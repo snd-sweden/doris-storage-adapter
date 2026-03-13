@@ -4,7 +4,7 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace DorisStorageAdapter.Services.Implementation;
+namespace DorisStorageAdapter.Services.Implementation.Services.Bags;
 
 /// <summary>
 /// A stream that wraps another stream and calculates the number of bytes read,

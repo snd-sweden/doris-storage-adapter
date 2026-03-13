@@ -2,7 +2,7 @@
 using DorisStorageAdapter.Services.Contract.Models;
 using System;
 
-namespace DorisStorageAdapter.Services.Implementation;
+namespace DorisStorageAdapter.Services.Implementation.Services;
 
 internal static class Validation
 {

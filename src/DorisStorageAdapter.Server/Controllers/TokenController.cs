@@ -21,12 +21,12 @@ public sealed class TokenController(IJwtService jwtService, IConfiguration confi
     private readonly IConfiguration configuration = configuration;
 
     [HttpPost("dev/token/{identifier}/{version}")]
-    public Task<string> CreateDataAccessToken(string identifier, string version, [FromQuery] string role)
+    public Task<string> CreateDataAccessTokenAsync(string identifier, string version, [FromQuery] string role)
     {
-        return CreateToken(identifier, version, role);
+        return CreateTokenAsync(identifier, version, role);
     }
 
-    private async Task<string> CreateToken(string identifier, string version, string role)
+    private async Task<string> CreateTokenAsync(string identifier, string version, string role)
     {
         var key = await jwtService.GetCurrentSigningCredentials();
         var publicUrl = configuration.Get<GeneralConfiguration>()!.PublicUrl;

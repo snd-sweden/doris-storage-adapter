@@ -2,7 +2,7 @@
 using System.Linq;
 using DorisStorageAdapter.Services.Implementation.BagIt.Info;
 
-namespace DorisStorageAdapter.Services.Implementation;
+namespace DorisStorageAdapter.Services.Implementation.Services.Bags;
 
 internal static class BagItInfoExtensions
 {

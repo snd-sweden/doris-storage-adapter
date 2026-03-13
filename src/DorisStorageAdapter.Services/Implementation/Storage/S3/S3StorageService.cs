@@ -21,7 +21,7 @@ internal sealed class S3StorageService(
     private readonly IAmazonS3 client = client;
     private readonly S3StorageServiceConfiguration configuration = configuration.Value;
 
-    public async Task<StorageFileBaseMetadata> Store(
+    public async Task<StorageFileBaseMetadata> StoreAsync(
         string filePath,
         Stream data,
         long size,
@@ -72,7 +72,7 @@ internal sealed class S3StorageService(
             DateModified: DateTime.UtcNow);
     }
 
-    public async Task Delete(string filePath, CancellationToken cancellationToken)
+    public async Task DeleteAsync(string filePath, CancellationToken cancellationToken)
     {
         await client.DeleteObjectAsync(new()
         {
@@ -82,7 +82,7 @@ internal sealed class S3StorageService(
         cancellationToken);
     }
 
-    public async Task<StorageFileMetadata?> GetMetadata(string filePath, CancellationToken cancellationToken)
+    public async Task<StorageFileMetadata?> GetMetadataAsync(string filePath, CancellationToken cancellationToken)
     {
         try
         {
@@ -111,7 +111,7 @@ internal sealed class S3StorageService(
         }
     }
 
-    public async Task<StorageFileData?> GetData(string filePath, StorageByteRange? byteRange, CancellationToken cancellationToken)
+    public async Task<StorageFileData?> GetDataAsync(string filePath, StorageByteRange? byteRange, CancellationToken cancellationToken)
     {
         try
         {
@@ -185,7 +185,7 @@ internal sealed class S3StorageService(
         }
     }
 
-    public async IAsyncEnumerable<StorageFileMetadata> List(
+    public async IAsyncEnumerable<StorageFileMetadata> ListAsync(
         string path,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {

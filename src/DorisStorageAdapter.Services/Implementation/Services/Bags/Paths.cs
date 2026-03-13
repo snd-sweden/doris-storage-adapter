@@ -2,7 +2,7 @@
 using System;
 using System.Linq;
 
-namespace DorisStorageAdapter.Services.Implementation;
+namespace DorisStorageAdapter.Services.Implementation.Services.Bags;
 
 internal static class Paths
 {
@@ -11,7 +11,13 @@ internal static class Paths
     // Används för att lägga till och strippa bort "data/"
     // och för att få ut typ från sökväg
     public static string GetPayloadPath(FileType? type) =>
-       "data/" + (type == null ? "" : type.ToString() + '/');
+        type switch
+        {
+            FileType.data => "data/data/",
+            FileType.documentation => "data/documentation/",
+            _ => "data/"
+        };
+       
 
     // Används endast internt
     private static string GetDatasetPath(DatasetVersion datasetVersion)
@@ -45,12 +51,31 @@ internal static class Paths
     public static string GetDatasetVersionPath(DatasetVersion datasetVersion) =>
         GetDatasetPath(datasetVersion) + datasetVersion.Identifier + '-' + datasetVersion.Version + '/';
 
-    // ListFiles, GetActualFilePath, CheckValidBag
-    public static (string VersionPath, string FilePath) ParseFetchUrl(string url)
-    {
-        string path = Uri.UnescapeDataString(url[3..]);
-        int index = path.IndexOf('/', StringComparison.Ordinal) + 1;
+    public static string ToPathInBag(FileType type, string filePath) =>
+        GetPayloadPath(type) + filePath;
 
-        return (path[index..], path[..index]);
+    public static (FileType Type, string FilePath) FromPathInBag(string pathInBag)
+    {
+        if (pathInBag.StartsWith(GetPayloadPath(FileType.data), StringComparison.Ordinal))
+        {
+            return (FileType.data, pathInBag[GetPayloadPath(FileType.data).Length..]);
+        }
+
+        if (pathInBag.StartsWith(GetPayloadPath(FileType.documentation), StringComparison.Ordinal))
+        {
+            return (FileType.documentation, pathInBag[GetPayloadPath(FileType.documentation).Length..]);
+        }
+
+        throw new ArgumentException("Not a valid bag path.", nameof(pathInBag));
+    }
+
+    public static (string BagStoragePath, string PathInBag) ResolveFetchUrl(string bagGroupStoragePath, string fetchUrl)
+    {
+        string path = Uri.UnescapeDataString(fetchUrl[3..]);
+        int index = path.IndexOf('/', StringComparison.Ordinal) + 1;
+        string versionPath = path[..index];
+        string pathInBag = path[index..];
+
+        return (bagGroupStoragePath + versionPath, pathInBag);
     }
 }

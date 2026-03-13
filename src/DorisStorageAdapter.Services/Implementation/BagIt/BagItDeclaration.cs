@@ -14,7 +14,7 @@ internal sealed class BagItDeclaration : IBagItElement<BagItDeclaration>
 
     public static string FileName => "bagit.txt";
 
-    public static Task<BagItDeclaration> Parse(Stream stream, CancellationToken cancellationToken) => Task.FromResult(Instance);
+    public static Task<BagItDeclaration> ParseAsync(Stream stream, CancellationToken cancellationToken) => Task.FromResult(Instance);
 
     public bool HasValues() => true;
 

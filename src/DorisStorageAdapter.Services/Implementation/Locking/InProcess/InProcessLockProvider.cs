@@ -3,7 +3,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace DorisStorageAdapter.Services.Implementation.Lock.InProcess;
+namespace DorisStorageAdapter.Services.Implementation.Locking.InProcess;
 
 internal sealed class InProcessLockProvider : ILockProvider, IDisposable
 {

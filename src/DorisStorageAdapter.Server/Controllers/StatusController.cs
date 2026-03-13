@@ -23,7 +23,7 @@ public sealed class StatusController(IStatusService service) : BaseController
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(void), StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, MediaTypeNames.Application.ProblemJson)]
-    public async Task<Results<Ok, ForbidHttpResult>> Publish(
+    public async Task<Results<Ok, ForbidHttpResult>> PublishAsync(
         string identifier,
         string version,
         [FromForm(Name = "access_right")] AccessRight accessRight,
@@ -33,12 +33,12 @@ public sealed class StatusController(IStatusService service) : BaseController
     {
         var datasetVersion = new DatasetVersion(identifier, version);
 
-        /*if (!CheckClaims(datasetVersion))
+        if (!CheckClaims(datasetVersion))
         {
             return TypedResults.Forbid();
-        }*/
+        }
 
-        await service.Publish(datasetVersion, accessRight, canonicalDoi, doi, cancellationToken);
+        await service.PublishAsync(datasetVersion, accessRight, canonicalDoi, doi, cancellationToken);
 
         return TypedResults.Ok();
     }
@@ -51,7 +51,7 @@ public sealed class StatusController(IStatusService service) : BaseController
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(void), StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, MediaTypeNames.Application.ProblemJson)]
-    public async Task<Results<Ok, ForbidHttpResult>> SetStatus(
+    public async Task<Results<Ok, ForbidHttpResult>> SetStatusAsync(
         string identifier, 
         string version,
         [FromForm] DatasetVersionStatus status,
@@ -64,7 +64,7 @@ public sealed class StatusController(IStatusService service) : BaseController
             return TypedResults.Forbid();
         }
 
-        await service.SetStatus(datasetVersion, status, cancellationToken);
+        await service.SetStatusAsync(datasetVersion, status, cancellationToken);
 
         return TypedResults.Ok();
     }

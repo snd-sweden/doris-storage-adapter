@@ -6,14 +6,14 @@ namespace DorisStorageAdapter.Services.Contract;
 
 public interface IStatusService
 {
-    Task Publish(
+    Task PublishAsync(
         DatasetVersion datasetVersion, 
         AccessRight accessRight, 
         string canonicalDoi, 
         string doi, 
         CancellationToken cancellationToken);
 
-    Task SetStatus(
+    Task SetStatusAsync(
         DatasetVersion datasetVersion,
         DatasetVersionStatus status,
         CancellationToken cancellationToken);

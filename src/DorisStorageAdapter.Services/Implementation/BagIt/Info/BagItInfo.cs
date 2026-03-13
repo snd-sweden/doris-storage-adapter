@@ -251,7 +251,7 @@ internal sealed class BagItInfo : IBagItElement<BagItInfo>
 
     public static string FileName => "bag-info.txt";
 
-    public static async Task<BagItInfo> Parse(Stream stream, CancellationToken cancellationToken)
+    public static async Task<BagItInfo> ParseAsync(Stream stream, CancellationToken cancellationToken)
     {
         var result = new BagItInfo();
 

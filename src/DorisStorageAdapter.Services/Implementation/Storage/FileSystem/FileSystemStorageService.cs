@@ -34,7 +34,7 @@ internal sealed class FileSystemStorageService(
     private readonly string _basePath = Path.GetFullPath(configuration.Value.BasePath);
     private readonly string _tempFilePath = Path.GetFullPath(configuration.Value.TempFilePath);
 
-    public async Task<StorageFileBaseMetadata> Store(
+    public async Task<StorageFileBaseMetadata> StoreAsync(
         string filePath,
         Stream data,
         long size,
@@ -88,7 +88,7 @@ internal sealed class FileSystemStorageService(
 
             try
             {
-                await DeleteEmptyDirectories(directoryPath, CancellationToken.None);
+                await DeleteEmptyDirectoriesAsync(directoryPath, CancellationToken.None);
             }
 #pragma warning disable CA1031 // Do not catch general exception types
             catch { }
@@ -116,7 +116,7 @@ internal sealed class FileSystemStorageService(
             DateModified: dateModified ?? DateTime.UtcNow);
     }
 
-    public async Task Delete(string filePath, CancellationToken cancellationToken)
+    public async Task DeleteAsync(string filePath, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -134,7 +134,7 @@ internal sealed class FileSystemStorageService(
         try
         {
             // Delete any empty subdirectories that result from deleting the file.
-            await DeleteEmptyDirectories(Path.GetDirectoryName(filePath)!, CancellationToken.None);
+            await DeleteEmptyDirectoriesAsync(Path.GetDirectoryName(filePath)!, CancellationToken.None);
         }
 #pragma warning disable CA1031 // Do not catch general exception types
         catch
@@ -145,7 +145,7 @@ internal sealed class FileSystemStorageService(
 #pragma warning restore CA1031
     }
 
-    public Task<StorageFileMetadata?> GetMetadata(string filePath, CancellationToken cancellationToken)
+    public Task<StorageFileMetadata?> GetMetadataAsync(string filePath, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -160,7 +160,7 @@ internal sealed class FileSystemStorageService(
         return Task.FromResult<StorageFileMetadata?>(null);
     }
 
-    public Task<StorageFileData?> GetData(string filePath, StorageByteRange? byteRange, CancellationToken cancellationToken)
+    public Task<StorageFileData?> GetDataAsync(string filePath, StorageByteRange? byteRange, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -219,7 +219,7 @@ internal sealed class FileSystemStorageService(
     }
 
 #pragma warning disable CS1998 // This async method lacks 'await'
-    public async IAsyncEnumerable<StorageFileMetadata> List(
+    public async IAsyncEnumerable<StorageFileMetadata> ListAsync(
         string path,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
@@ -309,7 +309,7 @@ internal sealed class FileSystemStorageService(
             Path: NormalizePath(Path.GetRelativePath(_basePath, file.FullName)),
             Size: file.Length);
 
-    private async Task DeleteEmptyDirectories(string directoryPath, CancellationToken cancellationToken)
+    private async Task DeleteEmptyDirectoriesAsync(string directoryPath, CancellationToken cancellationToken)
     {
         await using var _ = await _lockProvider.AcquireAsync(cancellationToken);
 

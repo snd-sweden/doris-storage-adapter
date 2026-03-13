@@ -50,7 +50,7 @@ internal sealed class NextCloudStorageService : IStorageService
         _chunkedUploadBaseUri = GetUri(_configuration.BaseUrl, $"remote.php/dav/uploads/{_configuration.User}/");
     }
 
-    public async Task<StorageFileBaseMetadata> Store(
+    public async Task<StorageFileBaseMetadata> StoreAsync(
         string filePath,
         Stream data,
         long size,
@@ -62,7 +62,7 @@ internal sealed class NextCloudStorageService : IStorageService
         var fileUri = GetWebDavFileUri(filePath);
         var directoryUri = GetParentUri(fileUri);
 
-        async Task<long> DoUpload()
+        async Task<long> DoUploadAsync()
         {
             var tempFileUri = new Uri(_tmpFileBaseUri, Guid.NewGuid().ToString());
             var now = GetNow();
@@ -77,7 +77,7 @@ internal sealed class NextCloudStorageService : IStorageService
 
                 await using (await _lockProvider.AcquireAsync(cancellationToken))
                 {
-                    await CreateDirectory(directoryUri, cancellationToken);
+                    await CreateDirectoryAsync(directoryUri, cancellationToken);
 
                     EnsureSuccessStatusCode(await _webDavClient.Move(tempFileUri, fileUri, new()
                     {
@@ -106,7 +106,7 @@ internal sealed class NextCloudStorageService : IStorageService
             return now;
         }
 
-        async Task<long> DoChunkedUpload()
+        async Task<long> DoChunkedUploadAsync()
         {
             var uri = new Uri(_chunkedUploadBaseUri, "doris-storage-adapter-" + Guid.NewGuid().ToString() + '/');
             // Add Destination header to all calls to ensure the v2 version of NextCloud's chunked upload API is used.
@@ -146,7 +146,7 @@ internal sealed class NextCloudStorageService : IStorageService
 
                 await using (await _lockProvider.AcquireAsync(cancellationToken))
                 {
-                    await CreateDirectory(directoryUri, cancellationToken);
+                    await CreateDirectoryAsync(directoryUri, cancellationToken);
 
                     EnsureSuccessStatusCode(await _webDavClient.Move(new Uri(uri, ".file"), fileUri, new()
                     {
@@ -184,11 +184,11 @@ internal sealed class NextCloudStorageService : IStorageService
         {
             if (size > _configuration.ChunkedUploadThreshold)
             {
-                now = await DoChunkedUpload();
+                now = await DoChunkedUploadAsync();
             }
             else
             {
-                now = await DoUpload();
+                now = await DoUploadAsync();
             }
         }
         catch
@@ -196,7 +196,7 @@ internal sealed class NextCloudStorageService : IStorageService
             // Cancelled or failed, try to clean up.
             try
             {
-                await DeleteEmptyDirectories(directoryUri, CancellationToken.None);
+                await DeleteEmptyDirectoriesAsync(directoryUri, CancellationToken.None);
             }
 #pragma warning disable CA1031 // Do not catch general exception types
             catch { }
@@ -211,7 +211,7 @@ internal sealed class NextCloudStorageService : IStorageService
             DateModified: DateTimeOffset.FromUnixTimeSeconds(now).UtcDateTime);
     }
 
-    public async Task Delete(string filePath, CancellationToken cancellationToken)
+    public async Task DeleteAsync(string filePath, CancellationToken cancellationToken)
     {
         var fileUri = GetWebDavFileUri(filePath);
 
@@ -228,7 +228,7 @@ internal sealed class NextCloudStorageService : IStorageService
         try
         {
             // Delete any empty subdirectories that result from deleting the file.
-            await DeleteEmptyDirectories(GetParentUri(fileUri), CancellationToken.None);
+            await DeleteEmptyDirectoriesAsync(GetParentUri(fileUri), CancellationToken.None);
         }
 #pragma warning disable CA1031 // Do not catch general exception types
         catch
@@ -239,10 +239,10 @@ internal sealed class NextCloudStorageService : IStorageService
         }
     }
 
-    public async Task<StorageFileMetadata?> GetMetadata(string filePath, CancellationToken cancellationToken)
+    public async Task<StorageFileMetadata?> GetMetadataAsync(string filePath, CancellationToken cancellationToken)
     {
         var uri = GetWebDavFileUri(filePath);
-        var response = await DoPropfind(
+        var response = await DoPropfindAsync(
             uri,
             ApplyTo.Propfind.ResourceOnly,
             [
@@ -268,7 +268,7 @@ internal sealed class NextCloudStorageService : IStorageService
             Size: resource.ContentLength.GetValueOrDefault());
     }
 
-    public async Task<StorageFileData?> GetData(string filePath, StorageByteRange? byteRange, CancellationToken cancellationToken)
+    public async Task<StorageFileData?> GetDataAsync(string filePath, StorageByteRange? byteRange, CancellationToken cancellationToken)
     {
         IReadOnlyCollection<KeyValuePair<string, string>> headers =
             byteRange == null
@@ -299,7 +299,7 @@ internal sealed class NextCloudStorageService : IStorageService
             // NextCloud does not respond with valid Content-Range header,
             // resort to issuing a new request to get the length.
 
-            var propFindResponse = await DoPropfind(
+            var propFindResponse = await DoPropfindAsync(
                 uri,
                 ApplyTo.Propfind.ResourceOnly,
                 [_getContentLengthProperty],
@@ -333,12 +333,12 @@ internal sealed class NextCloudStorageService : IStorageService
             StreamLength: contentLength);
     }
 
-    public async IAsyncEnumerable<StorageFileMetadata> List(
+    public async IAsyncEnumerable<StorageFileMetadata> ListAsync(
         string path,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        Task<PropfindResponse> DoPropfind(Uri uri, CancellationToken cancellationToken) =>
-            this.DoPropfind(
+        Task<PropfindResponse> DoPropfindAsync(Uri uri, CancellationToken cancellationToken) =>
+            this.DoPropfindAsync(
                 uri,
                 ApplyTo.Propfind.ResourceAndAncestors,
                 [
@@ -349,7 +349,7 @@ internal sealed class NextCloudStorageService : IStorageService
                 cancellationToken);
 
         var baseUri = GetWebDavFileUri(path);
-        var response = await DoPropfind(baseUri, cancellationToken);
+        var response = await DoPropfindAsync(baseUri, cancellationToken);
 
         if (NotFound(response))
         {
@@ -362,7 +362,7 @@ internal sealed class NextCloudStorageService : IStorageService
             // Try with parent directory.
 
             baseUri = GetParentUri(baseUri);
-            response = await DoPropfind(baseUri, cancellationToken);
+            response = await DoPropfindAsync(baseUri, cancellationToken);
 
             if (NotFound(response))
             {
@@ -410,7 +410,7 @@ internal sealed class NextCloudStorageService : IStorageService
         return new(absoluteUri[..(absoluteUri.LastIndexOf('/') + 1)]);
     }
 
-    private Task<PropfindResponse> DoPropfind(
+    private Task<PropfindResponse> DoPropfindAsync(
         Uri uri,
         ApplyTo.Propfind applyTo,
         IReadOnlyCollection<XName> customProperties,
@@ -424,7 +424,7 @@ internal sealed class NextCloudStorageService : IStorageService
             CancellationToken = cancellationToken
         });
 
-    private async Task<bool> DirectoryExists(Uri uri, CancellationToken cancellationToken)
+    private async Task<bool> DirectoryExistsAsync(Uri uri, CancellationToken cancellationToken)
     {
         var response = await _webDavClient.Propfind(uri, new()
         {
@@ -447,13 +447,13 @@ internal sealed class NextCloudStorageService : IStorageService
             response.Resources.First().IsCollection;
     }
 
-    private async Task CreateDirectory(Uri directoryUri, CancellationToken cancellationToken)
+    private async Task CreateDirectoryAsync(Uri directoryUri, CancellationToken cancellationToken)
     {
         var directoriesToCreate = new Stack<Uri>();
 
         while (!_storageBaseUri.Equals(directoryUri))
         {
-            if (await DirectoryExists(directoryUri, cancellationToken))
+            if (await DirectoryExistsAsync(directoryUri, cancellationToken))
             {
                 break;
             }
@@ -471,7 +471,7 @@ internal sealed class NextCloudStorageService : IStorageService
         }
     }
 
-    private async Task DeleteEmptyDirectories(Uri directoryUri, CancellationToken cancellationToken)
+    private async Task DeleteEmptyDirectoriesAsync(Uri directoryUri, CancellationToken cancellationToken)
     {
         await using var _ = await _lockProvider.AcquireAsync(cancellationToken);
 

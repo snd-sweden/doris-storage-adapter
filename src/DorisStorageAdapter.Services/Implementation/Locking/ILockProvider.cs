@@ -2,7 +2,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace DorisStorageAdapter.Services.Implementation.Lock;
+namespace DorisStorageAdapter.Services.Implementation.Locking;
 
 internal interface ILockProvider
 {

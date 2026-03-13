@@ -1,8 +1,10 @@
 ﻿using DorisStorageAdapter.Services.Contract;
-using DorisStorageAdapter.Services.Implementation;
 using DorisStorageAdapter.Services.Implementation.Configuration;
-using DorisStorageAdapter.Services.Implementation.Lock;
-using DorisStorageAdapter.Services.Implementation.Lock.InProcess;
+using DorisStorageAdapter.Services.Implementation.Locking;
+using DorisStorageAdapter.Services.Implementation.Locking.InProcess;
+using DorisStorageAdapter.Services.Implementation.Services;
+using DorisStorageAdapter.Services.Implementation.Services.Bags;
+using DorisStorageAdapter.Services.Implementation.Services.Locking;
 using DorisStorageAdapter.Services.Implementation.Storage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,10 +26,11 @@ public static class Bootstrapper
 
         services.AddSingleton<ILockProvider, InProcessLockProvider>();
         services.AddSingleton<IReaderWriterLockProvider, InProcessReaderWriterLockProvider>();
-        services.AddTransient<IStatusService, StatusService>();
-        services.AddTransient<IFileService, FileService>();
-        services.AddTransient<IBagProvider, BagProvider>();
         services.AddSingleton<IStorageLockProvider, StorageLockProvider>();
+        services.AddSingleton<DatasetVersionLocks>();
+        services.AddTransient<IFileService, FileService>();
+        services.AddTransient<BagContextFactory>();
+        services.AddTransient<IStatusService, StatusService>();
         services.AddSingleton<ISystemService, SystemService>();
 
         SetupStorageService(services, configuration);
