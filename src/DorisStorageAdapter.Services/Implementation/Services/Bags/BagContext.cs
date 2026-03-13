@@ -1,8 +1,11 @@
 ﻿using DorisStorageAdapter.Services.Contract.Models;
 using DorisStorageAdapter.Services.Implementation.BagIt;
+using DorisStorageAdapter.Services.Implementation.BagIt.Fetch;
 using DorisStorageAdapter.Services.Implementation.Storage;
+using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,12 +15,9 @@ namespace DorisStorageAdapter.Services.Implementation.Services.Bags;
 internal sealed class BagContext(string storagePath, IStorageService storageService)
 {
     private readonly IStorageService _storageService = storageService;
+    private readonly string _groupStoragePath = storagePath[..(storagePath.TrimEnd('/').LastIndexOf('/') + 1)];
 
     public string StoragePath { get; } = storagePath;
-
-    // Är det här smart, eller göra på annat sätt?
-    // Ange direkt i konstruktor tex?
-    public string GroupStoragePath { get; } = storagePath[..(storagePath.TrimEnd('/').LastIndexOf('/') + 1)];
 
     public async Task<T> LoadBagItElementAsync<T>(CancellationToken cancellationToken)
         where T : IBagItElement<T>
@@ -80,8 +80,6 @@ internal sealed class BagContext(string storagePath, IStorageService storageServ
     {
         await foreach (var file in _storageService.ListAsync(ToStoragePath(Paths.GetPayloadPath(null)), cancellationToken))
         {
-            // TODO borde här egentligen returnera en annan typ, för att indikera att det är pathInBag
-            // och inte storage path?
             yield return file with { Path = FromStoragePath(file.Path) };
         }
     }
@@ -131,6 +129,36 @@ internal sealed class BagContext(string storagePath, IStorageService storageServ
 
     public async Task<bool> HasBeenPublishedAsync(CancellationToken cancellationToken) =>
         await GetFileMetadataAsync(BagItDeclaration.FileName, cancellationToken) != null;
+
+
+    public IEnumerable<FetchReferenceGroup> GroupFetchReferences(BagItFetch fetch) =>
+       fetch.Items
+            .Select(ParseFetchReference)
+            .GroupBy(f => f.ReferencedBagStoragePath, StringComparer.Ordinal)
+            .Select(g => new FetchReferenceGroup(
+                g.Key,
+                [.. g]));
+
+    public FetchReference ParseFetchReference(BagItFetchItem item)
+    {
+        string path = Uri.UnescapeDataString(item.Url[3..]);
+        int index = path.IndexOf('/', StringComparison.Ordinal) + 1;
+        string versionPath = path[..index];
+        string pathInBag = path[index..];
+
+        return new(
+            ReferencedBagStoragePath: _groupStoragePath + versionPath, 
+            PathInBag: pathInBag,
+            Item: item);
+    }
+
+    public string CreateFetchUrl(BagContext otherBag, string pathInBag) =>
+        "../" + 
+        UrlEncodePath(otherBag.StoragePath[_groupStoragePath.Length..]) + '/' + 
+        UrlEncodePath(pathInBag);
+
+    private static string UrlEncodePath(string path) =>
+        string.Join('/', path.Split('/').Select(Uri.EscapeDataString));
 
     private string ToStoragePath(string path) =>
         StoragePath + path;

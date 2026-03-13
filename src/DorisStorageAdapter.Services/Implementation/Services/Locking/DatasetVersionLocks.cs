@@ -24,7 +24,7 @@ internal sealed class DatasetVersionLocks(IReaderWriterLockProvider lockProvider
         DatasetVersion datasetVersion,
         CancellationToken cancellationToken)
     {
-       return await _lockProvider.TryAcquireWriteLockAsync(
+        return await _lockProvider.TryAcquireWriteLockAsync(
             LockKeys.DatasetVersion(datasetVersion),
             cancellationToken) ?? throw new ConflictException();
     }

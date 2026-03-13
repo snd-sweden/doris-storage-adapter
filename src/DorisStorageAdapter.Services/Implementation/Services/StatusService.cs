@@ -167,67 +167,64 @@ internal sealed class StatusService(
 
         async Task CheckFetchAsync()
         {
-            Dictionary<string, StorageFileMetadata> referencedVersionFiles = new(StringComparer.Ordinal);
-            BagItPayloadManifest? referencedVersionManifest = null;
-            bool referencedVersionIsPublished = false;
-            string previousPath = "";
-
-            foreach (var item in (fetch?.Items ?? []).OrderBy(i => i.Url, StringComparer.Ordinal))
+            if (fetch == null)
             {
-                (string bagStoragePath, string pathInBag) = Paths.ResolveFetchUrl(bagContext.GroupStoragePath, item.Url);
-                var referencedBagContext = _bagContextFactory.Create(bagStoragePath);
+                return;
+            }
 
-                if (referencedBagContext.StoragePath != previousPath)
+            foreach (var reference in bagContext.GroupFetchReferences(fetch))
+            {
+                var referencedBagContext = _bagContextFactory.Create(reference.ReferencedBagStoragePath);
+
+                var referencedVersionManifest = await referencedBagContext
+                    .LoadBagItElementAsync<BagItPayloadManifest>(cancellationToken);
+
+                var referencedVersionFiles = new Dictionary<string, StorageFileMetadata>(StringComparer.Ordinal);
+                await foreach (var file in referencedBagContext.ListPayloadFilesAsync(cancellationToken))
                 {
-                    referencedVersionManifest = await referencedBagContext
-                        .LoadBagItElementAsync<BagItPayloadManifest>(cancellationToken);
+                    referencedVersionFiles[file.Path] = file;
+                }
 
-                    referencedVersionFiles = [];
-                    await foreach (var file in referencedBagContext.ListPayloadFilesAsync(cancellationToken))
+                bool referencedVersionIsPublished =
+                    await referencedBagContext.HasBeenPublishedAsync(cancellationToken);
+
+                foreach (var r in reference.References)
+                {
+                    string target = $"Fetch file:{r.Item.FilePath}";
+
+                    if (!referencedVersionIsPublished)
                     {
-                        referencedVersionFiles[file.Path] = file;
+                        AddError(target, "Does not reference a published dataset version.");
                     }
 
-                    referencedVersionIsPublished =
-                        await referencedBagContext.HasBeenPublishedAsync(cancellationToken);
+                    if (r.Item.Length == null)
+                    {
+                        AddError(target, "Missing length.");
+                    }
 
-                    previousPath = referencedBagContext.StoragePath;
-                }
+                    if (!referencedVersionFiles.TryGetValue(r.PathInBag, out var referencedFile))
+                    {
+                        AddError(target, "Referenced payload file not found.");
+                    }
+                    else if (
+                        r.Item.Length != null &&
+                        r.Item.Length != referencedFile.Size)
+                    {
+                        AddError(target, "Size does not match referenced payload file's size.");
+                    }
 
-                string target = $"Fetch file:{item.FilePath}";
-
-                if (!referencedVersionIsPublished)
-                {
-                    AddError(target, "Does not reference a published dataset version.");
-                }
-
-                if (item.Length == null)
-                {
-                    AddError(target, "Missing length.");
-                }
-
-                if (!referencedVersionFiles.TryGetValue(pathInBag, out var referencedFile))
-                {
-                    AddError(target, "Referenced payload file not found.");
-                }
-                else if (
-                    item.Length != null &&
-                    item.Length != referencedFile.Size)
-                {
-                    AddError(target, "Size does not match referenced payload file's size.");
-                }
-
-                if (payloadManifest == null ||
-                    !payloadManifest.TryGetItem(item.FilePath, out var itemThisManifest))
-                {
-                    AddError(target, "Not found in payload manifest.");
-                }
-                else if (
-                    referencedVersionManifest == null ||
-                    !referencedVersionManifest.TryGetItem(pathInBag, out var itemPreviousManifest) ||
-                    !itemThisManifest.Checksum.SequenceEqual(itemPreviousManifest.Checksum))
-                {
-                    AddError(target, "Payload manifest checksum does not match referenced file's payload manifest checksum.");
+                    if (payloadManifest == null ||
+                        !payloadManifest.TryGetItem(r.Item.FilePath, out var itemThisManifest))
+                    {
+                        AddError(target, "Not found in payload manifest.");
+                    }
+                    else if (
+                        referencedVersionManifest == null ||
+                        !referencedVersionManifest.TryGetItem(r.PathInBag, out var itemPreviousManifest) ||
+                        !itemThisManifest.Checksum.SequenceEqual(itemPreviousManifest.Checksum))
+                    {
+                        AddError(target, "Payload manifest checksum does not match referenced file's payload manifest checksum.");
+                    }
                 }
             }
         }

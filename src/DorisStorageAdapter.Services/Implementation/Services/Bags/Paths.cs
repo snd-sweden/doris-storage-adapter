@@ -20,6 +20,7 @@ internal static class Paths
        
 
     // Används endast internt
+    // Eg. GetBagGroupStoragePath?
     private static string GetDatasetPath(DatasetVersion datasetVersion)
     {
         // If dataset identifier begins with one of the legacy prefixes,
@@ -67,15 +68,5 @@ internal static class Paths
         }
 
         throw new ArgumentException("Not a valid bag path.", nameof(pathInBag));
-    }
-
-    public static (string BagStoragePath, string PathInBag) ResolveFetchUrl(string bagGroupStoragePath, string fetchUrl)
-    {
-        string path = Uri.UnescapeDataString(fetchUrl[3..]);
-        int index = path.IndexOf('/', StringComparison.Ordinal) + 1;
-        string versionPath = path[..index];
-        string pathInBag = path[index..];
-
-        return (bagGroupStoragePath + versionPath, pathInBag);
     }
 }

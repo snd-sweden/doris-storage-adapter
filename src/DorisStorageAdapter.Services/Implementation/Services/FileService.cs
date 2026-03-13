@@ -169,12 +169,11 @@ internal sealed class FileService(
         async Task<BagItFetch> PrepareFetchAsync()
         {
             var fetch = await fromBagContext.LoadBagItElementAsync<BagItFetch>(cancellationToken);
-            // TODO refactor handle fetch URL
-            string fromVersionUrl = "../" + UrlEncodePath(fromBagContext.StoragePath.TrimEnd('/').Split('/').Last()) + '/';
 
             await foreach (var file in fromBagContext.ListPayloadFilesAsync(cancellationToken))
             {
-                fetch.AddOrUpdateItem(new(file.Path, file.Size, fromVersionUrl + UrlEncodePath(file.Path)));
+                fetch.AddOrUpdateItem(new(
+                    file.Path, file.Size, bagContext.CreateFetchUrl(fromBagContext, file.Path)));
             }
 
             return fetch;
@@ -278,24 +277,20 @@ internal sealed class FileService(
 
         var result = new List<StorageFileMetadata>();
 
-        Dictionary<string, StorageFileMetadata> dict = new(StringComparer.Ordinal);
-        string previousPath = "";
-        foreach (var item in fetch.Items.OrderBy(i => i.Url, StringComparer.Ordinal))
+        foreach (var reference in bagContext.GroupFetchReferences(fetch))
         {
-            (var referencedBagContext, string pathInBag) = ResolveFetchUrl(bagContext, item);
+            var referencedBagContext = _bagContextFactory.Create(reference.ReferencedBagStoragePath);
 
-            if (referencedBagContext.StoragePath != previousPath)
+            Dictionary<string, StorageFileMetadata> dict = new(StringComparer.Ordinal);
+            await foreach (var file in referencedBagContext.ListPayloadFilesAsync(cancellationToken))
             {
-                dict = [];
-                await foreach (var file in bagContext.ListPayloadFilesAsync(cancellationToken))
-                {
-                    dict[file.Path] = file;
-                }
+                dict[file.Path] = file;
             }
 
-            result.Add(dict[pathInBag] with { Path = item.FilePath });
-
-            previousPath = referencedBagContext.StoragePath;
+            foreach (var r in reference.References)
+            {
+                result.Add(dict[r.PathInBag] with { Path = r.Item.FilePath });
+            }
         }
 
         await foreach (var file in bagContext.ListPayloadFilesAsync(cancellationToken))
@@ -422,24 +417,15 @@ internal sealed class FileService(
         }
     }
 
-    private static string UrlEncodePath(string path) =>
-        string.Join('/', path.Split('/').Select(Uri.EscapeDataString));
-
     private (BagContext BagContext, string PathInBag) ResolvePath(BagContext bagContext, BagItFetch fetch, string pathInBag)
     {
-        if (fetch != null && fetch.TryGetItem(pathInBag, out var item))
+        if (fetch.TryGetItem(pathInBag, out var item))
         {
-            return ResolveFetchUrl(bagContext, item);
+            var reference = bagContext.ParseFetchReference(item);
+            return (_bagContextFactory.Create(reference.ReferencedBagStoragePath), reference.PathInBag);
         }
 
         return (bagContext, pathInBag);
-    }
-
-    private (BagContext BagContext, string PathInBag) ResolveFetchUrl(BagContext bagContext, BagItFetchItem item)
-    {
-        (string bagStoragePath, string pathInBag) = Paths.ResolveFetchUrl(bagContext.GroupStoragePath, item.Url);
-
-        return (_bagContextFactory.Create(bagStoragePath), pathInBag);
     }
 
     private static async Task ThrowIfHasBeenPublishedAsync(BagContext bagContext, CancellationToken cancellationToken)
