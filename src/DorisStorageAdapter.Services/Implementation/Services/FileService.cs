@@ -280,16 +280,14 @@ internal sealed class FileService(
         foreach (var reference in bagContext.GroupFetchReferences(fetch))
         {
             var referencedBagContext = _bagContextFactory.Create(reference.ReferencedBagStoragePath);
+            var dict = reference.References.ToDictionary(r => r.PathInBag);
 
-            Dictionary<string, StorageFileMetadata> dict = new(StringComparer.Ordinal);
             await foreach (var file in referencedBagContext.ListPayloadFilesAsync(cancellationToken))
             {
-                dict[file.Path] = file;
-            }
-
-            foreach (var r in reference.References)
-            {
-                result.Add(dict[r.PathInBag] with { Path = r.Item.FilePath });
+                if (dict.TryGetValue(file.Path, out var r))
+                {
+                    result.Add(file with { Path = r.Item.FilePath });
+                }
             }
         }
 

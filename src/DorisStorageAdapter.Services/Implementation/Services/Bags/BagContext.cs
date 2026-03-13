@@ -154,7 +154,7 @@ internal sealed class BagContext(string storagePath, IStorageService storageServ
 
     public string CreateFetchUrl(BagContext otherBag, string pathInBag) =>
         "../" + 
-        UrlEncodePath(otherBag.StoragePath[_groupStoragePath.Length..]) + '/' + 
+        UrlEncodePath(otherBag.StoragePath[_groupStoragePath.Length..]) + 
         UrlEncodePath(pathInBag);
 
     private static string UrlEncodePath(string path) =>
