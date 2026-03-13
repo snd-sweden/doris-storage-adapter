@@ -6,6 +6,8 @@ namespace DorisStorageAdapter.Services.Implementation.BagIt;
 
 internal interface IBagItElement<T> where T : IBagItElement<T>
 {
+    static abstract T CreateEmpty();
+
     static abstract string FileName { get; }
 
     bool HasValues();

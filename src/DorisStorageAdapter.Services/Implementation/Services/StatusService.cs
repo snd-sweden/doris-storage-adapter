@@ -30,7 +30,7 @@ internal sealed class StatusService(
     private readonly BagContextFactory _bagContextFactory = bagContextFactory;
     private readonly StorageConfiguration _storageConfiguration = storageConfiguration.Value;
 
-    private static readonly byte[] _bagItSha256 = SHA256.HashData(BagItDeclaration.Instance.Serialize());
+    private static readonly byte[] _bagItSha256 = SHA256.HashData(BagItDeclaration.CreateEmpty().Serialize());
 
     public async Task PublishAsync(
         DatasetVersion datasetVersion,
@@ -130,7 +130,7 @@ internal sealed class StatusService(
         }
 
         await bagContext.StoreBagItElementAsync(tagManifest, CancellationToken.None);
-        await bagContext.StoreBagItElementAsync(BagItDeclaration.Instance, CancellationToken.None);
+        await bagContext.StoreBagItElementAsync(BagItDeclaration.CreateEmpty(), CancellationToken.None);
     }
 
     private async Task<IEnumerable<ErrorItem>> CheckBagConsistencyAsync(

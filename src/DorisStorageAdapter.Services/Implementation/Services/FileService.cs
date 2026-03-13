@@ -168,7 +168,7 @@ internal sealed class FileService(
 
         async Task<BagItFetch> PrepareFetchAsync()
         {
-            var fetch = await fromBagContext.LoadBagItElementAsync<BagItFetch>(cancellationToken) ?? new();
+            var fetch = await fromBagContext.LoadBagItElementAsync<BagItFetch>(cancellationToken);
             // TODO refactor handle fetch URL
             string fromVersionUrl = "../" + UrlEncodePath(fromBagContext.StoragePath.TrimEnd('/').Split('/').Last()) + '/';
 
@@ -188,7 +188,7 @@ internal sealed class FileService(
         }
 
         var fetch = await PrepareFetchAsync();
-        var manifest = await fromBagContext.LoadBagItElementAsync<BagItPayloadManifest>(cancellationToken) ?? new();
+        var manifest = await fromBagContext.LoadBagItElementAsync<BagItPayloadManifest>(cancellationToken);
 
         await bagContext.StoreBagItElementAsync(fetch, cancellationToken);
         await bagContext.StoreBagItElementAsync(manifest, CancellationToken.None);
@@ -220,7 +220,7 @@ internal sealed class FileService(
 
         string pathInBag = Paths.ToPathInBag(type, filePath);
 
-        var fetch = await bagContext.LoadBagItElementAsync<BagItFetch>(cancellationToken) ?? new();
+        var fetch = await bagContext.LoadBagItElementAsync<BagItFetch>(cancellationToken);
         (bagContext, pathInBag) = ResolvePath(bagContext, fetch, pathInBag);
 
         FileData? result = null;
@@ -268,16 +268,18 @@ internal sealed class FileService(
 
         var bagContext = _bagContextFactory.Create(datasetVersion);
 
-        var payloadManifest = await bagContext.LoadBagItElementAsync<BagItPayloadManifest>(cancellationToken) ?? new();
+        var payloadManifest = await bagContext.LoadBagItElementAsync<BagItPayloadManifest>(cancellationToken);
         var fetch = await bagContext.LoadBagItElementAsync<BagItFetch>(cancellationToken);
 
         byte[]? GetChecksum(string pathInBag) =>
-            payloadManifest.TryGetItem(pathInBag, out var value) ? value.Checksum : null;
+            payloadManifest.TryGetItem(pathInBag, out var value)
+                ? value.Checksum
+                : null;
 
         var result = new List<StorageFileMetadata>();
 
-        string previousPath = "";
         Dictionary<string, StorageFileMetadata> dict = new(StringComparer.Ordinal);
+        string previousPath = "";
         foreach (var item in fetch.Items.OrderBy(i => i.Url, StringComparer.Ordinal))
         {
             (var referencedBagContext, string pathInBag) = ResolveFetchUrl(bagContext, item);
@@ -339,7 +341,7 @@ internal sealed class FileService(
             return entry.Open();
         }
 
-        var payloadManifest = await bagContext.LoadBagItElementAsync<BagItPayloadManifest>(cancellationToken) ?? new();
+        var payloadManifest = await bagContext.LoadBagItElementAsync<BagItPayloadManifest>(cancellationToken);
         var fetch = await bagContext.LoadBagItElementAsync<BagItFetch>(cancellationToken);
         string versionPath = datasetVersion.Identifier + '-' + datasetVersion.Version;
 
@@ -425,7 +427,7 @@ internal sealed class FileService(
 
     private (BagContext BagContext, string PathInBag) ResolvePath(BagContext bagContext, BagItFetch fetch, string pathInBag)
     {
-        if (fetch.TryGetItem(pathInBag, out var item))
+        if (fetch != null && fetch.TryGetItem(pathInBag, out var item))
         {
             return ResolveFetchUrl(bagContext, item);
         }
@@ -454,11 +456,6 @@ internal sealed class FileService(
         if (await bagContext.HasBeenPublishedAsync(cancellationToken))
         {
             var bagInfo = await bagContext.LoadBagItElementAsync<BagItInfo>(cancellationToken);
-
-            if (bagInfo == null)
-            {
-                return [];
-            }
 
             // Check that version is not withdrawn.
             if (bagInfo.GetDatasetVersionStatus() != DatasetVersionStatus.published)
@@ -513,7 +510,7 @@ internal sealed class FileService(
         BagContext bagContext,
         Func<T, bool> action,
         CancellationToken cancellationToken)
-        where T : class, IBagItElement<T>, new()
+        where T : IBagItElement<T>
     {
         var element = await bagContext.LoadBagItElementAsync<T>(cancellationToken);
 

@@ -19,17 +19,17 @@ internal sealed class BagContext(string storagePath, IStorageService storageServ
     // Ange direkt i konstruktor tex?
     public string GroupStoragePath { get; } = storagePath[..(storagePath.TrimEnd('/').LastIndexOf('/') + 1)];
 
-    public async Task<T?> LoadBagItElementAsync<T>(CancellationToken cancellationToken)
-        where T : class, IBagItElement<T>
+    public async Task<T> LoadBagItElementAsync<T>(CancellationToken cancellationToken)
+        where T : IBagItElement<T>
     {
         var fileData = await GetFileDataAsync(T.FileName, null, cancellationToken);
 
         if (fileData == null)
         {
-            return null;
+            return T.CreateEmpty();
         }
 
-        using (fileData.Stream)
+        await using (fileData.Stream)
         {
             return await T.ParseAsync(fileData.Stream, cancellationToken);
         }

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using DorisStorageAdapter.Services.Implementation.BagIt.Fetch;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -248,6 +249,8 @@ internal sealed class BagItInfo : IBagItElement<BagItInfo>
             items[key] = valuesToStore;
         }
     }
+
+    public static BagItInfo CreateEmpty() => new();
 
     public static string FileName => "bag-info.txt";
 

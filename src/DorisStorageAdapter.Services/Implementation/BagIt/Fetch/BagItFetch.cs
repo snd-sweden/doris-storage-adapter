@@ -43,6 +43,8 @@ internal sealed class BagItFetch : IBagItElement<BagItFetch>
         item = new("", 0, "");
         return false;
     }
+ 
+    public static BagItFetch CreateEmpty() => new();
 
     public static string FileName => "fetch.txt";
 
