@@ -46,7 +46,7 @@ internal sealed class BagContext(string storagePath, IStorageService storageServ
             return null;
         }
 
-        using var hashStream = new CountedHashStream(fileData.Stream);
+        await using var hashStream = new CountedHashStream(fileData.Stream);
         return (await T.ParseAsync(hashStream, cancellationToken), hashStream.GetHash());
     }
 

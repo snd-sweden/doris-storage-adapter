@@ -64,7 +64,7 @@ internal sealed class FileService(
         byte[] checksum;
         long bytesRead;
 
-        using (var hashStream = new CountedHashStream(data))
+        await using (var hashStream = new CountedHashStream(data))
         {
             result = await bagContext.StoreFileAsync(
                 path: pathInBag,
@@ -370,8 +370,8 @@ internal sealed class FileService(
 
             if (fileData != null)
             {
-                using var entryStream = CreateZipEntryStream(zipArchive, versionPath + '/' + zipFilePath);
-                using (fileData.Stream)
+                await using var entryStream = CreateZipEntryStream(zipArchive, versionPath + '/' + zipFilePath);
+                await using (fileData.Stream)
                 {
                     await fileData.Stream.CopyToAsync(entryStream, cancellationToken);
                 }
@@ -389,7 +389,7 @@ internal sealed class FileService(
             // starting the line with a backslash and escaping \ as \\
             // and newline as \n.
 
-            using var entryStream = CreateZipEntryStream(zipArchive, versionPath + "/sha256.txt");
+            await using var entryStream = CreateZipEntryStream(zipArchive, versionPath + "/sha256.txt");
 
             foreach (var file in sent)
             {

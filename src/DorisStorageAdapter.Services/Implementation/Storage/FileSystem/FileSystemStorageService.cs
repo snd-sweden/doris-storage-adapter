@@ -48,7 +48,7 @@ internal sealed class FileSystemStorageService(
 
         try
         {
-            using (var stream = new FileStream(tempFile, new FileStreamOptions
+            await using (var stream = new FileStream(tempFile, new FileStreamOptions
             {
                 Access = FileAccess.Write,
                 Mode = FileMode.Create,
