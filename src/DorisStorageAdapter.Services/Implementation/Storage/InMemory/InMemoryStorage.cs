@@ -8,10 +8,10 @@ namespace DorisStorageAdapter.Services.Implementation.Storage.InMemory;
 
 internal sealed class InMemoryStorage
 {
-    private readonly ConcurrentDictionary<string, InMemoryFile> files = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, InMemoryFile> _files = new(StringComparer.Ordinal);
 
     public InMemoryFile AddOrUpdate(string filePath, byte[] data, string? contentType) =>
-        files.AddOrUpdate(filePath,
+        _files.AddOrUpdate(filePath,
             new InMemoryFile(new(
                 ContentType: contentType,
                 DateCreated: DateTime.UtcNow,
@@ -29,11 +29,11 @@ internal sealed class InMemoryStorage
                 data));
 
 
-    public void Remove(string filePath) => files.TryRemove(filePath, out var _);
+    public void Remove(string filePath) => _files.TryRemove(filePath, out var _);
 
     public bool TryGet(string filePath, [NotNullWhen(true)] out InMemoryFile? file) =>
-        files.TryGetValue(filePath, out file);
+        _files.TryGetValue(filePath, out file);
 
     public IEnumerable<InMemoryFile> ListFiles(string path) =>
-        files.Where(f => f.Key.StartsWith(path, StringComparison.Ordinal)).Select(f => f.Value);
+        _files.Where(f => f.Key.StartsWith(path, StringComparison.Ordinal)).Select(f => f.Value);
 }

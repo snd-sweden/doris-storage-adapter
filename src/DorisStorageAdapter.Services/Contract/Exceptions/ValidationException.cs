@@ -5,10 +5,10 @@ namespace DorisStorageAdapter.Services.Contract.Exceptions;
 
 public class ValidationException : ServiceException
 {
-    private const string title = "Validation error";
-    private const string message = "One or more validation errors occured.";
+    private const string _title = "Validation error";
+    private const string _message = "One or more validation errors occured.";
 
-    public ValidationException() : base(title, message, [])
+    public ValidationException() : base(_title, _message, [])
     {
     }
 
@@ -20,7 +20,7 @@ public class ValidationException : ServiceException
     {
     }
 
-    public ValidationException(IEnumerable<ErrorItem> errors) : base(title, message, errors)
+    public ValidationException(IEnumerable<ErrorItem> errors) : base(_title, _message, errors)
     {
     }
 }

@@ -10,10 +10,10 @@ namespace DorisStorageAdapter.Services.Implementation.BagIt.Manifest;
 
 internal abstract class BagItManifest<T> where T : BagItManifest<T>, new()
 {
-    private readonly SortedDictionary<string, BagItManifestItem> items = new(StringComparer.Ordinal);
-    private readonly Dictionary<byte[], List<BagItManifestItem>> checksumToItems = new(ByteArrayComparer.Default);
+    private readonly SortedDictionary<string, BagItManifestItem> _items = new(StringComparer.Ordinal);
+    private readonly Dictionary<byte[], List<BagItManifestItem>> _checksumToItems = new(ByteArrayComparer.Default);
 
-    public IEnumerable<BagItManifestItem> Items => items.Values;
+    public IEnumerable<BagItManifestItem> Items => _items.Values;
 
     public bool AddOrUpdateItem(BagItManifestItem item)
     {
@@ -24,28 +24,28 @@ internal abstract class BagItManifest<T> where T : BagItManifest<T>, new()
                 return false;
             }
 
-            checksumToItems[existingItem.Checksum].Remove(existingItem);
+            _checksumToItems[existingItem.Checksum].Remove(existingItem);
         }
 
-        items[item.FilePath] = item;
+        _items[item.FilePath] = item;
 
-        if (checksumToItems.TryGetValue(item.Checksum, out var values))
+        if (_checksumToItems.TryGetValue(item.Checksum, out var values))
         {
             values.Add(item);
         }
         else
         {
-            checksumToItems[item.Checksum] = [item];
+            _checksumToItems[item.Checksum] = [item];
         }
 
         return true;
     }
 
-    public bool Contains(string filePath) => items.ContainsKey(filePath);
+    public bool Contains(string filePath) => _items.ContainsKey(filePath);
 
     public IEnumerable<BagItManifestItem> GetItemsByChecksum(byte[] checksum)
     {
-        if (checksumToItems.TryGetValue(checksum, out var items))
+        if (_checksumToItems.TryGetValue(checksum, out var items))
         {
             return items;
         }
@@ -57,12 +57,12 @@ internal abstract class BagItManifest<T> where T : BagItManifest<T>, new()
     {
         if (TryGetItem(filePath, out var item))
         {
-            if (checksumToItems.TryGetValue(item.Checksum, out var values))
+            if (_checksumToItems.TryGetValue(item.Checksum, out var values))
             {
                 values.Remove(item);
             }
 
-            items.Remove(filePath);
+            _items.Remove(filePath);
 
             return true;
         }
@@ -72,7 +72,7 @@ internal abstract class BagItManifest<T> where T : BagItManifest<T>, new()
 
     public bool TryGetItem(string filePath, out BagItManifestItem item)
     {
-        if (items.TryGetValue(filePath, out var value))
+        if (_items.TryGetValue(filePath, out var value))
         {
             item = value;
             return true;

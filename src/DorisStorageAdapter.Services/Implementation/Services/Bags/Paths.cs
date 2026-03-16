@@ -6,7 +6,7 @@ namespace DorisStorageAdapter.Services.Implementation.Services.Bags;
 
 internal static class Paths
 {
-    private static readonly string[] legacyPrefixes = ["ecds", "ext", "snd"];
+    private static readonly string[] _legacyPrefixes = ["ecds", "ext", "snd"];
 
     // Används för att lägga till och strippa bort "data/"
     // och för att få ut typ från sökväg
@@ -28,7 +28,7 @@ internal static class Paths
         // Otherwise, use the string left of the first '-' as base path, or 
         // empty string if there is no '-' in the dataset identifier.
 
-        string basePath = legacyPrefixes.FirstOrDefault(p =>
+        string basePath = _legacyPrefixes.FirstOrDefault(p =>
             datasetVersion.Identifier.StartsWith(p, StringComparison.Ordinal)) ?? "";
 
         if (string.IsNullOrEmpty(basePath))

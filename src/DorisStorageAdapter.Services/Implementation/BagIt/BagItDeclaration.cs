@@ -8,7 +8,7 @@ namespace DorisStorageAdapter.Services.Implementation.BagIt;
 
 internal sealed class BagItDeclaration : IBagItElement<BagItDeclaration>
 {
-    private static readonly byte[] contents = Encoding.UTF8.GetBytes("BagIt-Version: 1.0\nTag-File-Character-Encoding: UTF-8\n");
+    private static readonly byte[] _contents = Encoding.UTF8.GetBytes("BagIt-Version: 1.0\nTag-File-Character-Encoding: UTF-8\n");
     private static readonly BagItDeclaration _instance = new();
 
     private BagItDeclaration() { }
@@ -21,5 +21,5 @@ internal sealed class BagItDeclaration : IBagItElement<BagItDeclaration>
 
     public bool HasValues() => true;
 
-    public byte[] Serialize() => contents;
+    public byte[] Serialize() => _contents;
 }

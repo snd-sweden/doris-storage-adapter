@@ -141,7 +141,7 @@ builder.Services
 // Set up CORS policys per endpoint
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy(UploadsController.uploadCorsPolicyName, policy =>
+    options.AddPolicy(UploadsController.UploadCorsPolicyName, policy =>
     {
         policy
             .WithOrigins([.. authorizationConfiguration.CorsAllowedOrigins])
@@ -151,14 +151,14 @@ builder.Services.AddCors(options =>
                 HeaderNames.ContentType)
             .WithMethods(HttpMethods.Put);
     });
-    options.AddPolicy(UploadsController.deleteCorsPolicyName, policy =>
+    options.AddPolicy(UploadsController.DeleteCorsPolicyName, policy =>
     {
         policy
             .WithOrigins([.. authorizationConfiguration.CorsAllowedOrigins])
             .WithHeaders(HeaderNames.Authorization)
             .WithMethods(HttpMethods.Delete);
     });
-    options.AddPolicy(DownloadsController.downloadPublicFileCorsPolicyName, policy =>
+    options.AddPolicy(DownloadsController.DownloadPublicFileCorsPolicyName, policy =>
     {
         policy
             .AllowAnyOrigin()
@@ -169,7 +169,7 @@ builder.Services.AddCors(options =>
                 HeaderNames.ContentDisposition, 
                 HeaderNames.ContentRange);
     });
-    options.AddPolicy(DownloadsController.downloadPublicFilesAsZipCorsPolicyName, policy =>
+    options.AddPolicy(DownloadsController.DownloadPublicFilesAsZipCorsPolicyName, policy =>
     {
         policy
             .AllowAnyOrigin()

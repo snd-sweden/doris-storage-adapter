@@ -19,9 +19,9 @@ public sealed class UploadsController(
 {
     private readonly IFileService fileService = fileService;
 
-    private const string corsPrefix = nameof(UploadsController) + "_";
-    public const string uploadCorsPolicyName = corsPrefix + nameof(UploadAsync);
-    public const string deleteCorsPolicyName = corsPrefix + nameof(DeleteAsync);
+    private const string _corsPrefix = nameof(UploadsController) + "_";
+    public const string UploadCorsPolicyName = _corsPrefix + nameof(UploadAsync);
+    public const string DeleteCorsPolicyName = _corsPrefix + nameof(DeleteAsync);
 
     [HttpPut("uploads/{identifier}/{version}/{type}/{**filePath}")]
     [Authorize(Roles = Roles.WriteDraftFiles)]
@@ -29,7 +29,7 @@ public sealed class UploadsController(
     // DisableFormValueModelBinding makes sure that ASP.NET does not try to parse the body as form data
     // when Content-Type is "multipart/form-data" or "application/x-www-form-urlencoded".
     [DisableFormValueModelBinding]
-    [EnableCors(uploadCorsPolicyName)]
+    [EnableCors(UploadCorsPolicyName)]
     [BinaryRequestBody("*/*")]
     [ProducesResponseType<File>(StatusCodes.Status200OK, MediaTypeNames.Application.Json)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
@@ -70,7 +70,7 @@ public sealed class UploadsController(
 
     [HttpDelete("uploads/{identifier}/{version}/{type}/{**filePath}")]
     [Authorize(Roles = Roles.WriteDraftFiles)]
-    [EnableCors(deleteCorsPolicyName)]
+    [EnableCors(DeleteCorsPolicyName)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]

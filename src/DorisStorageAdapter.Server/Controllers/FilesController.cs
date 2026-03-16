@@ -17,7 +17,7 @@ namespace DorisStorageAdapter.Server.Controllers;
 public sealed class FilesController(
     IFileService fileService) : BaseController
 {
-    private readonly IFileService fileService = fileService;
+    private readonly IFileService _fileService = fileService;
 
     [HttpPut("datasets/{identifier}/versions/{version}/files/import")]
     [Authorize(Roles = Roles.Service)]
@@ -37,7 +37,7 @@ public sealed class FilesController(
             return TypedResults.Forbid();
         }
 
-        await fileService.ImportAsync(datasetVersion, fromVersion, cancellationToken);
+        await _fileService.ImportAsync(datasetVersion, fromVersion, cancellationToken);
 
         return TypedResults.Ok();
     }
@@ -57,7 +57,7 @@ public sealed class FilesController(
 
         async IAsyncEnumerable<File> ListAsync()
         {
-            await foreach (var file in fileService.ListAsync(datasetVersion, cancellationToken))
+            await foreach (var file in _fileService.ListAsync(datasetVersion, cancellationToken))
             {
                 yield return Models.File.FromFileMetadata(file);
             }

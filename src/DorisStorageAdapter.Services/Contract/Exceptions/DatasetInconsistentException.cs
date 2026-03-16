@@ -5,10 +5,10 @@ namespace DorisStorageAdapter.Services.Contract.Exceptions;
 
 public sealed class DatasetInconsistentException : ServiceException
 {
-    private const string title = "Dataset is inconsistent.";
-    private const string message = "The dataset is in an inconsistent state.";
+    private const string _title = "Dataset is inconsistent.";
+    private const string _message = "The dataset is in an inconsistent state.";
 
-    public DatasetInconsistentException() : base(title, message, [])
+    public DatasetInconsistentException() : base(_title, _message, [])
     {
     }
 
@@ -20,7 +20,7 @@ public sealed class DatasetInconsistentException : ServiceException
     {
     }
 
-    public DatasetInconsistentException(IEnumerable<ErrorItem> errors) : base(title, message, errors)
+    public DatasetInconsistentException(IEnumerable<ErrorItem> errors) : base(_title, _message, errors)
     {
     }
 }

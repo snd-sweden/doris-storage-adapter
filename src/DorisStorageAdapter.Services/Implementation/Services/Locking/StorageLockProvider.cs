@@ -1,7 +1,5 @@
-﻿using DorisStorageAdapter.Services.Implementation.Configuration;
-using DorisStorageAdapter.Services.Implementation.Locking;
+﻿using DorisStorageAdapter.Services.Implementation.Locking;
 using DorisStorageAdapter.Services.Implementation.Storage;
-using Microsoft.Extensions.Options;
 using System;
 using System.Threading;
 using System.Threading.Tasks;

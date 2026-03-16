@@ -11,9 +11,9 @@ namespace DorisStorageAdapter.Services.Implementation.BagIt.Fetch;
 
 internal sealed class BagItFetch : IBagItElement<BagItFetch>
 {
-    private readonly SortedDictionary<string, BagItFetchItem> items = new(StringComparer.Ordinal);
+    private readonly SortedDictionary<string, BagItFetchItem> _items = new(StringComparer.Ordinal);
 
-    public IEnumerable<BagItFetchItem> Items => items.Values;
+    public IEnumerable<BagItFetchItem> Items => _items.Values;
 
     public bool AddOrUpdateItem(BagItFetchItem item)
     {
@@ -23,18 +23,18 @@ internal sealed class BagItFetch : IBagItElement<BagItFetch>
             return false;
         }
 
-        items[item.FilePath] = item;
+        _items[item.FilePath] = item;
 
         return true;
     }
 
-    public bool Contains(string filePath) => items.ContainsKey(filePath);
+    public bool Contains(string filePath) => _items.ContainsKey(filePath);
 
-    public bool RemoveItem(string filePath) => items.Remove(filePath);
+    public bool RemoveItem(string filePath) => _items.Remove(filePath);
 
     public bool TryGetItem(string filePath, out BagItFetchItem item)
     {
-        if (items.TryGetValue(filePath, out var value))
+        if (_items.TryGetValue(filePath, out var value))
         {
             item = value;
             return true;

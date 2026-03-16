@@ -13,45 +13,45 @@ namespace DorisStorageAdapter.Services.Implementation.Services.Bags;
 /// <param name="underlyingStream">The underlying stream to wrap.</param>
 internal sealed class CountedHashStream(Stream underlyingStream) : Stream
 {
-    private readonly Stream underlyingStream = underlyingStream;
-    private long bytesRead;
-    private readonly IncrementalHash sha256hasher = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-    private byte[] hashValue = [];
-    private bool isDisposed;
+    private readonly Stream _underlyingStream = underlyingStream;
+    private long _bytesRead;
+    private readonly IncrementalHash _sha256hasher = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+    private byte[] _hashValue = [];
+    private bool _isDisposed;
 
-    public long BytesRead => bytesRead;
+    public long BytesRead => _bytesRead;
 
-    public byte[] GetHash() => isDisposed ? hashValue : sha256hasher.GetCurrentHash();
+    public byte[] GetHash() => _isDisposed ? _hashValue : _sha256hasher.GetCurrentHash();
 
-    public override bool CanRead => underlyingStream.CanRead;
-    public override bool CanSeek => underlyingStream.CanSeek;
-    public override bool CanTimeout => underlyingStream.CanTimeout;
-    public override bool CanWrite => underlyingStream.CanWrite;
-    public override long Length => underlyingStream.Length;
+    public override bool CanRead => _underlyingStream.CanRead;
+    public override bool CanSeek => _underlyingStream.CanSeek;
+    public override bool CanTimeout => _underlyingStream.CanTimeout;
+    public override bool CanWrite => _underlyingStream.CanWrite;
+    public override long Length => _underlyingStream.Length;
 
     public override long Position
     {
-        get => underlyingStream.Position;
-        set => underlyingStream.Position = value;
+        get => _underlyingStream.Position;
+        set => _underlyingStream.Position = value;
     }
 
     public override int ReadTimeout
     {
-        get => underlyingStream.ReadTimeout;
-        set => underlyingStream.ReadTimeout = value;
+        get => _underlyingStream.ReadTimeout;
+        set => _underlyingStream.ReadTimeout = value;
     }
 
     public override int WriteTimeout
     {
-        get => underlyingStream.WriteTimeout;
-        set => underlyingStream.WriteTimeout = value;
+        get => _underlyingStream.WriteTimeout;
+        set => _underlyingStream.WriteTimeout = value;
     }
 
     public override void Close()
     {
         try
         {
-            underlyingStream.Close();
+            _underlyingStream.Close();
         }
         finally
         {
@@ -61,20 +61,20 @@ internal sealed class CountedHashStream(Stream underlyingStream) : Stream
 
     private void DisposeSha256Hasher()
     {
-        hashValue = sha256hasher.GetCurrentHash();
-        sha256hasher.Dispose();
+        _hashValue = _sha256hasher.GetCurrentHash();
+        _sha256hasher.Dispose();
     }
 
     protected override void Dispose(bool disposing)
     {
         try
         {
-            if (disposing && !isDisposed)
+            if (disposing && !_isDisposed)
             {
                 DisposeSha256Hasher();
-                isDisposed = true;
+                _isDisposed = true;
 
-                underlyingStream.Dispose();
+                _underlyingStream.Dispose();
             }
         }
         finally
@@ -88,9 +88,9 @@ internal sealed class CountedHashStream(Stream underlyingStream) : Stream
         try
         {
             DisposeSha256Hasher();
-            isDisposed = true;
+            _isDisposed = true;
 
-            await underlyingStream.DisposeAsync().ConfigureAwait(false);
+            await _underlyingStream.DisposeAsync().ConfigureAwait(false);
         }
         finally
         {
@@ -98,36 +98,36 @@ internal sealed class CountedHashStream(Stream underlyingStream) : Stream
         }
     }
 
-    public override void Flush() => underlyingStream.Flush();
+    public override void Flush() => _underlyingStream.Flush();
 
-    public override Task FlushAsync(CancellationToken cancellation) => underlyingStream.FlushAsync(cancellation);
+    public override Task FlushAsync(CancellationToken cancellation) => _underlyingStream.FlushAsync(cancellation);
 
     public override int Read(Span<byte> buffer)
     {
-        int bytesRead = underlyingStream.Read(buffer);
+        int bytesRead = _underlyingStream.Read(buffer);
 
-        this.bytesRead += bytesRead;
-        sha256hasher.AppendData(buffer[..bytesRead]);
+        _bytesRead += bytesRead;
+        _sha256hasher.AppendData(buffer[..bytesRead]);
 
         return bytesRead;
     }
 
     public override int Read(byte[] buffer, int offset, int count)
     {
-        int bytesRead = underlyingStream.Read(buffer, offset, count);
+        int bytesRead = _underlyingStream.Read(buffer, offset, count);
 
-        this.bytesRead += bytesRead;
-        sha256hasher.AppendData(buffer, offset, bytesRead);
+        _bytesRead += bytesRead;
+        _sha256hasher.AppendData(buffer, offset, bytesRead);
 
         return bytesRead;
     }
 
     public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken)
     {
-        int bytesRead = await underlyingStream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+        int bytesRead = await _underlyingStream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
 
-        this.bytesRead += bytesRead;
-        sha256hasher.AppendData(buffer[..bytesRead].Span);
+        _bytesRead += bytesRead;
+        _sha256hasher.AppendData(buffer[..bytesRead].Span);
 
         return bytesRead;
     }
@@ -137,30 +137,30 @@ internal sealed class CountedHashStream(Stream underlyingStream) : Stream
 
     public override int ReadByte()
     {
-        var result = underlyingStream.ReadByte();
+        var result = _underlyingStream.ReadByte();
 
         if (result > 0)
         {
-            bytesRead++;
-            sha256hasher.AppendData([(byte)result]);
+            _bytesRead++;
+            _sha256hasher.AppendData([(byte)result]);
         }
 
         return result;
     }
 
-    public override long Seek(long offset, SeekOrigin origin) => underlyingStream.Seek(offset, origin);
+    public override long Seek(long offset, SeekOrigin origin) => _underlyingStream.Seek(offset, origin);
 
-    public override void SetLength(long value) => underlyingStream.SetLength(value);
+    public override void SetLength(long value) => _underlyingStream.SetLength(value);
 
-    public override void Write(ReadOnlySpan<byte> buffer) => underlyingStream.Write(buffer);
+    public override void Write(ReadOnlySpan<byte> buffer) => _underlyingStream.Write(buffer);
 
     public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken) =>
-        underlyingStream.WriteAsync(buffer, cancellationToken);
+        _underlyingStream.WriteAsync(buffer, cancellationToken);
 
-    public override void Write(byte[] buffer, int offset, int count) => underlyingStream.Write(buffer, offset, count);
+    public override void Write(byte[] buffer, int offset, int count) => _underlyingStream.Write(buffer, offset, count);
 
     public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
-        underlyingStream.WriteAsync(buffer, offset, count, cancellationToken);
+        _underlyingStream.WriteAsync(buffer, offset, count, cancellationToken);
 
-    public override void WriteByte(byte value) => underlyingStream.WriteByte(value);
+    public override void WriteByte(byte value) => _underlyingStream.WriteByte(value);
 }

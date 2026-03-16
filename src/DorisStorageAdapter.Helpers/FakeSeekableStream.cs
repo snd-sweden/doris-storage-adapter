@@ -14,41 +14,41 @@ namespace DorisStorageAdapter.Helpers;
 /// <param name="length">The length of the underlying stream.</param>
 public sealed class FakeSeekableStream(Stream underlyingStream, long length) : Stream
 {
-    private readonly Stream underlyingStream = underlyingStream;
-    private readonly long length = length;
-    private long position;
+    private readonly Stream _underlyingStream = underlyingStream;
+    private readonly long _length = length;
+    private long _position;
 
     public override bool CanRead => true;
     public override bool CanSeek => true;
-    public override bool CanTimeout => underlyingStream.CanTimeout;
+    public override bool CanTimeout => _underlyingStream.CanTimeout;
     public override bool CanWrite => false;
-    public override long Length => length;
+    public override long Length => _length;
 
     public override long Position
     {
-        get => position;
+        get => _position;
         set
         {
-            if (value < 0 || value > length)
+            if (value < 0 || value > _length)
             {
                 throw new ArgumentOutOfRangeException(nameof(value), value, 
                     "Position must be between 0 and the length of the stream.");
             }
-            position = value;
+            _position = value;
         }
     }
 
     public override int ReadTimeout
     {
-        get => underlyingStream.ReadTimeout;
-        set => underlyingStream.ReadTimeout = value;
+        get => _underlyingStream.ReadTimeout;
+        set => _underlyingStream.ReadTimeout = value;
     }
 
     public override void Close()
     {
         try
         {
-            underlyingStream.Close();
+            _underlyingStream.Close();
         }
         finally
         {
@@ -62,7 +62,7 @@ public sealed class FakeSeekableStream(Stream underlyingStream, long length) : S
         {
             if (disposing)
             {
-                underlyingStream.Dispose();
+                _underlyingStream.Dispose();
             }
         }
         finally
@@ -75,7 +75,7 @@ public sealed class FakeSeekableStream(Stream underlyingStream, long length) : S
     {
         try
         {
-            await underlyingStream.DisposeAsync().ConfigureAwait(false);
+            await _underlyingStream.DisposeAsync().ConfigureAwait(false);
         }
         finally
         {
@@ -87,15 +87,15 @@ public sealed class FakeSeekableStream(Stream underlyingStream, long length) : S
 
     public override int Read(Span<byte> buffer)
     {
-        int bytesRead = underlyingStream.Read(buffer);
-        position += bytesRead;
+        int bytesRead = _underlyingStream.Read(buffer);
+        _position += bytesRead;
         return bytesRead;
     }
 
     public override int Read(byte[] buffer, int offset, int count)
     {
-        int bytesRead = underlyingStream.Read(buffer, offset, count);
-        position += bytesRead;
+        int bytesRead = _underlyingStream.Read(buffer, offset, count);
+        _position += bytesRead;
         return bytesRead;
     }
 
@@ -106,8 +106,8 @@ public sealed class FakeSeekableStream(Stream underlyingStream, long length) : S
             return 0;
         }
 
-        int bytesRead = await underlyingStream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
-        position += bytesRead;
+        int bytesRead = await _underlyingStream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+        _position += bytesRead;
         return bytesRead;
     }
 
@@ -116,11 +116,11 @@ public sealed class FakeSeekableStream(Stream underlyingStream, long length) : S
 
     public override int ReadByte()
     {
-        var result = underlyingStream.ReadByte();
+        var result = _underlyingStream.ReadByte();
 
         if (result > 0)
         {
-            position++;
+            _position++;
         }
 
         return result;
@@ -131,7 +131,7 @@ public sealed class FakeSeekableStream(Stream underlyingStream, long length) : S
          {
              SeekOrigin.Begin => offset,
              SeekOrigin.Current => Position + offset,
-             SeekOrigin.End => length + offset,
+             SeekOrigin.End => _length + offset,
              _ => throw new NotSupportedException()
          };
 

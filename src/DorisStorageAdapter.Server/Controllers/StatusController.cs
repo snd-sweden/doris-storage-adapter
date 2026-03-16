@@ -11,9 +11,9 @@ using System.Threading.Tasks;
 
 namespace DorisStorageAdapter.Server.Controllers;
 
-public sealed class StatusController(IStatusService service) : BaseController
+public sealed class StatusController(IStatusService statusService) : BaseController
 {
-    private readonly IStatusService service = service;
+    private readonly IStatusService _statusService = statusService;
 
     [HttpPut("datasets/{identifier}/versions/{version}/status/publish")]
     //[Authorize(Roles = Roles.Service)]
@@ -38,7 +38,7 @@ public sealed class StatusController(IStatusService service) : BaseController
             return TypedResults.Forbid();
         }
 
-        await service.PublishAsync(datasetVersion, accessRight, canonicalDoi, doi, cancellationToken);
+        await _statusService.PublishAsync(datasetVersion, accessRight, canonicalDoi, doi, cancellationToken);
 
         return TypedResults.Ok();
     }
@@ -64,7 +64,7 @@ public sealed class StatusController(IStatusService service) : BaseController
             return TypedResults.Forbid();
         }
 
-        await service.SetStatusAsync(datasetVersion, status, cancellationToken);
+        await _statusService.SetStatusAsync(datasetVersion, status, cancellationToken);
 
         return TypedResults.Ok();
     }

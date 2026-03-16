@@ -8,7 +8,7 @@ namespace DorisStorageAdapter.Services.Implementation.Storage.InMemory;
 
 internal sealed class InMemoryStorageService(InMemoryStorage storage) : IStorageService
 {
-    private readonly InMemoryStorage storage = storage;
+    private readonly InMemoryStorage _storage = storage;
 
     public async Task<StorageFileBaseMetadata> StoreAsync(
         string filePath,
@@ -21,7 +21,7 @@ internal sealed class InMemoryStorageService(InMemoryStorage storage) : IStorage
         await data.CopyToAsync(memoryStream, cancellationToken);
         var byteArray = memoryStream.ToArray();
 
-        return storage
+        return _storage
             .AddOrUpdate(filePath, byteArray, contentType)
             .Metadata;
     }
@@ -30,7 +30,7 @@ internal sealed class InMemoryStorageService(InMemoryStorage storage) : IStorage
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        storage.Remove(filePath);
+        _storage.Remove(filePath);
         return Task.CompletedTask;
     }
 
@@ -38,7 +38,7 @@ internal sealed class InMemoryStorageService(InMemoryStorage storage) : IStorage
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (storage.TryGet(filePath, out var file))
+        if (_storage.TryGet(filePath, out var file))
         {
             return Task.FromResult<StorageFileMetadata?>(file.Metadata);
         }
@@ -50,7 +50,7 @@ internal sealed class InMemoryStorageService(InMemoryStorage storage) : IStorage
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (storage.TryGet(filePath, out var file))
+        if (_storage.TryGet(filePath, out var file))
         {
             Stream stream = new MemoryStream(file.Data);
 
@@ -74,7 +74,7 @@ internal sealed class InMemoryStorageService(InMemoryStorage storage) : IStorage
         string path,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        foreach (var f in storage.ListFiles(path))
+        foreach (var f in _storage.ListFiles(path))
         {
             cancellationToken.ThrowIfCancellationRequested();
 

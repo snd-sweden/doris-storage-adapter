@@ -7,17 +7,17 @@ namespace DorisStorageAdapter.Server.Configuration;
 
 internal sealed record GeneralConfiguration
 {
-    private readonly Uri publicUrl;
+    private readonly Uri _publicUrl;
 
     [Required]
     public required Uri PublicUrl
     {
-        get => publicUrl;
+        get => _publicUrl;
 
-        [MemberNotNull(nameof(publicUrl))]
+        [MemberNotNull(nameof(_publicUrl))]
         init
         {
-            publicUrl = UriHelpers.EnsureUriEndsWithSlash(value);
+            _publicUrl = UriHelpers.EnsureUriEndsWithSlash(value);
         }
     }
 }

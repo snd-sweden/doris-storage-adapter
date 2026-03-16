@@ -22,12 +22,12 @@ public sealed class DownloadsController(
     IFileService fileService,
     IOptions<AuthorizationConfiguration> authorizationConfiguration) : BaseController
 {
-    private readonly IFileService fileService = fileService;
-    private readonly AuthorizationConfiguration authorizationConfiguration = authorizationConfiguration.Value;
+    private readonly IFileService _fileService = fileService;
+    private readonly AuthorizationConfiguration _authorizationConfiguration = authorizationConfiguration.Value;
 
-    private const string corsPrefix = nameof(DownloadsController) + "_";
-    public const string downloadPublicFileCorsPolicyName = corsPrefix + nameof(DownloadPublicFileAsync);
-    public const string downloadPublicFilesAsZipCorsPolicyName = corsPrefix + nameof(DownloadPublicFilesAsZip);
+    private const string _corsPrefix = nameof(DownloadsController) + "_";
+    public const string DownloadPublicFileCorsPolicyName = _corsPrefix + nameof(DownloadPublicFileAsync);
+    public const string DownloadPublicFilesAsZipCorsPolicyName = _corsPrefix + nameof(DownloadPublicFilesAsZip);
 
     [HttpHead("downloads/draft/{identifier}/{version}/{type}/{**filePath}")]
     [HttpGet("downloads/draft/{identifier}/{version}/{type}/{**filePath}")]
@@ -46,7 +46,7 @@ public sealed class DownloadsController(
         string filePath,
         CancellationToken cancellationToken)
     {
-        if (!authorizationConfiguration.AllowReadDraftFiles)
+        if (!_authorizationConfiguration.AllowReadDraftFiles)
         {
             return TypedResults.Forbid();
         }
@@ -70,7 +70,7 @@ public sealed class DownloadsController(
 
     [HttpHead("downloads/public/{identifier}/{version}/{type}/{**filePath}")]
     [HttpGet("downloads/public/{identifier}/{version}/{type}/{**filePath}")]
-    [EnableCors(downloadPublicFileCorsPolicyName)]
+    [EnableCors(DownloadPublicFileCorsPolicyName)]
     [SwaggerResponse(StatusCodes.Status200OK, null, typeof(FileStreamResult), "*/*")]
     [SwaggerResponse(StatusCodes.Status206PartialContent, null, typeof(FileStreamResult), "*/*")]
     [ProducesResponseType(typeof(void), StatusCodes.Status416RangeNotSatisfiable)]
@@ -107,7 +107,7 @@ public sealed class DownloadsController(
         [FromQuery] string[] path,
         CancellationToken cancellationToken)
     {
-        if (!authorizationConfiguration.AllowReadDraftFiles)
+        if (!_authorizationConfiguration.AllowReadDraftFiles)
         {
             return TypedResults.Forbid();
         }
@@ -123,7 +123,7 @@ public sealed class DownloadsController(
     }
 
     [HttpGet("downloads/public/{identifier}/{version}.zip")]
-    [EnableCors(downloadPublicFilesAsZipCorsPolicyName)]
+    [EnableCors(DownloadPublicFilesAsZipCorsPolicyName)]
     [SwaggerResponse(StatusCodes.Status200OK, null, typeof(FileStreamResult), MediaTypeNames.Application.Zip)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
     public Results<PushStreamHttpResult, ForbidHttpResult> DownloadPublicFilesAsZip(
@@ -158,7 +158,7 @@ public sealed class DownloadsController(
             return null;
         }
 
-        var data = await fileService.GetDataAsync(
+        var data = await _fileService.GetDataAsync(
             datasetVersion: datasetVersion,
             type: type,
             filePath: filePath,
@@ -197,7 +197,7 @@ public sealed class DownloadsController(
         CancellationToken cancellationToken)
     {
         return TypedResults.Stream(_ =>
-           fileService.WriteDataAsZipAsync(
+           _fileService.WriteDataAsZipAsync(
                datasetVersion: datasetVersion,
                paths: paths,
                stream: Response.BodyWriter.AsStream(),

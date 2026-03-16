@@ -7,18 +7,18 @@ namespace DorisStorageAdapter.Services.Implementation.Storage.NextCloud;
 
 internal sealed record NextCloudStorageServiceConfiguration
 {
-    private readonly Uri baseUrl;
+    private readonly Uri _baseUrl;
 
     [Required]
     public required Uri BaseUrl
     {
-        get => baseUrl;
+        get => _baseUrl;
 
 
-        [MemberNotNull(nameof(baseUrl))]
+        [MemberNotNull(nameof(_baseUrl))]
         init
         {
-            baseUrl = UriHelpers.EnsureUriEndsWithSlash(value);
+            _baseUrl = UriHelpers.EnsureUriEndsWithSlash(value);
         }
     }
 

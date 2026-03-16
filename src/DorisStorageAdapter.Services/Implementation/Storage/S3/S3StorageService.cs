@@ -18,8 +18,8 @@ internal sealed class S3StorageService(
     IAmazonS3 client,
     IOptions<S3StorageServiceConfiguration> configuration) : IStorageService
 {
-    private readonly IAmazonS3 client = client;
-    private readonly S3StorageServiceConfiguration configuration = configuration.Value;
+    private readonly IAmazonS3 _client = client;
+    private readonly S3StorageServiceConfiguration _configuration = configuration.Value;
 
     public async Task<StorageFileBaseMetadata> StoreAsync(
         string filePath,
@@ -28,16 +28,16 @@ internal sealed class S3StorageService(
         string? contentType,
         CancellationToken cancellationToken)
     {
-        using var utility = new TransferUtility(client, new()
+        using var utility = new TransferUtility(_client, new()
         {
-            MinSizeBeforePartUpload = configuration.MultiPartUploadThreshold
+            MinSizeBeforePartUpload = _configuration.MultiPartUploadThreshold
         });
 
         var request = new TransferUtilityUploadRequest
         {
             AutoCloseStream = false,
             AutoResetStreamPosition = false,
-            BucketName = configuration.BucketName,
+            BucketName = _configuration.BucketName,
             Key = filePath,
 
             InputStream = size == 0
@@ -58,7 +58,7 @@ internal sealed class S3StorageService(
                 /// so retries are disabled in S3StorageServiceConfigurer to avoid seeking here.
                 : new FakeSeekableStream(data, size),
 
-            PartSize = configuration.MultiPartUploadChunkSize
+            PartSize = _configuration.MultiPartUploadChunkSize
         };
 
         await utility.UploadAsync(request, cancellationToken);
@@ -74,9 +74,9 @@ internal sealed class S3StorageService(
 
     public async Task DeleteAsync(string filePath, CancellationToken cancellationToken)
     {
-        await client.DeleteObjectAsync(new()
+        await _client.DeleteObjectAsync(new()
         {
-            BucketName = configuration.BucketName,
+            BucketName = _configuration.BucketName,
             Key = filePath
         },
         cancellationToken);
@@ -86,9 +86,9 @@ internal sealed class S3StorageService(
     {
         try
         {
-            var response = await client.GetObjectMetadataAsync(new()
+            var response = await _client.GetObjectMetadataAsync(new()
             {
-                BucketName = configuration.BucketName,
+                BucketName = _configuration.BucketName,
                 Key = filePath
             },
             cancellationToken);
@@ -117,7 +117,7 @@ internal sealed class S3StorageService(
         {
             var request = new GetObjectRequest()
             {
-                BucketName = configuration.BucketName,
+                BucketName = _configuration.BucketName,
                 Key = filePath
             };
 
@@ -126,7 +126,7 @@ internal sealed class S3StorageService(
                 request.ByteRange = new(byteRange.ToHttpRangeValue());
             }
 
-            var response = await client.GetObjectAsync(request, cancellationToken);
+            var response = await _client.GetObjectAsync(request, cancellationToken);
 
             return new(
                 ContentType: null,
@@ -155,9 +155,9 @@ internal sealed class S3StorageService(
                 GetObjectMetadataResponse response;
                 try
                 {
-                    response = await client.GetObjectMetadataAsync(new()
+                    response = await _client.GetObjectMetadataAsync(new()
                     {
-                        BucketName = configuration.BucketName,
+                        BucketName = _configuration.BucketName,
                         Key = filePath
                     },
                     cancellationToken);
@@ -189,9 +189,9 @@ internal sealed class S3StorageService(
         string path,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var paginator = client.Paginators.ListObjectsV2(new()
+        var paginator = _client.Paginators.ListObjectsV2(new()
         {
-            BucketName = configuration.BucketName,
+            BucketName = _configuration.BucketName,
             Prefix = path
         });
 

@@ -15,7 +15,7 @@ public sealed class SystemController(
     ISystemService systemService,
     IOptions<AuthorizationConfiguration> authorizationConfiguration) : BaseController
 {
-    private readonly ISystemService systemService = systemService;
+    private readonly ISystemService _systemService = systemService;
 
     private readonly static string version = FileVersionInfo
         .GetVersionInfo(typeof(SystemController).Assembly.Location)
@@ -27,7 +27,7 @@ public sealed class SystemController(
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
     public SystemInformation GetInformation()
     {
-        var info = systemService.GetSystemInformation();
+        var info = _systemService.GetSystemInformation();
 
         return new(
             AllowPublicAccessRight: info.AllowPublicAccessRight,

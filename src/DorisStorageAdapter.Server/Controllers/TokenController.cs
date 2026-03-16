@@ -17,8 +17,8 @@ namespace DorisStorageAdapter.Server.Controllers;
 [ApiController]
 public sealed class TokenController(IJwtService jwtService, IConfiguration configuration) : ControllerBase
 {
-    private readonly IJwtService jwtService = jwtService;
-    private readonly IConfiguration configuration = configuration;
+    private readonly IJwtService _jwtService = jwtService;
+    private readonly IConfiguration _configuration = configuration;
 
     [HttpPost("dev/token/{identifier}/{version}")]
     public Task<string> CreateDataAccessTokenAsync(string identifier, string version, [FromQuery] string role)
@@ -28,9 +28,9 @@ public sealed class TokenController(IJwtService jwtService, IConfiguration confi
 
     private async Task<string> CreateTokenAsync(string identifier, string version, string role)
     {
-        var key = await jwtService.GetCurrentSigningCredentials();
-        var publicUrl = configuration.Get<GeneralConfiguration>()!.PublicUrl;
-        var jwksUri = configuration
+        var key = await _jwtService.GetCurrentSigningCredentials();
+        var publicUrl = _configuration.Get<GeneralConfiguration>()!.PublicUrl;
+        var jwksUri = _configuration
             .GetSection(AuthorizationConfiguration.ConfigurationSection)
             .Get<AuthorizationConfiguration>()!
             .JwksUri;
