@@ -1,6 +1,7 @@
 ﻿using DorisStorageAdapter.Services.Contract.Models;
 using DorisStorageAdapter.Services.Implementation.BagIt;
 using DorisStorageAdapter.Services.Implementation.BagIt.Fetch;
+using DorisStorageAdapter.Services.Implementation.IO;
 using DorisStorageAdapter.Services.Implementation.Storage;
 using System;
 using System.Collections.Generic;
@@ -78,7 +79,8 @@ internal sealed class BagContext(string storagePath, IStorageService storageServ
     public async IAsyncEnumerable<StorageFileMetadata> ListPayloadFilesAsync(
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        await foreach (var file in _storageService.ListAsync(ToStoragePath(Paths.GetPayloadPath(null)), cancellationToken))
+        await foreach (var file in _storageService.ListAsync(
+            ToStoragePath(BagPathLayout.PayloadRootPath), cancellationToken))
         {
             yield return file with { Path = FromStoragePath(file.Path) };
         }

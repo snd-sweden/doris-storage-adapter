@@ -9,6 +9,7 @@ using DorisStorageAdapter.Services.Implementation.BagIt.Manifest;
 using DorisStorageAdapter.Services.Implementation.Configuration;
 using DorisStorageAdapter.Services.Implementation.Services.Bags;
 using DorisStorageAdapter.Services.Implementation.Services.Locking;
+using DorisStorageAdapter.Services.Implementation.Services.Validation;
 using DorisStorageAdapter.Services.Implementation.Storage;
 using Microsoft.Extensions.Options;
 using System;
@@ -41,7 +42,7 @@ internal sealed class StatusService(
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
         ArgumentException.ThrowIfNullOrEmpty(doi);
-        Validation.ThrowIfInvalidDatasetVersion(datasetVersion);
+        DatasetVersionValidator.ThrowIfInvalid(datasetVersion);
 
         if (accessRight == AccessRight.@public &&
             !_storageConfiguration.AllowPublicAccessRight)
@@ -257,7 +258,7 @@ internal sealed class StatusService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
-        Validation.ThrowIfInvalidDatasetVersion(datasetVersion);
+        DatasetVersionValidator.ThrowIfInvalid(datasetVersion);
 
         var bagContext = _bagContextFactory.Create(datasetVersion);
 

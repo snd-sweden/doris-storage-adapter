@@ -3,7 +3,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace DorisStorageAdapter.Helpers;
+namespace DorisStorageAdapter.Shared;
 
 /// <summary>
 /// A stream that wraps another stream to make it appear as though the underlying

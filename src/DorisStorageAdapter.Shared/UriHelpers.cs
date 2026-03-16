@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace DorisStorageAdapter.Helpers;
+namespace DorisStorageAdapter.Shared;
 
 public static class UriHelpers
 {

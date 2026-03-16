@@ -1,8 +1,8 @@
-﻿using DorisStorageAdapter.Helpers;
-using DorisStorageAdapter.Server.Configuration;
+﻿using DorisStorageAdapter.Server.Configuration;
 using DorisStorageAdapter.Server.Controllers.Authorization;
 using DorisStorageAdapter.Services.Contract;
 using DorisStorageAdapter.Services.Contract.Models;
+using DorisStorageAdapter.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Http;
@@ -25,9 +25,9 @@ public sealed class DownloadsController(
     private readonly IFileService _fileService = fileService;
     private readonly AuthorizationConfiguration _authorizationConfiguration = authorizationConfiguration.Value;
 
-    private const string _corsPrefix = nameof(DownloadsController) + "_";
-    public const string DownloadPublicFileCorsPolicyName = _corsPrefix + nameof(DownloadPublicFileAsync);
-    public const string DownloadPublicFilesAsZipCorsPolicyName = _corsPrefix + nameof(DownloadPublicFilesAsZip);
+    private const string CorsPrefix = nameof(DownloadsController) + "_";
+    public const string DownloadPublicFileCorsPolicyName = CorsPrefix + nameof(DownloadPublicFileAsync);
+    public const string DownloadPublicFilesAsZipCorsPolicyName = CorsPrefix + nameof(DownloadPublicFilesAsZip);
 
     [HttpHead("downloads/draft/{identifier}/{version}/{type}/{**filePath}")]
     [HttpGet("downloads/draft/{identifier}/{version}/{type}/{**filePath}")]

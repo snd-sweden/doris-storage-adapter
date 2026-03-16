@@ -383,16 +383,13 @@
         "resolved": "4.6.3",
         "contentHash": "7sCiwilJLYbTZELaKnc7RecBBXWXA+xMLQWZKWawBxYjp6DBlSE3v9/UcvKBvr1vv2tTOhipiogM8rRmxlhrVA=="
       },
-      "dorisstorageadapter.helpers": {
-        "type": "Project"
-      },
       "dorisstorageadapter.services": {
         "type": "Project",
         "dependencies": {
           "AWSSDK.S3": "[4.0.18.5, )",
           "AsyncKeyedLock": "[8.0.2, )",
           "ByteSize": "[2.1.2, )",
-          "DorisStorageAdapter.Helpers": "[1.0.0, )",
+          "DorisStorageAdapter.Shared": "[1.0.0, )",
           "Microsoft.Extensions.Configuration.Abstractions": "[8.0.0, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[8.0.2, )",
           "Microsoft.Extensions.Http": "[8.0.1, )",
@@ -403,6 +400,9 @@
           "Nito.AsyncEx.Coordination": "[5.1.2, )",
           "WebDav.Client": "[2.9.0, )"
         }
+      },
+      "dorisstorageadapter.shared": {
+        "type": "Project"
       },
       "AsyncKeyedLock": {
         "type": "CentralTransitive",

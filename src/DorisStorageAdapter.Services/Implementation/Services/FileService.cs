@@ -6,9 +6,11 @@ using DorisStorageAdapter.Services.Implementation.BagIt.Fetch;
 using DorisStorageAdapter.Services.Implementation.BagIt.Info;
 using DorisStorageAdapter.Services.Implementation.BagIt.Manifest;
 using DorisStorageAdapter.Services.Implementation.Configuration;
+using DorisStorageAdapter.Services.Implementation.IO;
 using DorisStorageAdapter.Services.Implementation.Locking;
 using DorisStorageAdapter.Services.Implementation.Services.Bags;
 using DorisStorageAdapter.Services.Implementation.Services.Locking;
+using DorisStorageAdapter.Services.Implementation.Services.Validation;
 using DorisStorageAdapter.Services.Implementation.Storage;
 using Microsoft.Extensions.Options;
 using System;
@@ -47,7 +49,7 @@ internal sealed class FileService(
         ArgumentException.ThrowIfNullOrEmpty(filePath);
         ArgumentNullException.ThrowIfNull(data);
         ArgumentOutOfRangeException.ThrowIfNegative(size);
-        Validation.ThrowIfInvalidDatasetVersion(datasetVersion);
+        DatasetVersionValidator.ThrowIfInvalid(datasetVersion);
         ThrowIfInvalidFilePath(filePath);
 
         await using var datasetVersionLock = await _datasetVersionLocks
@@ -59,7 +61,7 @@ internal sealed class FileService(
         var bagContext = _bagContextFactory.Create(datasetVersion);
         await ThrowIfHasBeenPublishedAsync(bagContext, cancellationToken);
 
-        string pathInBag = Paths.ToPathInBag(type, filePath);
+        string pathInBag = BagPathLayout.ToPathInBag(type, filePath);
         StorageFileBaseMetadata result;
         byte[] checksum;
         long bytesRead;
@@ -106,7 +108,7 @@ internal sealed class FileService(
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
         ArgumentException.ThrowIfNullOrEmpty(filePath);
-        Validation.ThrowIfInvalidDatasetVersion(datasetVersion);
+        DatasetVersionValidator.ThrowIfInvalid(datasetVersion);
         ThrowIfInvalidFilePath(filePath);
 
         await using var datasetVersionLock = await _datasetVersionLocks
@@ -118,7 +120,7 @@ internal sealed class FileService(
         var bagContext = _bagContextFactory.Create(datasetVersion);
         await ThrowIfHasBeenPublishedAsync(bagContext, cancellationToken);
 
-        string pathInBag = Paths.ToPathInBag(type, filePath);
+        string pathInBag = BagPathLayout.ToPathInBag(type, filePath);
 
         await bagContext.DeleteFileAsync(
             path: pathInBag,
@@ -141,10 +143,10 @@ internal sealed class FileService(
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
         ArgumentException.ThrowIfNullOrEmpty(fromVersion);
-        Validation.ThrowIfInvalidDatasetVersion(datasetVersion);
+        DatasetVersionValidator.ThrowIfInvalid(datasetVersion);
 
         var fromDatasetVersion = new DatasetVersion(datasetVersion.Identifier, fromVersion);
-        Validation.ThrowIfInvalidDatasetVersion(fromDatasetVersion);
+        DatasetVersionValidator.ThrowIfInvalid(fromDatasetVersion);
 
         if (datasetVersion == fromDatasetVersion)
         {
@@ -204,7 +206,7 @@ internal sealed class FileService(
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
         ArgumentException.ThrowIfNullOrEmpty(filePath);
-        Validation.ThrowIfInvalidDatasetVersion(datasetVersion);
+        DatasetVersionValidator.ThrowIfInvalid(datasetVersion);
         ThrowIfInvalidFilePath(filePath);
 
         var bagContext = _bagContextFactory.Create(datasetVersion);
@@ -217,7 +219,7 @@ internal sealed class FileService(
             return null;
         }
 
-        string pathInBag = Paths.ToPathInBag(type, filePath);
+        string pathInBag = BagPathLayout.ToPathInBag(type, filePath);
 
         var fetch = await bagContext.LoadBagItElementAsync<BagItFetch>(cancellationToken);
         (bagContext, pathInBag) = ResolvePath(bagContext, fetch, pathInBag);
@@ -263,7 +265,7 @@ internal sealed class FileService(
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
-        Validation.ThrowIfInvalidDatasetVersion(datasetVersion);
+        DatasetVersionValidator.ThrowIfInvalid(datasetVersion);
 
         var bagContext = _bagContextFactory.Create(datasetVersion);
 
@@ -298,7 +300,7 @@ internal sealed class FileService(
 
         foreach (var file in result.OrderBy(f => f.Path, StringComparer.InvariantCulture))
         {
-            (FileType type, string filePath) = Paths.FromPathInBag(file.Path);
+            (FileType type, string filePath) = BagPathLayout.FromPathInBag(file.Path);
 
             yield return new(
                 ContentType: file.ContentType ?? MimeTypes.GetMimeType(file.Path),
@@ -321,7 +323,7 @@ internal sealed class FileService(
         ArgumentNullException.ThrowIfNull(datasetVersion);
         ArgumentNullException.ThrowIfNull(paths);
         ArgumentNullException.ThrowIfNull(stream);
-        Validation.ThrowIfInvalidDatasetVersion(datasetVersion);
+        DatasetVersionValidator.ThrowIfInvalid(datasetVersion);
 
         var bagContext = _bagContextFactory.Create(datasetVersion);
 
@@ -343,7 +345,7 @@ internal sealed class FileService(
 
         foreach (var manifestItem in payloadManifest.Items)
         {
-            (var type, string filePath) = Paths.FromPathInBag(manifestItem.FilePath);
+            (var type, string filePath) = BagPathLayout.FromPathInBag(manifestItem.FilePath);
 
             if (!accessibleFileTypes.Contains(type))
             {
@@ -407,8 +409,7 @@ internal sealed class FileService(
         foreach (string pathComponent in filePath.Split('/'))
         {
             if (string.IsNullOrEmpty(pathComponent) ||
-                pathComponent == "." ||
-                pathComponent == "..")
+                pathComponent is "." or "..")
             {
                 throw new ValidationException([new("Invalid path.")]);
             }

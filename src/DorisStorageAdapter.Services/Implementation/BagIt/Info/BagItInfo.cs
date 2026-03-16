@@ -15,40 +15,40 @@ internal sealed class BagItInfo : IBagItElement<BagItInfo>
 
     private static readonly HashSet<string> _reservedLabels = new(
     [
-        _baggingDateLabel.ToUpperInvariant(),
-        _bagCountLabel.ToUpperInvariant(),
-        _bagGroupIdentifierLabel.ToUpperInvariant(),
-        _bagSizeLabel.ToUpperInvariant(),
-        _contactEmailLabel.ToUpperInvariant(),
-        _contactNameLabel.ToUpperInvariant(),
-        _contactPhoneLabel.ToUpperInvariant(),
-        _externalDescriptionLabel.ToUpperInvariant(),
-        _externalIdentifierLabel.ToUpperInvariant(),
-        _internalSenderIdentifier.ToUpperInvariant(),
-        _internalSenderDescription.ToUpperInvariant(),
-        _organizationAddressLabel.ToUpperInvariant(),
-        _sourceOrganizationLabel.ToUpperInvariant(),
-        _payloadOxumLabel.ToUpperInvariant()
+        BaggingDateLabel.ToUpperInvariant(),
+        BagCountLabel.ToUpperInvariant(),
+        BagGroupIdentifierLabel.ToUpperInvariant(),
+        BagSizeLabel.ToUpperInvariant(),
+        ContactEmailLabel.ToUpperInvariant(),
+        ContactNameLabel.ToUpperInvariant(),
+        ContactPhoneLabel.ToUpperInvariant(),
+        ExternalDescriptionLabel.ToUpperInvariant(),
+        ExternalIdentifierLabel.ToUpperInvariant(),
+        InternalSenderIdentifierLabel.ToUpperInvariant(),
+        InternalSenderDescriptionLabel.ToUpperInvariant(),
+        OrganizationAddressLabel.ToUpperInvariant(),
+        SourceOrganizationLabel.ToUpperInvariant(),
+        PayloadOxumLabel.ToUpperInvariant()
     ]);
 
-    private const string _baggingDateLabel = "Bagging-Date";
-    private const string _bagCountLabel = "Bag-Count";
-    private const string _bagGroupIdentifierLabel = "Bag-Group-Identifier";
-    private const string _bagSizeLabel = "Bag-Size";
-    private const string _contactEmailLabel = "Contact-Email";
-    private const string _contactNameLabel = "Contact-Name";
-    private const string _contactPhoneLabel = "Contact-Phone";
-    private const string _externalDescriptionLabel = "External-Description";
-    private const string _externalIdentifierLabel = "External-Identifier";
-    private const string _internalSenderIdentifier = "Internal-Sender-Identifier";
-    private const string _internalSenderDescription = "Internal-Sender-Description";
-    private const string _organizationAddressLabel = "Organization-Address";
-    private const string _sourceOrganizationLabel = "Source-Organization";
-    private const string _payloadOxumLabel = "Payload-Oxum";
+    private const string BaggingDateLabel = "Bagging-Date";
+    private const string BagCountLabel = "Bag-Count";
+    private const string BagGroupIdentifierLabel = "Bag-Group-Identifier";
+    private const string BagSizeLabel = "Bag-Size";
+    private const string ContactEmailLabel = "Contact-Email";
+    private const string ContactNameLabel = "Contact-Name";
+    private const string ContactPhoneLabel = "Contact-Phone";
+    private const string ExternalDescriptionLabel = "External-Description";
+    private const string ExternalIdentifierLabel = "External-Identifier";
+    private const string InternalSenderIdentifierLabel = "Internal-Sender-Identifier";
+    private const string InternalSenderDescriptionLabel = "Internal-Sender-Description";
+    private const string OrganizationAddressLabel = "Organization-Address";
+    private const string SourceOrganizationLabel = "Source-Organization";
+    private const string PayloadOxumLabel = "Payload-Oxum";
 
     public DateTime? BaggingDate
     {
-        get => GetSingleValue(_baggingDateLabel, v =>
+        get => GetSingleValue(BaggingDateLabel, v =>
             DateTime.TryParseExact(v,
                 "yyyy-MM-dd",
                 CultureInfo.InvariantCulture,
@@ -57,19 +57,19 @@ internal sealed class BagItInfo : IBagItElement<BagItInfo>
                     ? dateTime
                     : (DateTime?)null);
 
-        set => SetSingleValue(_baggingDateLabel, value,
+        set => SetSingleValue(BaggingDateLabel, value,
             v => v?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
     }
 
     public string? BagGroupIdentifier
     {
-        get => GetSingleValue(_bagGroupIdentifierLabel, v => v);
-        set => SetSingleValue(_bagGroupIdentifierLabel, value, v => v);
+        get => GetSingleValue(BagGroupIdentifierLabel, v => v);
+        set => SetSingleValue(BagGroupIdentifierLabel, value, v => v);
     }
 
     public BagCount? BagCount
     {
-        get => GetSingleValue(_bagCountLabel, v =>
+        get => GetSingleValue(BagCountLabel, v =>
         {
             var values = v.Split(" of ");
 
@@ -89,68 +89,68 @@ internal sealed class BagItInfo : IBagItElement<BagItInfo>
             return null;
         });
 
-        set => SetSingleValue(_bagCountLabel, value,
+        set => SetSingleValue(BagCountLabel, value,
             v => v.Ordinal.ToString(CultureInfo.InvariantCulture) + " of " +
                  v.TotalCount?.ToString(CultureInfo.InvariantCulture) ?? "?");
     }
 
     public string? BagSize
     {
-        get => GetSingleValue(_bagSizeLabel, v => v);
-        set => SetSingleValue(_bagSizeLabel, value, v => v);
+        get => GetSingleValue(BagSizeLabel, v => v);
+        set => SetSingleValue(BagSizeLabel, value, v => v);
     }
 
     public IEnumerable<string> ContactEmail
     {
-        get => GetValues(_contactEmailLabel, false);
-        set => SetValues(_contactEmailLabel, value, false);
+        get => GetValues(ContactEmailLabel, false);
+        set => SetValues(ContactEmailLabel, value, false);
     }
 
     public IEnumerable<string> ContactName
     {
-        get => GetValues(_contactNameLabel, false);
-        set => SetValues(_contactNameLabel, value, false);
+        get => GetValues(ContactNameLabel, false);
+        set => SetValues(ContactNameLabel, value, false);
     }
 
     public IEnumerable<string> ContactPhone
     {
-        get => GetValues(_contactPhoneLabel, false);
-        set => SetValues(_contactPhoneLabel, value, false);
+        get => GetValues(ContactPhoneLabel, false);
+        set => SetValues(ContactPhoneLabel, value, false);
     }
 
     public IEnumerable<string> ExternalDescription
     {
-        get => GetValues(_externalDescriptionLabel, false);
-        set => SetValues(_externalDescriptionLabel, value, false);
+        get => GetValues(ExternalDescriptionLabel, false);
+        set => SetValues(ExternalDescriptionLabel, value, false);
     }
 
     public IEnumerable<string> ExternalIdentifier
     {
-        get => GetValues(_externalIdentifierLabel, false);
-        set => SetValues(_externalIdentifierLabel, value, false);
+        get => GetValues(ExternalIdentifierLabel, false);
+        set => SetValues(ExternalIdentifierLabel, value, false);
     }
 
     public IEnumerable<string> InternalSenderDescription
     {
-        get => GetValues(_internalSenderDescription, false);
-        set => SetValues(_internalSenderDescription, value, false);
+        get => GetValues(InternalSenderDescriptionLabel, false);
+        set => SetValues(InternalSenderDescriptionLabel, value, false);
     }
 
     public IEnumerable<string> InternalSenderIdentifier
     {
-        get => GetValues(_internalSenderIdentifier, false);
-        set => SetValues(_internalSenderIdentifier, value, false);
+        get => GetValues(InternalSenderIdentifierLabel, false);
+        set => SetValues(InternalSenderIdentifierLabel, value, false);
     }
 
     public IEnumerable<string> OrganizationAddress
     {
-        get => GetValues(_organizationAddressLabel, false);
-        set => SetValues(_organizationAddressLabel, value, false);
+        get => GetValues(OrganizationAddressLabel, false);
+        set => SetValues(OrganizationAddressLabel, value, false);
     }
 
     public PayloadOxum? PayloadOxum
     {
-        get => GetSingleValue(_payloadOxumLabel, v =>
+        get => GetSingleValue(PayloadOxumLabel, v =>
         {
             var values = v.Split('.');
             if (values.Length == 2 &&
@@ -163,15 +163,15 @@ internal sealed class BagItInfo : IBagItElement<BagItInfo>
             return null;
         });
 
-        set => SetSingleValue(_payloadOxumLabel, value,
+        set => SetSingleValue(PayloadOxumLabel, value,
             v => v.OctetCount.ToString(CultureInfo.InvariantCulture) + '.' +
                  v.StreamCount.ToString(CultureInfo.InvariantCulture));
     }
 
     public IEnumerable<string> SourceOrganization
     {
-        get => GetValues(_sourceOrganizationLabel, false);
-        set => SetValues(_sourceOrganizationLabel, value, false);
+        get => GetValues(SourceOrganizationLabel, false);
+        set => SetValues(SourceOrganizationLabel, value, false);
     }
 
     private T? GetSingleValue<T>(string label, Func<string, T?> parser)

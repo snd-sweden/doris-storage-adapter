@@ -20,7 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../DorisStorageAdapter.Helpers/DorisStorageAdapter.Helpers.csproj" />
+    <ProjectReference Include="../DorisStorageAdapter.Shared/DorisStorageAdapter.Shared.csproj" />
   </ItemGroup>
 
 </Project>

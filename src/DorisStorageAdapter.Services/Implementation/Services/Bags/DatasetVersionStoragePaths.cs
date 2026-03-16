@@ -4,23 +4,10 @@ using System.Linq;
 
 namespace DorisStorageAdapter.Services.Implementation.Services.Bags;
 
-internal static class Paths
+internal static class DatasetVersionStoragePaths
 {
     private static readonly string[] _legacyPrefixes = ["ecds", "ext", "snd"];
 
-    // Används för att lägga till och strippa bort "data/"
-    // och för att få ut typ från sökväg
-    public static string GetPayloadPath(FileType? type) =>
-        type switch
-        {
-            FileType.data => "data/data/",
-            FileType.documentation => "data/documentation/",
-            _ => "data/"
-        };
-       
-
-    // Används endast internt
-    // Eg. GetBagGroupStoragePath?
     private static string GetDatasetPath(DatasetVersion datasetVersion)
     {
         // If dataset identifier begins with one of the legacy prefixes,
@@ -51,22 +38,4 @@ internal static class Paths
 
     public static string GetDatasetVersionPath(DatasetVersion datasetVersion) =>
         GetDatasetPath(datasetVersion) + datasetVersion.Identifier + '-' + datasetVersion.Version + '/';
-
-    public static string ToPathInBag(FileType type, string filePath) =>
-        GetPayloadPath(type) + filePath;
-
-    public static (FileType Type, string FilePath) FromPathInBag(string pathInBag)
-    {
-        if (pathInBag.StartsWith(GetPayloadPath(FileType.data), StringComparison.Ordinal))
-        {
-            return (FileType.data, pathInBag[GetPayloadPath(FileType.data).Length..]);
-        }
-
-        if (pathInBag.StartsWith(GetPayloadPath(FileType.documentation), StringComparison.Ordinal))
-        {
-            return (FileType.documentation, pathInBag[GetPayloadPath(FileType.documentation).Length..]);
-        }
-
-        throw new ArgumentException("Not a valid bag path.", nameof(pathInBag));
-    }
 }

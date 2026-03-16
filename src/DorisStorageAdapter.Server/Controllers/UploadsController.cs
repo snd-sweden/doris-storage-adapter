@@ -19,9 +19,9 @@ public sealed class UploadsController(
 {
     private readonly IFileService fileService = fileService;
 
-    private const string _corsPrefix = nameof(UploadsController) + "_";
-    public const string UploadCorsPolicyName = _corsPrefix + nameof(UploadAsync);
-    public const string DeleteCorsPolicyName = _corsPrefix + nameof(DeleteAsync);
+    private const string CorsPrefix = nameof(UploadsController) + "_";
+    public const string UploadCorsPolicyName = CorsPrefix + nameof(UploadAsync);
+    public const string DeleteCorsPolicyName = CorsPrefix + nameof(DeleteAsync);
 
     [HttpPut("uploads/{identifier}/{version}/{type}/{**filePath}")]
     [Authorize(Roles = Roles.WriteDraftFiles)]

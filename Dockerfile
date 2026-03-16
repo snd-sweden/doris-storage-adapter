@@ -7,9 +7,9 @@ ARG SOURCE_DATE_EPOCH
 
 WORKDIR /src
 
-COPY src/DorisStorageAdapter.Helpers/DorisStorageAdapter.Helpers.csproj DorisStorageAdapter.Helpers/
 COPY src/DorisStorageAdapter.Server/DorisStorageAdapter.Server.csproj DorisStorageAdapter.Server/
 COPY src/DorisStorageAdapter.Services/DorisStorageAdapter.Services.csproj DorisStorageAdapter.Services/
+COPY src/DorisStorageAdapter.Shared/DorisStorageAdapter.Shared.csproj DorisStorageAdapter.Shared/
 COPY src/Directory.Build.props .
 COPY src/Directory.Packages.props .
 RUN dotnet restore -p:CI=$CI DorisStorageAdapter.Server/DorisStorageAdapter.Server.csproj

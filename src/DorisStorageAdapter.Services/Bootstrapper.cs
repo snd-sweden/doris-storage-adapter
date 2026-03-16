@@ -28,8 +28,8 @@ public static class Bootstrapper
         services.AddSingleton<IReaderWriterLockProvider, InProcessReaderWriterLockProvider>();
         services.AddSingleton<IStorageLockProvider, StorageLockProvider>();
         services.AddSingleton<DatasetVersionLocks>();
-        services.AddTransient<IFileService, FileService>();
         services.AddTransient<BagContextFactory>();
+        services.AddTransient<IFileService, FileService>();
         services.AddTransient<IStatusService, StatusService>();
         services.AddSingleton<ISystemService, SystemService>();
 

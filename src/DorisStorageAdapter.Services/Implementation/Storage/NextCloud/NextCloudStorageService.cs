@@ -25,10 +25,10 @@ internal sealed class NextCloudStorageService : IStorageService
     private readonly Uri _chunkedUploadBaseUri;
     private readonly Uri _tmpFileBaseUri;
 
-    private const string _davNamespaceName = "DAV:";
-    private static readonly XName _getLastModifiedProperty = XName.Get("getlastmodified", _davNamespaceName);
-    private static readonly XName _getContentLengthProperty = XName.Get("getcontentlength", _davNamespaceName);
-    private static readonly XName _resourceTypeProperty = XName.Get("resourcetype", _davNamespaceName);
+    private const string DavNamespaceName = "DAV:";
+    private static readonly XName _getLastModifiedProperty = XName.Get("getlastmodified", DavNamespaceName);
+    private static readonly XName _getContentLengthProperty = XName.Get("getcontentlength", DavNamespaceName);
+    private static readonly XName _resourceTypeProperty = XName.Get("resourcetype", DavNamespaceName);
 
     public NextCloudStorageService(
         IWebDavClient webDavClient,
@@ -418,7 +418,7 @@ internal sealed class NextCloudStorageService : IStorageService
         _webDavClient.Propfind(uri, new PropfindParameters
         {
             ApplyTo = applyTo,
-            Namespaces = [new("d", _davNamespaceName)],
+            Namespaces = [new("d", DavNamespaceName)],
             CustomProperties = customProperties,
             RequestType = PropfindRequestType.NamedProperties,
             CancellationToken = cancellationToken

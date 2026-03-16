@@ -7,5 +7,6 @@ internal sealed class BagContextFactory(IStorageService storageService)
 {
     public BagContext Create(string storagePath) => new(storagePath, storageService);
 
-    public BagContext Create(DatasetVersion datasetVersion) => Create(Paths.GetDatasetVersionPath(datasetVersion));
+    public BagContext Create(DatasetVersion datasetVersion) => 
+        Create(DatasetVersionStoragePaths.GetDatasetVersionPath(datasetVersion));
 }
