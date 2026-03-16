@@ -29,12 +29,12 @@ internal sealed class FileService(
     ILockProvider lockProvider,
     DatasetVersionLocks datasetVersionLocks,
     BagContextFactory bagContextFactory,
-    IOptions<StorageConfiguration> storageConfiguration) : IFileService
+    IOptions<PublicationConfiguration> publicationConfiguration) : IFileService
 {
     private readonly ILockProvider _lockProvider = lockProvider;
     private readonly DatasetVersionLocks _datasetVersionLocks = datasetVersionLocks;
     private readonly BagContextFactory _bagContextFactory = bagContextFactory;
-    private readonly StorageConfiguration _storageConfiguration = storageConfiguration.Value;
+    private readonly PublicationConfiguration _publicationConfiguration = publicationConfiguration.Value;
 
     public async Task<FileMetadata> StoreAsync(
         DatasetVersion datasetVersion,
@@ -450,7 +450,7 @@ internal sealed class FileService(
 
             // If we reach here, we know we can allow access to documentation files.
             // Check if we also allow access to data files.
-            if (_storageConfiguration.AllowPublicAccessRight &&
+            if (_publicationConfiguration.AllowPublicAccessRight &&
                 bagInfo.GetAccessRight() == AccessRight.@public)
             {
                 // Yes, we allow public data files and access right

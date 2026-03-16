@@ -25,11 +25,11 @@ namespace DorisStorageAdapter.Services.Implementation.Services;
 internal sealed class StatusService(
     DatasetVersionLocks datasetVersionLocks,
     BagContextFactory bagContextFactory,
-    IOptions<StorageConfiguration> storageConfiguration) : IStatusService
+    IOptions<PublicationConfiguration> publicationConfiguration) : IStatusService
 {
     private readonly DatasetVersionLocks _datasetVersionLocks = datasetVersionLocks;
     private readonly BagContextFactory _bagContextFactory = bagContextFactory;
-    private readonly StorageConfiguration _storageConfiguration = storageConfiguration.Value;
+    private readonly PublicationConfiguration _publicationConfiguration = publicationConfiguration.Value;
 
     private static readonly byte[] _bagItSha256 = SHA256.HashData(BagItDeclaration.CreateEmpty().Serialize());
 
@@ -45,7 +45,7 @@ internal sealed class StatusService(
         DatasetVersionValidator.ThrowIfInvalid(datasetVersion);
 
         if (accessRight == AccessRight.@public &&
-            !_storageConfiguration.AllowPublicAccessRight)
+            !_publicationConfiguration.AllowPublicAccessRight)
         {
             throw new PublicAccessRightNotAllowedException();
         }
