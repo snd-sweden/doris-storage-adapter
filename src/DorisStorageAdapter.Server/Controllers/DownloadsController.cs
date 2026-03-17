@@ -1,8 +1,8 @@
-﻿using DorisStorageAdapter.Server.Configuration;
+﻿using DorisStorageAdapter.Common;
+using DorisStorageAdapter.Server.Configuration;
 using DorisStorageAdapter.Server.Controllers.Authorization;
 using DorisStorageAdapter.Services.Contract;
 using DorisStorageAdapter.Services.Contract.Models;
-using DorisStorageAdapter.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Http;

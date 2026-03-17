@@ -13,7 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../DorisStorageAdapter.Shared/DorisStorageAdapter.Shared.csproj" />
+    <ProjectReference Include="../DorisStorageAdapter.Common/DorisStorageAdapter.Common.csproj" />
     <ProjectReference Include="../DorisStorageAdapter.Services/DorisStorageAdapter.Services.csproj" />
   </ItemGroup>
 

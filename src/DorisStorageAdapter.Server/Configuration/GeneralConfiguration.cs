@@ -1,4 +1,4 @@
-﻿using DorisStorageAdapter.Shared;
+﻿using DorisStorageAdapter.Common;
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;

@@ -1,7 +1,7 @@
 ﻿using Amazon.S3;
 using Amazon.S3.Model;
 using Amazon.S3.Transfer;
-using DorisStorageAdapter.Shared;
+using DorisStorageAdapter.Common;
 using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
