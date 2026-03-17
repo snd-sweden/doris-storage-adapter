@@ -1,4 +1,5 @@
 ﻿using DorisStorageAdapter.Services.Contract;
+using DorisStorageAdapter.Services.Implementation.Configuration;
 using DorisStorageAdapter.Services.Implementation.Locking;
 using DorisStorageAdapter.Services.Implementation.Locking.InProcess;
 using DorisStorageAdapter.Services.Implementation.Services;
@@ -20,11 +21,16 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
 
+        services.AddOptionsWithValidateOnStart<PublicationConfiguration>()
+            .Bind(configuration.GetSection(PublicationConfiguration.ConfigurationSection))
+            .ValidateDataAnnotations();
+
         services.AddSingleton<ILockProvider, InProcessLockProvider>();
         services.AddSingleton<IReaderWriterLockProvider, InProcessReaderWriterLockProvider>();
-        services.AddSingleton<IStorageLockProvider, StorageLockProvider>();
-        services.AddSingleton<DatasetVersionLocks>();
+
         services.AddTransient<BagContextFactory>();
+        services.AddSingleton<DatasetVersionLocks>();
+        services.AddSingleton<IStorageLockProvider, StorageLockProvider>();
         services.AddTransient<IFileService, FileService>();
         services.AddTransient<IStatusService, StatusService>();
         services.AddSingleton<ISystemService, SystemService>();
