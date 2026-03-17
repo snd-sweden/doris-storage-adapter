@@ -70,7 +70,7 @@ internal sealed class FileService(
         {
             result = await bagContext.StoreFileAsync(
                 path: pathInBag,
-                data: data,
+                data: hashStream,
                 size: size,
                 contentType: contentType,
                 cancellationToken: cancellationToken);
