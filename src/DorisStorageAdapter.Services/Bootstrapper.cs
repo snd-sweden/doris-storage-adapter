@@ -10,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Linq;
+using System.Reflection;
 
 namespace DorisStorageAdapter.Services;
 
@@ -33,34 +34,64 @@ public static class Bootstrapper
         services.AddTransient<IStatusService, StatusService>();
         services.AddSingleton<ISystemService, SystemService>();
 
-        SetupStorageService(services, configuration);
+        SetupStorageProvider(services, configuration);
     }
 
-    // Setup storage service based on configuration
-    private static void SetupStorageService(IServiceCollection services, IConfiguration configuration)
+    // Setup storage provider based on configuration.
+    private static void SetupStorageProvider(IServiceCollection services, IConfiguration configuration)
     {
         var configSection = configuration.GetSection(StorageConfiguration.ConfigurationSection);
-        var storageConfiguration = configSection.Get<StorageConfiguration>()!;
-        string storageService = storageConfiguration.ActiveStorageService;
 
-        var types = typeof(Bootstrapper).Assembly.GetTypes()
+        var storageConfiguration = configSection.Get<StorageConfiguration>()
+            ?? throw new StorageConfigurationException(
+                $"Missing or invalid '{StorageConfiguration.ConfigurationSection}' configuration.");
+
+        var providerKey = storageConfiguration.Provider;
+
+        if (string.IsNullOrWhiteSpace(providerKey))
+        {
+            throw new StorageConfigurationException("Storage provider is not configured.");
+        }
+
+        var matchingTypes = typeof(Bootstrapper).Assembly.GetTypes()
             .Where(t =>
+                !t.IsAbstract &&
+                !t.IsInterface &&
                 t.GetInterfaces().Any(i =>
                     i.IsGenericType &&
-                    i.GetGenericTypeDefinition() == typeof(IStorageServiceConfigurer<>) &&
-                    i.GenericTypeArguments[0].Name == storageService))
+                    i.GetGenericTypeDefinition() == typeof(IStorageProviderConfigurer<>)))
+            .Where(t =>
+                string.Equals(
+                    t.GetProperty(
+                        "ProviderKey", 
+                        BindingFlags.Public | BindingFlags.Static
+                    )?.GetValue(null) as string,
+                    providerKey,
+                    StringComparison.OrdinalIgnoreCase))
             .ToList();
 
-        if (types.Count == 0)
+        if (matchingTypes.Count == 0)
         {
-            throw new StorageConfigurationException($"No implementation of '{storageService}' found.");
-        }
-        else if (types.Count > 1)
-        {
-            throw new StorageConfigurationException($"Multiple implementations of '{storageService}' found.");
+            throw new StorageConfigurationException($"No implementation for '{providerKey}' found.");
         }
 
-        var configurer = Activator.CreateInstance(types[0]) as IStorageServiceConfigurerBase;
-        configurer!.Configure(services, configSection.GetSection(storageService));
+        if (matchingTypes.Count > 1)
+        {
+            throw new StorageConfigurationException($"Multiple implementations for '{providerKey}' found.");
+        }
+
+        var configurerType = matchingTypes[0];
+
+        if (configurerType.GetConstructor(Type.EmptyTypes) is null)
+        {
+            throw new StorageConfigurationException(
+                $"Configurer '{configurerType.FullName}' must have a public parameterless constructor.");
+        }
+
+        var configurer = Activator.CreateInstance(configurerType) as IStorageProviderConfigurerBase
+            ?? throw new StorageConfigurationException(
+                $"Could not create configurer '{configurerType.FullName}'.");
+
+        configurer.Configure(services, configSection.GetSection(providerKey));
     }
 }

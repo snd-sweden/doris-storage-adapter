@@ -15,11 +15,11 @@ using WebDav;
 
 namespace DorisStorageAdapter.Services.Implementation.Storage.NextCloud;
 
-internal sealed class NextCloudStorageService : IStorageService
+internal sealed class NextCloudStorageProvider : IStorageProvider
 {
     private readonly IStorageLockProvider _lockProvider;
     private readonly IWebDavClient _webDavClient;
-    private readonly NextCloudStorageServiceConfiguration _configuration;
+    private readonly NextCloudStorageConfiguration _configuration;
 
     private readonly Uri _storageBaseUri;
     private readonly Uri _chunkedUploadBaseUri;
@@ -30,9 +30,9 @@ internal sealed class NextCloudStorageService : IStorageService
     private static readonly XName _getContentLengthProperty = XName.Get("getcontentlength", DavNamespaceName);
     private static readonly XName _resourceTypeProperty = XName.Get("resourcetype", DavNamespaceName);
 
-    public NextCloudStorageService(
+    public NextCloudStorageProvider(
         IWebDavClient webDavClient,
-        IOptions<NextCloudStorageServiceConfiguration> configuration,
+        IOptions<NextCloudStorageConfiguration> configuration,
         IStorageLockProvider pathLock)
     {
         _webDavClient = webDavClient;

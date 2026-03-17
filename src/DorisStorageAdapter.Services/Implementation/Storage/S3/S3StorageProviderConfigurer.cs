@@ -6,29 +6,31 @@ using Microsoft.Extensions.Options;
 
 namespace DorisStorageAdapter.Services.Implementation.Storage.S3;
 
-internal sealed class S3StorageServiceConfigurer : IStorageServiceConfigurer<S3StorageService>
+internal sealed class S3StorageProviderConfigurer : IStorageProviderConfigurer<S3StorageProvider>
 {
+    public static string ProviderKey => "S3";
+
     public void Configure(IServiceCollection services, IConfiguration configuration)
     {
-        services.AddOptionsWithValidateOnStart<S3StorageServiceConfiguration>()
+        services.AddOptionsWithValidateOnStart<S3StorageConfiguration>()
            .Bind(configuration)
            .ValidateDataAnnotations()
            .Validate(c =>
                 c.MultiPartUploadThreshold < c.MultiPartUploadChunkSize * 10_000,
-                nameof(S3StorageServiceConfiguration.MultiPartUploadChunkSize) +
+                nameof(S3StorageConfiguration.MultiPartUploadChunkSize) +
                 " is too small to allow uploading larger objects than the value of " +
-                nameof(S3StorageServiceConfiguration.MultiPartUploadThreshold) +
+                nameof(S3StorageConfiguration.MultiPartUploadThreshold) +
                 " (max number of parts per upload is 10 000)");
 
         services.AddSingleton<IAmazonS3>(
             sp =>
             {
-                var s3Config = sp.GetRequiredService<IOptions<S3StorageServiceConfiguration>>().Value;
+                var s3Config = sp.GetRequiredService<IOptions<S3StorageConfiguration>>().Value;
 
                 return new AmazonS3Client(s3Config.AccessKey, s3Config.SecretKey, new AmazonS3Config
                 {
                     // Disable retries to avoid seeking in the input stream
-                    // when uploading objects, see S3StorageService.StoreFile().
+                    // when uploading objects, see S3StorageProvider.StoreAsync().
                     MaxErrorRetry = 0,
                     ServiceURL = s3Config.ServiceUrl,
                     ForcePathStyle = s3Config.ForcePathStyle,
@@ -45,6 +47,6 @@ internal sealed class S3StorageServiceConfigurer : IStorageServiceConfigurer<S3S
                 });
             });
 
-        services.AddTransient<IStorageService, S3StorageService>();
+        services.AddTransient<IStorageProvider, S3StorageProvider>();
     }
 }

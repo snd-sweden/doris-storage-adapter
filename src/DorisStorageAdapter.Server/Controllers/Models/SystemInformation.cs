@@ -3,5 +3,5 @@
 public record SystemInformation(
     bool AllowPublicAccessRight,
     bool AllowReadDraftFiles,
-    string StorageType,
+    string StorageProvider,
     string Version);

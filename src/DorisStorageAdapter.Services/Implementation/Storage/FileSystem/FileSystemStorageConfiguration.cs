@@ -3,7 +3,7 @@ using System.IO;
 
 namespace DorisStorageAdapter.Services.Implementation.Storage.FileSystem;
 
-internal sealed record FileSystemStorageServiceConfiguration
+internal sealed record FileSystemStorageConfiguration
 {
     [Required]
     public required string BasePath { get; init; }

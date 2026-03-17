@@ -32,7 +32,7 @@ public sealed class SystemController(
         return new(
             AllowPublicAccessRight: info.AllowPublicAccessRight,
             AllowReadDraftFiles: authorizationConfiguration.Value.AllowReadDraftFiles,
-            StorageType: info.StorageType, 
+            StorageProvider: info.StorageProvider, 
             Version: version);
     }
 }

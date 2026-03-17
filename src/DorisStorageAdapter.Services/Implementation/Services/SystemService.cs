@@ -11,7 +11,7 @@ internal sealed class SystemService(
 {
     private readonly SystemInformation systemInformation = new(
         publicationConfiguration.Value.AllowPublicAccessRight,
-        storageConfiguration.Value.ActiveStorageService);
+        storageConfiguration.Value.Provider);
 
     public SystemInformation GetSystemInformation() => systemInformation;
 }

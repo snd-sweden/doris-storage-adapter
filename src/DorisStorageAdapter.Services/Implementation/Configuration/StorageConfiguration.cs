@@ -7,5 +7,5 @@ internal sealed record StorageConfiguration
     public const string ConfigurationSection = "Storage";
 
     [Required]
-    public required string ActiveStorageService { get; init; }
+    public required string Provider { get; init; }
 }

@@ -2,5 +2,5 @@
 
 public sealed record SystemInformation(
     bool AllowPublicAccessRight,
-    string StorageType);
+    string StorageProvider);
     

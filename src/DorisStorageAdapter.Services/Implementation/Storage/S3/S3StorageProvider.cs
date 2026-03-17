@@ -14,12 +14,12 @@ using System.Threading.Tasks;
 
 namespace DorisStorageAdapter.Services.Implementation.Storage.S3;
 
-internal sealed class S3StorageService(
+internal sealed class S3StorageProvider(
     IAmazonS3 client,
-    IOptions<S3StorageServiceConfiguration> configuration) : IStorageService
+    IOptions<S3StorageConfiguration> configuration) : IStorageProvider
 {
     private readonly IAmazonS3 _client = client;
-    private readonly S3StorageServiceConfiguration _configuration = configuration.Value;
+    private readonly S3StorageConfiguration _configuration = configuration.Value;
 
     public async Task<StorageFileBaseMetadata> StoreAsync(
         string filePath,
@@ -55,7 +55,7 @@ internal sealed class S3StorageService(
                 /// 
                 /// To make data.Stream seem seekable it is wrapped in a FakeSeekableStream. 
                 /// Seeking is only actually used by TransferUtility when retrying a failed upload,
-                /// so retries are disabled in S3StorageServiceConfigurer to avoid seeking here.
+                /// so retries are disabled in S3StorageProviderConfigurer to avoid seeking here.
                 : new FakeSeekableStream(data, size),
 
             PartSize = _configuration.MultiPartUploadChunkSize

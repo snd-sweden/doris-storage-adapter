@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace DorisStorageAdapter.Services.Implementation.Storage;
 
-internal interface IStorageService
+internal interface IStorageProvider
 {
     Task<StorageFileBaseMetadata> StoreAsync(string filePath, Stream data, long size, string? contentType, CancellationToken cancellationToken);
 

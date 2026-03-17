@@ -5,7 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace DorisStorageAdapter.Services.Implementation.Storage.NextCloud;
 
-internal sealed record NextCloudStorageServiceConfiguration
+internal sealed record NextCloudStorageConfiguration
 {
     private readonly Uri _baseUrl;
 

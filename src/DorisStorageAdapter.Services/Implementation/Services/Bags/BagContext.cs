@@ -13,9 +13,9 @@ using System.Threading.Tasks;
 
 namespace DorisStorageAdapter.Services.Implementation.Services.Bags;
 
-internal sealed class BagContext(string storagePath, IStorageService storageService)
+internal sealed class BagContext(string storagePath, IStorageProvider storageProvider)
 {
-    private readonly IStorageService _storageService = storageService;
+    private readonly IStorageProvider _storageProvider = storageProvider;
     private readonly string _groupStoragePath = storagePath[..(storagePath.TrimEnd('/').LastIndexOf('/') + 1)];
 
     public string StoragePath { get; } = storagePath;
@@ -62,7 +62,7 @@ internal sealed class BagContext(string storagePath, IStorageService storageServ
             var bytes = element.Serialize();
 
             using var stream = new MemoryStream(bytes);
-            await _storageService.StoreAsync(
+            await _storageProvider.StoreAsync(
                 storagePath,
                 stream,
                 stream.Length,
@@ -72,14 +72,14 @@ internal sealed class BagContext(string storagePath, IStorageService storageServ
             return bytes;
         }
 
-        await _storageService.DeleteAsync(storagePath, cancellationToken);
+        await _storageProvider.DeleteAsync(storagePath, cancellationToken);
         return [];
     }
 
     public async IAsyncEnumerable<StorageFileMetadata> ListPayloadFilesAsync(
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        await foreach (var file in _storageService.ListAsync(
+        await foreach (var file in _storageProvider.ListAsync(
             ToStoragePath(BagPathLayout.PayloadRootPath), cancellationToken))
         {
             yield return file with { Path = FromStoragePath(file.Path) };
@@ -92,7 +92,7 @@ internal sealed class BagContext(string storagePath, IStorageService storageServ
         long size,
         string? contentType,
         CancellationToken cancellationToken) =>
-        _storageService.StoreAsync(
+        _storageProvider.StoreAsync(
                ToStoragePath(path),
                data,
                size,
@@ -102,13 +102,13 @@ internal sealed class BagContext(string storagePath, IStorageService storageServ
     public Task DeleteFileAsync(
         string path,
         CancellationToken cancellationToken) =>
-        _storageService.DeleteAsync(ToStoragePath(path), cancellationToken);
+        _storageProvider.DeleteAsync(ToStoragePath(path), cancellationToken);
 
     public Task<StorageFileData?> GetFileDataAsync(
         string pathInBag,
         ByteRange? byteRange,
         CancellationToken cancellationToken) =>
-        _storageService.GetDataAsync(
+        _storageProvider.GetDataAsync(
             ToStoragePath(pathInBag),
             byteRange == null ? null : new(byteRange.From, byteRange.To),
             cancellationToken);
@@ -117,7 +117,7 @@ internal sealed class BagContext(string storagePath, IStorageService storageServ
         string path,
         CancellationToken cancellationToken)
     {
-        var result = await _storageService.GetMetadataAsync(
+        var result = await _storageProvider.GetMetadataAsync(
             ToStoragePath(path),
             cancellationToken);
 

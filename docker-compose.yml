@@ -10,9 +10,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - Publication__AllowPublicAccessRight=true
-      - Storage__ActiveStorageService=FileSystemStorageService
-      - Storage__FileSystemStorageService__BasePath=/tmp/doris-data
-      - Storage__FileSystemStorageService__TempFilePath=/tmp
+      - Storage__Provider=FileSystem
+      - Storage__FileSystem__BasePath=/tmp/doris-data
+      - Storage__FileSystem__TempFilePath=/tmp
       - Authorization__AllowReadDraftFiles=true
       - Authorization__JwksUri=http://doris-storage-adapter:8080/jwks
       - Authorization__CorsAllowedOrigins__0=http://doris-storage-adapter:8080

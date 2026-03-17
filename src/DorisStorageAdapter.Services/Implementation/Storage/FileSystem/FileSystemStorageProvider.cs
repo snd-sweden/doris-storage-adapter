@@ -20,11 +20,11 @@ namespace DorisStorageAdapter.Services.Implementation.Storage.FileSystem;
 /// for temporary files must be on the same partition as the 
 /// base path to ensure atomic file moves.
 /// </summary>
-/// <param name="configuration">FileSystemStorageService configuration.</param>
+/// <param name="configuration">FileSystemStorageConfiguration configuration.</param>
 /// <param name="lockProvider">IStorageLockProvider used when creating/deleting directories.</param>
-internal sealed class FileSystemStorageService(
-    IOptions<FileSystemStorageServiceConfiguration> configuration,
-    IStorageLockProvider lockProvider) : IStorageService
+internal sealed class FileSystemStorageProvider(
+    IOptions<FileSystemStorageConfiguration> configuration,
+    IStorageLockProvider lockProvider) : IStorageProvider
 {
     // This is only need for supporting Windows; Linux supports all characters except '/'.
     private static readonly HashSet<char> _invalidFileNameChars = [.. Path.GetInvalidFileNameChars()];
