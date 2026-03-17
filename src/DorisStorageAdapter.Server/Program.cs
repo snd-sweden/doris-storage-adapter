@@ -2,6 +2,7 @@ using DorisStorageAdapter.Server;
 using DorisStorageAdapter.Server.Configuration;
 using DorisStorageAdapter.Server.Controllers;
 using DorisStorageAdapter.Server.Controllers.Attributes;
+using DorisStorageAdapter.Services;
 using Invio.Extensions.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -19,7 +20,7 @@ using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
-DorisStorageAdapter.Services.Bootstrapper.SetupServices(builder.Services, builder.Configuration);
+builder.Services.AddApplicationServices(builder.Configuration);
 
 builder.Services.AddOptionsWithValidateOnStart<GeneralConfiguration>()
     .Bind(builder.Configuration)
