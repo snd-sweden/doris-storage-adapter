@@ -4,16 +4,15 @@ using DorisStorageAdapter.Server.Controllers;
 using DorisStorageAdapter.Server.Controllers.Attributes;
 using DorisStorageAdapter.Services;
 using Invio.Extensions.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Net.Http.Headers;
-using Microsoft.OpenApi.Models;
 using NetDevPack.Security.Jwt.Core.Jwa;
 using NetDevPack.Security.JwtExtensions;
+using Scalar.AspNetCore;
 using System;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -52,35 +51,10 @@ builder.Services.AddProblemDetails(o =>
 // Map ServiceExceptions to problem details response
 builder.Services.AddExceptionHandler<ServiceExceptionHandler>();
 
-builder.Services.AddSwaggerGen(options =>
+builder.Services.AddOpenApi(options =>
 {
-    options.EnableAnnotations();
-    options.SupportNonNullableReferenceTypes();
-    options.OperationFilter<BinaryRequestBodyFilter>();
-
-    options.AddSecurityDefinition("Bearer", new()
-    {
-        BearerFormat = "JWT",
-        In = ParameterLocation.Header,
-        Name = "JWT Authentication",
-        Type = SecuritySchemeType.Http,
-        Scheme = JwtBearerDefaults.AuthenticationScheme
-    }
-    );
-    options.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = JwtBearerDefaults.AuthenticationScheme
-                }
-            },
-            []
-        }
-    });
+    options.AddOperationTransformer<BinaryRequestBodyTransformer>();
+    options.AddOperationTransformer<BinaryResponseBodyTransformer>();
 });
 
 if (builder.Environment.IsDevelopment())
@@ -186,8 +160,8 @@ app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    app.MapOpenApi();
+    app.MapScalarApiReference();
 }
 
 app.UseCors();

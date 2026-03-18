@@ -1,5 +1,6 @@
 ﻿using DorisStorageAdapter.Common;
 using DorisStorageAdapter.Server.Configuration;
+using DorisStorageAdapter.Server.Controllers.Attributes;
 using DorisStorageAdapter.Server.Controllers.Authorization;
 using DorisStorageAdapter.Services.Contract;
 using DorisStorageAdapter.Services.Contract.Models;
@@ -9,7 +10,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
-using Swashbuckle.AspNetCore.Annotations;
 using System;
 using System.Linq;
 using System.Net.Mime;
@@ -32,13 +32,13 @@ public sealed class DownloadsController(
     [HttpHead("downloads/draft/{identifier}/{version}/{type}/{**filePath}")]
     [HttpGet("downloads/draft/{identifier}/{version}/{type}/{**filePath}")]
     [Authorize(Roles = Roles.ReadDraftFiles)]
-    [SwaggerResponse(StatusCodes.Status200OK, null, typeof(FileStreamResult), "*/*")]
-    [SwaggerResponse(StatusCodes.Status206PartialContent, null, typeof(FileStreamResult), "*/*")]
-    [ProducesResponseType(typeof(void), StatusCodes.Status416RangeNotSatisfiable)]
+    [BinaryResponseBody(StatusCodes.Status200OK, "*/*")]
+    [BinaryResponseBody(StatusCodes.Status206PartialContent, "*/*")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(void), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(void), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(void), StatusCodes.Status416RangeNotSatisfiable)]
     public async Task<Results<FileStreamHttpResult, ForbidHttpResult, NotFound>> DownloadDraftFileAsync(
         string identifier,
         string version,
@@ -71,11 +71,11 @@ public sealed class DownloadsController(
     [HttpHead("downloads/public/{identifier}/{version}/{type}/{**filePath}")]
     [HttpGet("downloads/public/{identifier}/{version}/{type}/{**filePath}")]
     [EnableCors(DownloadPublicFileCorsPolicyName)]
-    [SwaggerResponse(StatusCodes.Status200OK, null, typeof(FileStreamResult), "*/*")]
-    [SwaggerResponse(StatusCodes.Status206PartialContent, null, typeof(FileStreamResult), "*/*")]
-    [ProducesResponseType(typeof(void), StatusCodes.Status416RangeNotSatisfiable)]
+    [BinaryResponseBody(StatusCodes.Status200OK, "*/*")]
+    [BinaryResponseBody(StatusCodes.Status206PartialContent, "*/*")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
     [ProducesResponseType(typeof(void), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(void), StatusCodes.Status416RangeNotSatisfiable)]
     public async Task<Results<FileStreamHttpResult, NotFound>> DownloadPublicFileAsync(
        string identifier,
        string version,
@@ -97,7 +97,7 @@ public sealed class DownloadsController(
 
     [HttpGet("downloads/draft/{identifier}/{version}.zip")]
     [Authorize(Roles = Roles.ReadDraftFiles)]
-    [SwaggerResponse(StatusCodes.Status200OK, null, typeof(FileStreamResult), MediaTypeNames.Application.Zip)]
+    [BinaryResponseBody(StatusCodes.Status200OK, MediaTypeNames.Application.Zip)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(void), StatusCodes.Status403Forbidden)]
@@ -124,7 +124,7 @@ public sealed class DownloadsController(
 
     [HttpGet("downloads/public/{identifier}/{version}.zip")]
     [EnableCors(DownloadPublicFilesAsZipCorsPolicyName)]
-    [SwaggerResponse(StatusCodes.Status200OK, null, typeof(FileStreamResult), MediaTypeNames.Application.Zip)]
+    [BinaryResponseBody(StatusCodes.Status200OK, MediaTypeNames.Application.Zip)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
     public Results<PushStreamHttpResult, ForbidHttpResult> DownloadPublicFilesAsZip(
         string identifier,

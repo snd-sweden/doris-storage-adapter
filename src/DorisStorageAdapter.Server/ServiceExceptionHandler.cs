@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace DorisStorageAdapter.Server;
 
-public sealed class ServiceExceptionHandler(IProblemDetailsService problemDetailsService) : IExceptionHandler
+internal sealed class ServiceExceptionHandler(IProblemDetailsService problemDetailsService) : IExceptionHandler
 {
     private readonly IProblemDetailsService _problemDetailsService = problemDetailsService;
 

@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -68,18 +69,15 @@ internal sealed class InMemoryStorageProvider(InMemoryStorage storage) : IStorag
 
         return Task.FromResult<StorageFileData?>(null);
     }
-
-#pragma warning disable CS1998 // This async method lacks 'await'
-    public async IAsyncEnumerable<StorageFileMetadata> ListAsync(
+    public IAsyncEnumerable<StorageFileMetadata> ListAsync(
         string path,
-        [EnumeratorCancellation] CancellationToken cancellationToken)
+        CancellationToken cancellationToken)
     {
-        foreach (var f in _storage.ListFiles(path))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
+        cancellationToken.ThrowIfCancellationRequested();
 
-            yield return f.Metadata;
-        }
+        return _storage
+            .ListFiles(path)
+            .Select(f => f.Metadata)
+            .ToAsyncEnumerable();
     }
-#pragma warning restore CS1998
 }

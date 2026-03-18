@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="DorisStorageAdapter.Common/DorisStorageAdapter.Common.csproj" />
+  <Project Path="DorisStorageAdapter.Server/DorisStorageAdapter.Server.csproj" />
+  <Project Path="DorisStorageAdapter.Services/DorisStorageAdapter.Services.csproj" />
+</Solution>

@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Mime;
 using System.Threading;
 using System.Threading.Tasks;
@@ -24,6 +25,7 @@ public sealed class FilesController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(void), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, MediaTypeNames.Application.ProblemJson)]
     public async Task<Results<Ok, ForbidHttpResult>> ImportAsync(
         string identifier,
         string version,
@@ -55,19 +57,15 @@ public sealed class FilesController(
     {
         var datasetVersion = new DatasetVersion(identifier, version);
 
-        async IAsyncEnumerable<File> ListAsync()
-        {
-            await foreach (var file in _fileService.ListAsync(datasetVersion, cancellationToken))
-            {
-                yield return Models.File.FromFileMetadata(file);
-            }
-        }
-
         if (!CheckClaims(datasetVersion))
         {
             return TypedResults.Forbid();
         }
 
-        return TypedResults.Ok(ListAsync());
+        var result = _fileService
+            .ListAsync(datasetVersion, cancellationToken)
+            .Select(Models.File.FromFileMetadata);
+
+        return TypedResults.Ok(result);
     }
 }

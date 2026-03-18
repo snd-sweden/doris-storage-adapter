@@ -76,15 +76,11 @@ internal sealed class BagContext(string storagePath, IStorageProvider storagePro
         return [];
     }
 
-    public async IAsyncEnumerable<StorageFileMetadata> ListPayloadFilesAsync(
-        [EnumeratorCancellation] CancellationToken cancellationToken)
-    {
-        await foreach (var file in _storageProvider.ListAsync(
-            ToStoragePath(BagPathLayout.PayloadRootPath), cancellationToken))
-        {
-            yield return file with { Path = FromStoragePath(file.Path) };
-        }
-    }
+    public IAsyncEnumerable<StorageFileMetadata> ListPayloadFilesAsync(
+        CancellationToken cancellationToken) =>
+        _storageProvider
+            .ListAsync(ToStoragePath(BagPathLayout.PayloadRootPath), cancellationToken)
+            .Select(file => file with { Path = FromStoragePath(file.Path) });
 
     public Task<StorageFileBaseMetadata> StoreFileAsync(
         string path,
@@ -93,11 +89,11 @@ internal sealed class BagContext(string storagePath, IStorageProvider storagePro
         string? contentType,
         CancellationToken cancellationToken) =>
         _storageProvider.StoreAsync(
-               ToStoragePath(path),
-               data,
-               size,
-               contentType,
-               cancellationToken);
+            ToStoragePath(path),
+            data,
+            size,
+            contentType,
+            cancellationToken);
 
     public Task DeleteFileAsync(
         string path,
@@ -131,7 +127,6 @@ internal sealed class BagContext(string storagePath, IStorageProvider storagePro
 
     public async Task<bool> HasBeenPublishedAsync(CancellationToken cancellationToken) =>
         await GetFileMetadataAsync(BagItDeclaration.FileName, cancellationToken) != null;
-
 
     public IEnumerable<FetchReferenceGroup> GroupFetchReferences(BagItFetch fetch) =>
        fetch.Items
