@@ -1,17 +1,14 @@
 ﻿using DorisStorageAdapter.Services.Implementation.Configuration;
-using DorisStorageAdapter.Services.Implementation.Storage.FileSystem;
-using DorisStorageAdapter.Services.Implementation.Storage.InMemory;
-using DorisStorageAdapter.Services.Implementation.Storage.NextCloud;
-using DorisStorageAdapter.Services.Implementation.Storage.S3;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 
 namespace DorisStorageAdapter.Services.Implementation.Storage;
 
-internal static class StorageServiceProviderCollectionExtensions
+internal static class ServiceCollectionExtensions
 {
     private delegate void ConfigureStorageProvider(
        IServiceCollection services,
@@ -55,33 +52,32 @@ internal static class StorageServiceProviderCollectionExtensions
         return services;
     }
 
-    private static Dictionary<string, ConfigureStorageProvider> CreateRegistrations()
+    private static ReadOnlyDictionary<string, ConfigureStorageProvider> CreateRegistrations()
     {
         var registrations = new Dictionary<string, ConfigureStorageProvider>(StringComparer.OrdinalIgnoreCase);
 
-        Register<FileSystemStorageProvider, FileSystemStorageProviderConfigurer>(registrations);
-        Register<InMemoryStorageProvider, InMemoryStorageProviderConfigurer>(registrations);
-        Register<NextCloudStorageProvider, NextCloudStorageProviderConfigurer>(registrations);
-        Register<S3StorageProvider, S3StorageProviderConfigurer>(registrations);
+        void Add<TRegistrar>()
+            where TRegistrar : IStorageProviderRegistrar
+        {
+            string providerKey = TRegistrar.ProviderKey;
 
-        return registrations;
-    }
-
-    private static void Register<TProvider, TConfigurer>(
-        IDictionary<string, ConfigureStorageProvider> registrations)
-        where TProvider : IStorageProvider
-        where TConfigurer : IStorageProviderConfigurer<TProvider>, new()
-    {
-        if (!registrations.TryAdd(
-                TConfigurer.ProviderKey,
+            if (!registrations.TryAdd(
+                providerKey,
                 static (services, providerConfiguration) =>
                 {
-                    var configurer = new TConfigurer();
-                    configurer.Configure(services, providerConfiguration);
+                    TRegistrar.AddProvider(services, providerConfiguration);
                 }))
-        {
-            throw new InvalidOperationException(
-                $"A storage provider with key '{TConfigurer.ProviderKey}' is already registered.");
+            {
+                throw new InvalidOperationException(
+                    $"A storage provider with key '{providerKey}' is already registered.");
+            }
         }
+
+        Add<FileSystem.FileSystemStorageRegistrar>();
+        Add<InMemory.InMemoryStorageRegistrar>();
+        Add<NextCloud.NextCloudStorageRegistrar>();
+        Add<S3.S3StorageRegistrar>();
+
+        return registrations.AsReadOnly();
     }
 }

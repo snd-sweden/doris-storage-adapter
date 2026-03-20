@@ -3,11 +3,12 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace DorisStorageAdapter.Services.Implementation.Storage.InMemory;
 
-internal sealed class InMemoryStorageProviderConfigurer : IStorageProviderConfigurer<InMemoryStorageProvider>
+internal sealed class InMemoryStorageRegistrar : IStorageProviderRegistrar
 {
     public static string ProviderKey => "InMemory";
 
-    public void Configure(IServiceCollection services, IConfiguration configuration)
+    public static void AddProvider(
+        IServiceCollection services, IConfiguration providerConfiguration)
     {
         services.AddSingleton<InMemoryStorage>();
         services.AddTransient<IStorageProvider, InMemoryStorageProvider>();

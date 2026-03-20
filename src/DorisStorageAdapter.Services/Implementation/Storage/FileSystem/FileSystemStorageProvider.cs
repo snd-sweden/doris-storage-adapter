@@ -10,10 +10,10 @@ using System.Threading.Tasks;
 namespace DorisStorageAdapter.Services.Implementation.Storage.FileSystem;
 
 /// <summary>
-/// Storage service for storing files on a file system.
+/// Storage provider for storing files on a file system.
 /// 
-/// This storage service is only fully supported on Linux/Unix.
-/// On Windows it will return an error if StoreFile is called
+/// This storage provider is only fully supported on Linux/Unix.
+/// On Windows it will return an error if StoreAsync is called
 /// for a file that is currently being read.
 /// 
 /// The file system must be case sensitive, and the file path 

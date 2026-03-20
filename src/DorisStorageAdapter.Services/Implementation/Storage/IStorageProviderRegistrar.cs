@@ -3,10 +3,10 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace DorisStorageAdapter.Services.Implementation.Storage;
 
-internal interface IStorageProviderConfigurer<TProvider> 
-    where TProvider : IStorageProvider
+internal interface IStorageProviderRegistrar
 {
     static abstract string ProviderKey { get; }
 
-    void Configure(IServiceCollection services, IConfiguration configuration);
+    static abstract void AddProvider(
+        IServiceCollection services, IConfiguration providerConfiguration);
 }

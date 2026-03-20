@@ -7,14 +7,15 @@ using WebDav;
 
 namespace DorisStorageAdapter.Services.Implementation.Storage.NextCloud;
 
-internal sealed class NextCloudStorageProviderConfigurer : IStorageProviderConfigurer<NextCloudStorageProvider>
+internal sealed class NextCloudStorageRegistrar : IStorageProviderRegistrar
 {
     public static string ProviderKey => "NextCloud";
 
-    public void Configure(IServiceCollection services, IConfiguration configuration)
+    public static void AddProvider(
+        IServiceCollection services, IConfiguration providerConfiguration)
     {
         services.AddOptionsWithValidateOnStart<NextCloudStorageConfiguration>()
-           .Bind(configuration)
+           .Bind(providerConfiguration)
            .ValidateDataAnnotations()
            .Validate(c =>
                 c.ChunkedUploadThreshold < c.ChunkedUploadChunkSize * 10_000,

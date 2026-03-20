@@ -3,14 +3,15 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace DorisStorageAdapter.Services.Implementation.Storage.FileSystem;
 
-internal sealed class FileSystemStorageProviderConfigurer : IStorageProviderConfigurer<FileSystemStorageProvider>
+internal sealed class FileSystemStorageRegistrar : IStorageProviderRegistrar
 {
     public static string ProviderKey => "FileSystem";
 
-    public void Configure(IServiceCollection services, IConfiguration configuration)
+    public static void AddProvider(
+        IServiceCollection services, IConfiguration providerConfiguration)
     {
         services.AddOptionsWithValidateOnStart<FileSystemStorageConfiguration>()
-           .Bind(configuration)
+           .Bind(providerConfiguration)
            .ValidateDataAnnotations();
 
         services.AddTransient<IStorageProvider, FileSystemStorageProvider>();

@@ -6,14 +6,15 @@ using Microsoft.Extensions.Options;
 
 namespace DorisStorageAdapter.Services.Implementation.Storage.S3;
 
-internal sealed class S3StorageProviderConfigurer : IStorageProviderConfigurer<S3StorageProvider>
+internal sealed class S3StorageRegistrar : IStorageProviderRegistrar
 {
     public static string ProviderKey => "S3";
 
-    public void Configure(IServiceCollection services, IConfiguration configuration)
+    public static void AddProvider(
+        IServiceCollection services, IConfiguration providerConfiguration)
     {
         services.AddOptionsWithValidateOnStart<S3StorageConfiguration>()
-           .Bind(configuration)
+           .Bind(providerConfiguration)
            .ValidateDataAnnotations()
            .Validate(c =>
                 c.MultiPartUploadThreshold < c.MultiPartUploadChunkSize * 10_000,
