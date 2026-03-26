@@ -31,8 +31,8 @@ internal sealed class FileSystemStorageProvider(
 
     private readonly IStorageLockProvider _lockProvider = lockProvider;
 
-    private readonly string _basePath = Path.GetFullPath(configuration.Value.BasePath);
-    private readonly string _tempFilePath = Path.GetFullPath(configuration.Value.TempFilePath);
+    private readonly string _basePath = configuration.Value.BasePath;
+    private readonly string _tempFilePath = configuration.Value.TempFilePath;
 
     public async Task<StorageFileBaseMetadata> StoreAsync(
         string filePath,
@@ -283,7 +283,7 @@ internal sealed class FileSystemStorageProvider(
 
         string result = Path.GetFullPath(path, _basePath);
 
-        if (!result.StartsWith(_basePath, StringComparison.Ordinal))
+        if (!IsUnderBasePath(result))
         {
             Throw();
         }
@@ -301,6 +301,9 @@ internal sealed class FileSystemStorageProvider(
         return path;
     }
 
+    private bool IsUnderBasePath(string path) =>
+        path.StartsWith(_basePath, StringComparison.Ordinal);
+
     private StorageFileMetadata ToStorageFileMetadata(FileInfo file) =>
         new(
             ContentType: null,
@@ -313,7 +316,14 @@ internal sealed class FileSystemStorageProvider(
     {
         await using var _ = await _lockProvider.AcquireAsync(cancellationToken);
 
-        while (directoryPath != _basePath)
+        if (!IsUnderBasePath(directoryPath))
+        {
+            throw new InvalidOperationException("The directory is outside the storage base path.");
+        }
+
+        string rootPath = Path.TrimEndingDirectorySeparator(_basePath);
+
+        while (directoryPath != rootPath)
         {
             try
             {
