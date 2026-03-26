@@ -406,13 +406,9 @@ internal sealed class FileService(
 
     private static void ThrowIfInvalidFilePath(string filePath)
     {
-        foreach (string pathComponent in filePath.Split('/'))
+        if (!PathValidation.HasOnlyValidComponents(filePath))
         {
-            if (string.IsNullOrEmpty(pathComponent) ||
-                pathComponent is "." or "..")
-            {
-                throw new ValidationException([new("Invalid path.")]);
-            }
+            throw new ValidationException([new("Invalid path.")]);
         }
     }
 

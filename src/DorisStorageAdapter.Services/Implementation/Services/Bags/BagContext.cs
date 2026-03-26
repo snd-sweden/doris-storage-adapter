@@ -2,23 +2,34 @@
 using DorisStorageAdapter.Services.Implementation.BagIt;
 using DorisStorageAdapter.Services.Implementation.BagIt.Fetch;
 using DorisStorageAdapter.Services.Implementation.IO;
+using DorisStorageAdapter.Services.Implementation.Services.Validation;
 using DorisStorageAdapter.Services.Implementation.Storage;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace DorisStorageAdapter.Services.Implementation.Services.Bags;
 
-internal sealed class BagContext(string storagePath, IStorageProvider storageProvider)
+internal sealed class BagContext
 {
-    private readonly IStorageProvider _storageProvider = storageProvider;
-    private readonly string _groupStoragePath = storagePath[..(storagePath.TrimEnd('/').LastIndexOf('/') + 1)];
+    private readonly IStorageProvider _storageProvider;
+    private readonly string _groupStoragePath;
+    private readonly string _versionPath;
 
-    public string StoragePath { get; } = storagePath;
+    public BagContext(string storagePath, IStorageProvider storageProvider)
+    {
+        StoragePath = storagePath;
+        _storageProvider = storageProvider;
+
+        int index = storagePath.TrimEnd('/').LastIndexOf('/') + 1;
+        _groupStoragePath = storagePath[..index];
+        _versionPath = storagePath[index..];
+    }
+
+    public string StoragePath { get; }
 
     public async Task<T> LoadBagItElementAsync<T>(CancellationToken cancellationToken)
         where T : IBagItElement<T>
@@ -138,21 +149,80 @@ internal sealed class BagContext(string storagePath, IStorageProvider storagePro
 
     public FetchReference ParseFetchReference(BagItFetchItem item)
     {
-        string path = Uri.UnescapeDataString(item.Url[3..]);
-        int index = path.IndexOf('/', StringComparison.Ordinal) + 1;
-        string versionPath = path[..index];
-        string pathInBag = path[index..];
+        static void Throw() => throw new InvalidOperationException("Invalid fetch URL encountered.");
+
+        if (string.IsNullOrEmpty(item.Url))
+        {
+            Throw();
+        }
+
+        if (!item.Url.StartsWith("../", StringComparison.Ordinal))
+        {
+            Throw();
+        }
+
+        if (!Uri.TryCreate(item.Url, UriKind.Relative, out _))
+        {
+            Throw();
+        }
+
+        if (item.Url.Contains('?', StringComparison.Ordinal) ||
+            item.Url.Contains('#', StringComparison.Ordinal))
+        {
+            Throw();
+        }
+
+        string decoded = Uri.UnescapeDataString(item.Url[3..]);
+
+        if (!PathValidation.HasOnlyValidComponents(decoded))
+        {
+            Throw();
+        }
+
+        int index = decoded.IndexOf('/', StringComparison.Ordinal) + 1;
+
+        if (index <= 1)
+        {
+            Throw();
+        }
+
+        string referencedVersionPath = decoded[..index];
+
+        // Check that versionPath does not point to this version.
+        if (referencedVersionPath == _versionPath)
+        {
+            Throw();
+        }
+
+        string pathInBag = decoded[index..];
+
+        try
+        {
+            // Do not allow fetch URL pointing to a different file type.
+            // This is primarily as a security measure to prevent exposing
+            // data files as documentation.
+
+            if (BagPathLayout.FromPathInBag(item.FilePath).Type !=
+                BagPathLayout.FromPathInBag(pathInBag).Type)
+            {
+                Throw();
+            }
+        }
+        catch (ArgumentException)
+        {
+            Throw();
+        }
 
         return new(
-            ReferencedBagStoragePath: _groupStoragePath + versionPath, 
+            ReferencedBagStoragePath: _groupStoragePath + referencedVersionPath, 
             PathInBag: pathInBag,
             Item: item);
     }
 
     public string CreateFetchUrl(BagContext otherBag, string pathInBag) =>
-        "../" + 
-        UrlEncodePath(otherBag.StoragePath[_groupStoragePath.Length..]) + 
-        UrlEncodePath(pathInBag);
+        "../" +
+            UrlEncodePath(otherBag.StoragePath[_groupStoragePath.Length..]) +
+            UrlEncodePath(pathInBag);
 
     private static string UrlEncodePath(string path) =>
         string.Join('/', path.Split('/').Select(Uri.EscapeDataString));
