@@ -374,7 +374,7 @@ internal sealed class NextCloudStorageProvider : IStorageProvider
 
         foreach (var file in response.Resources.Where(r => !r.IsCollection))
         {
-            string filePath = DecodeUrlEncodedPath(_storageBaseUri.MakeRelativeUri(new Uri(_storageBaseUri, file.Uri)).ToString());
+            string filePath = Uri.UnescapeDataString(_storageBaseUri.MakeRelativeUri(new Uri(_storageBaseUri, file.Uri)).ToString());
 
             if (filePath.StartsWith(path, StringComparison.Ordinal))
             {
@@ -390,9 +390,6 @@ internal sealed class NextCloudStorageProvider : IStorageProvider
 
     private static string UrlEncodePath(string path) =>
         string.Join('/', path.Split('/').Select(Uri.EscapeDataString));
-
-    private static string DecodeUrlEncodedPath(string path) =>
-        string.Join('/', path.Split('/').Select(Uri.UnescapeDataString));
 
     private static Uri GetUri(Uri baseUri, string path) =>
         new(baseUri, UrlEncodePath(path));
