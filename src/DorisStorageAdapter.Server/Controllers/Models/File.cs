@@ -22,9 +22,9 @@ public record File(
             DateModified: file.DateModified,
             EncodingFormat: file.ContentType,
             Name: file.Path,
-#pragma warning disable CA1308 // Normalize strings to uppercase
-            Sha256: file.Sha256 == null ? null : Convert.ToHexString(file.Sha256).ToLowerInvariant(),
-#pragma warning restore CA1308
+            Sha256: file.Sha256 == null 
+                ? null 
+                : Convert.ToHexStringLower(file.Sha256),
             Type: file.Type
         );
     }

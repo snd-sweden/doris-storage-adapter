@@ -396,9 +396,7 @@ internal sealed class FileService(
                     (name.Length > file.FilePath.Length
                         ? "\\"
                         : "") +
-#pragma warning disable CA1308 // Normalize strings to uppercase
-                    Convert.ToHexString(file.Checksum).ToLowerInvariant() + ' ' + name + '\n'),
-#pragma warning disable CA1308
+                    Convert.ToHexStringLower(file.Checksum) + ' ' + name + '\n'),
                     cancellationToken);
             }
         }

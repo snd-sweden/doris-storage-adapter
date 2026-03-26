@@ -108,9 +108,7 @@ internal abstract class BagItManifest<T> where T : BagItManifest<T>, new()
 
         foreach (var item in Items)
         {
-#pragma warning disable CA1308 // Normalize strings to uppercase
-            builder.Append(Convert.ToHexString(item.Checksum).ToLowerInvariant());
-#pragma warning restore CA1308
+            builder.Append(Convert.ToHexStringLower(item.Checksum));
             builder.Append(' ');
             builder.Append(BagItPathEncoder.EncodeFilePath(item.FilePath));
             builder.Append('\n');
