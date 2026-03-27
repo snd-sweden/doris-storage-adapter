@@ -19,6 +19,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -35,6 +36,8 @@ internal sealed class FileService(
     private readonly DatasetVersionLocks _datasetVersionLocks = datasetVersionLocks;
     private readonly BagContextFactory _bagContextFactory = bagContextFactory;
     private readonly PublicationConfiguration _publicationConfiguration = publicationConfiguration.Value;
+
+    public const string UploadMarkerFilePrefix = "_upload-";
 
     public async Task<FileMetadata> StoreAsync(
         DatasetVersion datasetVersion,
@@ -62,12 +65,29 @@ internal sealed class FileService(
         await ThrowIfHasBeenPublishedAsync(bagContext, cancellationToken);
 
         string pathInBag = BagPathLayout.ToPathInBag(type, filePath);
+
+        // Store marker file indicating upload is in progress.
+        // Used to detect unfinished uploads.
+        string markerFileName = GetUploadMarkerFileName(pathInBag);
+        bool markerFileAlreadyExists = await bagContext.GetFileMetadataAsync(markerFileName, cancellationToken) != null;
+        using (var markerFileContent = new MemoryStream(Encoding.UTF8.GetBytes(pathInBag)))
+        {
+            await bagContext.StoreFileAsync(
+                path: markerFileName,
+                data: markerFileContent,
+                size: markerFileContent.Length,
+                contentType: "text/plain",
+                cancellationToken: cancellationToken);
+        }
+
         StorageFileBaseMetadata result;
         byte[] checksum;
         long bytesRead;
 
-        await using (var hashStream = new CountedHashStream(data))
+        try
         {
+            await using var hashStream = new CountedHashStream(data);
+
             result = await bagContext.StoreFileAsync(
                 path: pathInBag,
                 data: hashStream,
@@ -77,6 +97,20 @@ internal sealed class FileService(
 
             checksum = hashStream.GetHash();
             bytesRead = hashStream.BytesRead;
+        }
+        catch when (!markerFileAlreadyExists)
+        {
+            // Cancelled or failed, try deleting marker file (only if it did not already exist
+            // when entering method).
+            try
+            {
+                await bagContext.DeleteFileAsync(markerFileName, CancellationToken.None);
+            }
+#pragma warning disable CA1031 // Do not catch general exception types
+            catch { }
+#pragma warning restore CA1031
+
+            throw;
         }
 
         // Do not cancel the operation from this point on,
@@ -89,6 +123,9 @@ internal sealed class FileService(
             // Update payload manifest.
             await AddOrUpdatePayloadManifestItemAsync(bagContext, new(pathInBag, checksum), CancellationToken.None);
         }
+
+        // Delete file marking that upload is in progress.
+        await bagContext.DeleteFileAsync(markerFileName, CancellationToken.None);
 
         return new(
             ContentType: result.ContentType ?? MimeTypes.GetMimeType(filePath),
@@ -134,6 +171,9 @@ internal sealed class FileService(
             await RemoveItemFromPayloadManifestAsync(bagContext, pathInBag, CancellationToken.None);
             await RemoveItemFromFetchAsync(bagContext, pathInBag, CancellationToken.None);
         }
+
+        // Delete file marking that upload is in progress.
+        await bagContext.DeleteFileAsync(GetUploadMarkerFileName(pathInBag), CancellationToken.None);
     }
 
     public async Task ImportAsync(
@@ -366,10 +406,8 @@ internal sealed class FileService(
             if (fileData != null)
             {
                 await using var entryStream = CreateZipEntryStream(zipArchive, versionPath + '/' + zipFilePath);
-                await using (fileData.Stream)
-                {
-                    await fileData.Stream.CopyToAsync(entryStream, cancellationToken);
-                }
+                await using var fileStream = fileData.Stream;
+                await fileStream.CopyToAsync(entryStream, cancellationToken);
 
                 sent.Add(new(zipFilePath, manifestItem.Checksum));
             }
@@ -514,4 +552,10 @@ internal sealed class FileService(
         DatasetVersion datasetVersion,
         CancellationToken cancellationToken) =>
         _lockProvider.AcquireAsync(LockKeys.BagStructure(datasetVersion), cancellationToken);
+
+    private static string GetUploadMarkerFileName(string filePath)
+    {
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(filePath));
+        return UploadMarkerFilePrefix + Convert.ToHexStringLower(hash);
+    }
 }

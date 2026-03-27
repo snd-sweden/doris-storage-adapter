@@ -15,8 +15,10 @@ using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -245,9 +247,32 @@ internal sealed class StatusService(
             }
         }
 
+        async Task CheckUploadMarkers()
+        {
+            await foreach (var file in bagContext.ListFilesAsync("", cancellationToken))
+            {
+                if (file.Path.StartsWith(FileService.UploadMarkerFilePrefix, StringComparison.Ordinal))
+                {
+                    var fileData = await bagContext.GetFileDataAsync(file.Path, null, cancellationToken);
+
+                    if (fileData != null)
+                    {
+                        await using var stream = fileData.Stream;
+                        using var reader = new StreamReader(stream, Encoding.UTF8);
+                        string errorFileName = await reader.ReadToEndAsync(cancellationToken);
+
+                        AddError(
+                            $"Payload directory:{errorFileName}", 
+                            $"Found marker file indicating unfinished upload ({file.Path}");
+                    }
+                }
+            }
+        }
+
         CheckPayloadFilePaths();
         await CheckFetchAsync();
         CheckPayloadManifest();
+        await CheckUploadMarkers();
 
         return errors;
     }

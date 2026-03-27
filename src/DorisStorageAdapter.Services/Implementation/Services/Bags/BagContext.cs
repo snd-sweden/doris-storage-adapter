@@ -41,10 +41,8 @@ internal sealed class BagContext
             return T.CreateEmpty();
         }
 
-        await using (fileData.Stream)
-        {
-            return await T.ParseAsync(fileData.Stream, cancellationToken);
-        }
+        await using var stream = fileData.Stream;
+        return await T.ParseAsync(stream, cancellationToken);
     }
 
     public async Task<(T BagItElement, byte[] Checksum)?> LoadBagItElementWithChecksumAsync<T>(
@@ -89,8 +87,13 @@ internal sealed class BagContext
 
     public IAsyncEnumerable<StorageFileMetadata> ListPayloadFilesAsync(
         CancellationToken cancellationToken) =>
+        ListFilesAsync(BagPathLayout.PayloadRootPath, cancellationToken);
+
+    public IAsyncEnumerable<StorageFileMetadata> ListFilesAsync(
+        string pathInBag,
+        CancellationToken cancellationToken) =>
         _storageProvider
-            .ListAsync(ToStoragePath(BagPathLayout.PayloadRootPath), cancellationToken)
+            .ListAsync(ToStoragePath(pathInBag), cancellationToken)
             .Select(file => file with { Path = FromStoragePath(file.Path) });
 
     public Task<StorageFileBaseMetadata> StoreFileAsync(
@@ -214,7 +217,7 @@ internal sealed class BagContext
         }
 
         return new(
-            ReferencedBagStoragePath: _groupStoragePath + referencedVersionPath, 
+            ReferencedBagStoragePath: _groupStoragePath + referencedVersionPath,
             PathInBag: pathInBag,
             Item: item);
     }
