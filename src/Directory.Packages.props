@@ -5,7 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="AsyncKeyedLock" Version="8.0.2" />
-    <PackageVersion Include="AWSSDK.S3" Version="4.0.19" />
+    <PackageVersion Include="AWSSDK.S3" Version="4.0.19.4" />
     <PackageVersion Include="ByteSize" Version="2.1.2" />
     <PackageVersion Include="Invio.Extensions.Authentication.JwtBearer" Version="2.0.1" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.5" />
@@ -21,7 +21,7 @@
     <PackageVersion Include="NetDevPack.Security.Jwt.AspNetCore" Version="9.0.4" />
     <PackageVersion Include="NetDevPack.Security.JwtExtensions" Version="9.0.1" />
     <PackageVersion Include="Nito.AsyncEx.Coordination" Version="5.1.2" />
-    <PackageVersion Include="Scalar.AspNetCore" Version="2.13.11" />
+    <PackageVersion Include="Scalar.AspNetCore" Version="2.13.17" />
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.1.5" />
     <PackageVersion Include="Swashbuckle.AspNetCore.Annotations" Version="10.1.5" />
     <PackageVersion Include="WebDav.Client" Version="2.9.0" />

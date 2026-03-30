@@ -48,14 +48,14 @@
       },
       "Scalar.AspNetCore": {
         "type": "Direct",
-        "requested": "[2.13.11, )",
-        "resolved": "2.13.11",
-        "contentHash": "bH99KIEEaYhC+mMM9011OJtou0y/9O2NXo6h9/k104sAniMzFSGKNaiIX6NRkxc487MJD8vYu3I3nJtW/nU/3g=="
+        "requested": "[2.13.17, )",
+        "resolved": "2.13.17",
+        "contentHash": "v44WF0m58HBwaUiZVrvuetICcoaf2ZvIYu8JxsaJRRtsrNLlCIqjCcncTTDIy7pUiC2r2EO3eCJqcqGaTKZplQ=="
       },
       "AWSSDK.Core": {
         "type": "Transitive",
-        "resolved": "4.0.3.17",
-        "contentHash": "Ab24kVquQ8kvuQKNe5MK/SvaXR4uoxPkAlTPALDEImaHcwsBg+UWfRVcNzLEx4dRR2y1mDFFh+zZ9TVMXGY6Jg=="
+        "resolved": "4.0.3.24",
+        "contentHash": "Bq3mONgVTGheBWfqiVxPDgy/qpcEbsHuH9ColyGFgIiW4Smr/zizfPWI5OjUmxFJ2wlsX/Ooa5654C9bZh2wvg=="
       },
       "Microsoft.AspNetCore.Authentication.JwtBearer": {
         "type": "Transitive",
@@ -176,7 +176,7 @@
       "dorisstorageadapter.services": {
         "type": "Project",
         "dependencies": {
-          "AWSSDK.S3": "[4.0.19, )",
+          "AWSSDK.S3": "[4.0.19.4, )",
           "AsyncKeyedLock": "[8.0.2, )",
           "ByteSize": "[2.1.2, )",
           "DorisStorageAdapter.Common": "[1.0.0, )",
@@ -193,11 +193,11 @@
       },
       "AWSSDK.S3": {
         "type": "CentralTransitive",
-        "requested": "[4.0.19, )",
-        "resolved": "4.0.19",
-        "contentHash": "4MuPk4oADJImViC6jeNNWCrwY5/BNtuoHG2vzb5nBRPAdS8GTFIkDpIUbg+w82pZL8TEG+pN8ARTBxoD26FOzg==",
+        "requested": "[4.0.19.4, )",
+        "resolved": "4.0.19.4",
+        "contentHash": "kzyjlrmwJk6vTtNCTSyMi3JLiwXlY4pXyVcWo998/a++nAk50DGxIvk6ZXr1fAgdm8AWwdZI4glBTGhbzhfY7Q==",
         "dependencies": {
-          "AWSSDK.Core": "[4.0.3.17, 5.0.0)"
+          "AWSSDK.Core": "[4.0.3.24, 5.0.0)"
         }
       },
       "ByteSize": {
