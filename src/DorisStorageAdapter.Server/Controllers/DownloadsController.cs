@@ -29,8 +29,8 @@ public sealed class DownloadsController(
     public const string DownloadPublicFileCorsPolicyName = CorsPrefix + nameof(DownloadPublicFileAsync);
     public const string DownloadPublicFilesAsZipCorsPolicyName = CorsPrefix + nameof(DownloadPublicFilesAsZip);
 
-    [HttpHead("downloads/draft/{identifier}/{version}/{type}/{**filePath}")]
-    [HttpGet("downloads/draft/{identifier}/{version}/{type}/{**filePath}")]
+    [HttpHead("downloads/draft/{identifier}/{version}/{**filePath}")]
+    [HttpGet("downloads/draft/{identifier}/{version}/{**filePath}")]
     [Authorize(Roles = Roles.ReadDraftFiles)]
     [BinaryResponseBody(StatusCodes.Status200OK, "*/*")]
     [BinaryResponseBody(StatusCodes.Status206PartialContent, "*/*")]
@@ -42,7 +42,6 @@ public sealed class DownloadsController(
     public async Task<Results<FileStreamHttpResult, ForbidHttpResult, NotFound>> DownloadDraftFileAsync(
         string identifier,
         string version,
-        FileType type,
         string filePath,
         CancellationToken cancellationToken)
     {
@@ -58,7 +57,7 @@ public sealed class DownloadsController(
             return TypedResults.Forbid();
         }
 
-        var result = await GetDataAsync(datasetVersion, type, filePath, true, cancellationToken);
+        var result = await GetDataAsync(datasetVersion, filePath, true, cancellationToken);
 
         if (result == null)
         {
@@ -68,8 +67,8 @@ public sealed class DownloadsController(
         return result;
     }
 
-    [HttpHead("downloads/public/{identifier}/{version}/{type}/{**filePath}")]
-    [HttpGet("downloads/public/{identifier}/{version}/{type}/{**filePath}")]
+    [HttpHead("downloads/public/{identifier}/{version}/{**filePath}")]
+    [HttpGet("downloads/public/{identifier}/{version}/{**filePath}")]
     [EnableCors(DownloadPublicFileCorsPolicyName)]
     [BinaryResponseBody(StatusCodes.Status200OK, "*/*")]
     [BinaryResponseBody(StatusCodes.Status206PartialContent, "*/*")]
@@ -79,13 +78,12 @@ public sealed class DownloadsController(
     public async Task<Results<FileStreamHttpResult, NotFound>> DownloadPublicFileAsync(
        string identifier,
        string version,
-       FileType type,
        string filePath,
        CancellationToken cancellationToken)
     {
         var datasetVersion = new DatasetVersion(identifier, version);
 
-        var result = await GetDataAsync(datasetVersion, type, filePath, false, cancellationToken);
+        var result = await GetDataAsync(datasetVersion, filePath, false, cancellationToken);
 
         if (result == null)
         {
@@ -139,7 +137,6 @@ public sealed class DownloadsController(
 
     private async Task<FileStreamHttpResult?> GetDataAsync(
         DatasetVersion datasetVersion,
-        FileType type,
         string filePath,
         bool allowDraft,
         CancellationToken cancellationToken)
@@ -160,7 +157,6 @@ public sealed class DownloadsController(
 
         var data = await _fileService.GetDataAsync(
             datasetVersion: datasetVersion,
-            type: type,
             filePath: filePath,
             isHeadRequest: Request.Method == HttpMethods.Head,
             byteRange: ParseByteRange(),

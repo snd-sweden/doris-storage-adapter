@@ -1,4 +1,5 @@
-﻿using DorisStorageAdapter.Services.Contract;
+﻿using DorisStorageAdapter.Common;
+using DorisStorageAdapter.Services.Contract;
 using DorisStorageAdapter.Services.Contract.Exceptions;
 using DorisStorageAdapter.Services.Contract.Models;
 using DorisStorageAdapter.Services.Implementation.BagIt;
@@ -41,7 +42,6 @@ internal sealed class FileService(
 
     public async Task<FileMetadata> StoreAsync(
         DatasetVersion datasetVersion,
-        FileType type,
         string filePath,
         Stream data,
         long size,
@@ -59,12 +59,12 @@ internal sealed class FileService(
             .AcquireReadLockOrThrowAsync(datasetVersion, cancellationToken);
 
         await using var fileLock = await AcquireFileLockOrThrowAsync(
-            datasetVersion, type, filePath, cancellationToken);
+            datasetVersion, filePath, cancellationToken);
 
         var bagContext = _bagContextFactory.Create(datasetVersion);
         await ThrowIfHasBeenPublishedAsync(bagContext, cancellationToken);
 
-        string pathInBag = BagPathLayout.ToPathInBag(type, filePath);
+        string pathInBag = BagPathLayout.ToPathInBag(filePath);
 
         // Store marker file indicating upload is in progress.
         // Used to detect unfinished uploads.
@@ -133,13 +133,11 @@ internal sealed class FileService(
             DateModified: result.DateModified,
             Path: filePath,
             Sha256: checksum,
-            Size: bytesRead,
-            Type: type);
+            Size: bytesRead);
     }
 
     public async Task DeleteAsync(
         DatasetVersion datasetVersion,
-        FileType type,
         string filePath,
         CancellationToken cancellationToken)
     {
@@ -152,12 +150,12 @@ internal sealed class FileService(
             .AcquireReadLockOrThrowAsync(datasetVersion, cancellationToken);
 
         await using var fileLock = await AcquireFileLockOrThrowAsync(
-            datasetVersion, type, filePath, cancellationToken);
+            datasetVersion, filePath, cancellationToken);
 
         var bagContext = _bagContextFactory.Create(datasetVersion);
         await ThrowIfHasBeenPublishedAsync(bagContext, cancellationToken);
 
-        string pathInBag = BagPathLayout.ToPathInBag(type, filePath);
+        string pathInBag = BagPathLayout.ToPathInBag(filePath);
 
         await bagContext.DeleteFileAsync(
             path: pathInBag,
@@ -237,7 +235,6 @@ internal sealed class FileService(
 
     public async Task<FileData?> GetDataAsync(
         DatasetVersion datasetVersion,
-        FileType type,
         string filePath,
         bool isHeadRequest,
         ByteRange? byteRange,
@@ -251,15 +248,15 @@ internal sealed class FileService(
 
         var bagContext = _bagContextFactory.Create(datasetVersion);
 
-        var accessibleFileTypes = await GetAccessibleFileTypesAsync(
+        bool allow = await IsReadAccessToFilesAllowedAsync(
             bagContext, allowDraft, cancellationToken);
 
-        if (!accessibleFileTypes.Contains(type))
+        if (!allow)
         {
             return null;
         }
 
-        string pathInBag = BagPathLayout.ToPathInBag(type, filePath);
+        string pathInBag = BagPathLayout.ToPathInBag(filePath);
 
         var fetch = await bagContext.LoadBagItElementAsync<BagItFetch>(cancellationToken);
         (bagContext, pathInBag) = ResolvePath(bagContext, fetch, pathInBag);
@@ -340,16 +337,13 @@ internal sealed class FileService(
 
         foreach (var file in result.OrderBy(f => f.Path, StringComparer.InvariantCulture))
         {
-            (FileType type, string filePath) = BagPathLayout.FromPathInBag(file.Path);
-
             yield return new(
                 ContentType: file.ContentType ?? MimeTypes.GetMimeType(file.Path),
                 DateCreated: file.DateCreated,
                 DateModified: file.DateModified,
-                Path: filePath,
+                Path: BagPathLayout.FromPathInBag(file.Path),
                 Sha256: GetChecksum(file.Path),
-                Size: file.Size,
-                Type: type);
+                Size: file.Size);
         }
     }
 
@@ -367,8 +361,13 @@ internal sealed class FileService(
 
         var bagContext = _bagContextFactory.Create(datasetVersion);
 
-        var accessibleFileTypes = await GetAccessibleFileTypesAsync(
+        bool allowed = await IsReadAccessToFilesAllowedAsync(
            bagContext, allowDraft, cancellationToken);
+
+        if (!allowed)
+        {
+            return;
+        }
 
         static Stream CreateZipEntryStream(ZipArchive zipArchive, string path)
         {
@@ -385,14 +384,7 @@ internal sealed class FileService(
 
         foreach (var manifestItem in payloadManifest.Items)
         {
-            (var type, string filePath) = BagPathLayout.FromPathInBag(manifestItem.FilePath);
-
-            if (!accessibleFileTypes.Contains(type))
-            {
-                continue;
-            }
-
-            string zipFilePath = type.ToString() + '/' + filePath;
+            string zipFilePath = BagPathLayout.FromPathInBag(manifestItem.FilePath);
 
             if (paths.Length > 0 &&
                 !paths.Any(p => zipFilePath.StartsWith(p, StringComparison.Ordinal)))
@@ -467,40 +459,34 @@ internal sealed class FileService(
         }
     }
 
-    private async Task<IEnumerable<FileType>> GetAccessibleFileTypesAsync(
+    private async Task<bool> IsReadAccessToFilesAllowedAsync(
         BagContext bagContext, bool allowDraft, CancellationToken cancellationToken)
     {
+        if (!_publicationConfiguration.AllowPublicAccessRight &&
+            !allowDraft)
+        {
+            return false;
+        }
+
         if (await bagContext.HasBeenPublishedAsync(cancellationToken))
         {
+            if (!_publicationConfiguration.AllowPublicAccessRight)
+            {
+                return false;
+            }
+
             var bagInfo = await bagContext.LoadBagItElementAsync<BagItInfo>(cancellationToken);
 
-            // Check that version is not withdrawn.
-            if (bagInfo.GetDatasetVersionStatus() != DatasetVersionStatus.published)
+            if (bagInfo.GetAccessRight() != AccessRight.@public ||
+                bagInfo.GetDatasetVersionStatus() != DatasetVersionStatus.published)
             {
-                return [];
+                return false;
             }
 
-            // If we reach here, we know we can allow access to documentation files.
-            // Check if we also allow access to data files.
-            if (_publicationConfiguration.AllowPublicAccessRight &&
-                bagInfo.GetAccessRight() == AccessRight.@public)
-            {
-                // Yes, we allow public data files and access right
-                // is set to public.
-                return [FileType.data, FileType.documentation];
-            }
-
-            // No, only allow access to documentation files.
-            return [FileType.documentation];
-        }
-        else if (allowDraft)
-        {
-            // Dataset version has not been published and allowDraft is true,
-            // allow access to all files.
-            return [FileType.data, FileType.documentation];
+            return true;
         }
 
-        return [];
+        return allowDraft;
     }
 
     private static Task AddOrUpdatePayloadManifestItemAsync(
@@ -539,12 +525,11 @@ internal sealed class FileService(
 
     private async ValueTask<IAsyncDisposable> AcquireFileLockOrThrowAsync(
        DatasetVersion datasetVersion,
-       FileType type,
        string filePath,
        CancellationToken cancellationToken)
     {
         return await _lockProvider.TryAcquireAsync(
-            LockKeys.DatasetVersionFile(datasetVersion, type, filePath), cancellationToken) ??
+            LockKeys.DatasetVersionFile(datasetVersion, filePath), cancellationToken) ??
             throw new ConflictException();
     }
 

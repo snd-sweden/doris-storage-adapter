@@ -10,5 +10,4 @@ public sealed record FileMetadata(
     byte[]? Sha256,
 #pragma warning restore CA1819
     string Path,
-    long Size,
-    FileType Type);
+    long Size);

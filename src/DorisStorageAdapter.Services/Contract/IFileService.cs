@@ -10,7 +10,6 @@ public interface IFileService
 {
     Task<FileMetadata> StoreAsync(
         DatasetVersion datasetVersion,
-        FileType type,
         string filePath,
         Stream data,
         long size,
@@ -19,7 +18,6 @@ public interface IFileService
 
     Task DeleteAsync(
         DatasetVersion datasetVersion,
-        FileType type,
         string filePath,
         CancellationToken cancellationToken);
 
@@ -30,7 +28,6 @@ public interface IFileService
 
     Task<FileData?> GetDataAsync(
         DatasetVersion datasetVersion,
-        FileType type,
         string filePath,
         bool isHeadRequest,
         ByteRange? byteRange,

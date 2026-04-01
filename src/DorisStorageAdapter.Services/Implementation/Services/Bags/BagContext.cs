@@ -199,23 +199,6 @@ internal sealed class BagContext
 
         string pathInBag = decoded[index..];
 
-        try
-        {
-            // Do not allow fetch URL pointing to a different file type.
-            // This is primarily as a security measure to prevent exposing
-            // data files as documentation.
-
-            if (BagPathLayout.FromPathInBag(item.FilePath).Type !=
-                BagPathLayout.FromPathInBag(pathInBag).Type)
-            {
-                Throw();
-            }
-        }
-        catch (ArgumentException)
-        {
-            Throw();
-        }
-
         return new(
             ReferencedBagStoragePath: _groupStoragePath + referencedVersionPath,
             PathInBag: pathInBag,

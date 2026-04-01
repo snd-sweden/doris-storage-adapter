@@ -9,8 +9,7 @@ public record File(
     DateTime? DateModified,
     string EncodingFormat,
     string Name,
-    string? Sha256,
-    FileType Type)
+    string? Sha256)
 {
     public static File FromFileMetadata(FileMetadata file)
     {
@@ -24,8 +23,7 @@ public record File(
             Name: file.Path,
             Sha256: file.Sha256 == null 
                 ? null 
-                : Convert.ToHexStringLower(file.Sha256),
-            Type: file.Type
+                : Convert.ToHexStringLower(file.Sha256)
         );
     }
 }

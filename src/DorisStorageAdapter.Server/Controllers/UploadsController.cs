@@ -23,7 +23,7 @@ public sealed class UploadsController(
     public const string UploadCorsPolicyName = CorsPrefix + nameof(UploadAsync);
     public const string DeleteCorsPolicyName = CorsPrefix + nameof(DeleteAsync);
 
-    [HttpPut("uploads/{identifier}/{version}/{type}/{**filePath}")]
+    [HttpPut("uploads/{identifier}/{version}/{**filePath}")]
     [Authorize(Roles = Roles.WriteDraftFiles)]
     [DisableRequestSizeLimit] // Disable request size limit to allow streaming large files
     // DisableFormValueModelBinding makes sure that ASP.NET does not try to parse the body as form data
@@ -40,7 +40,6 @@ public sealed class UploadsController(
     public async Task<Results<Ok<File>, ForbidHttpResult, ProblemHttpResult>> UploadAsync(
         string identifier,
         string version,
-        FileType type,
         string filePath,
         CancellationToken cancellationToken)
     {
@@ -58,7 +57,6 @@ public sealed class UploadsController(
 
         var result = await fileService.StoreAsync(
             datasetVersion: datasetVersion,
-            type: type,
             filePath: filePath,
             data: Request.Body,
             size: Request.Headers.ContentLength.Value,
@@ -68,7 +66,7 @@ public sealed class UploadsController(
         return TypedResults.Ok(Models.File.FromFileMetadata(result));
     }
 
-    [HttpDelete("uploads/{identifier}/{version}/{type}/{**filePath}")]
+    [HttpDelete("uploads/{identifier}/{version}/{**filePath}")]
     [Authorize(Roles = Roles.WriteDraftFiles)]
     [EnableCors(DeleteCorsPolicyName)]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -79,7 +77,6 @@ public sealed class UploadsController(
     public async Task<Results<Ok, ForbidHttpResult>> DeleteAsync(
         string identifier,
         string version,
-        FileType type,
         string filePath,
         CancellationToken cancellationToken)
     {
@@ -90,7 +87,10 @@ public sealed class UploadsController(
             return TypedResults.Forbid();
         }
 
-        await fileService.DeleteAsync(datasetVersion, type, filePath, cancellationToken);
+        await fileService.DeleteAsync(
+            datasetVersion: datasetVersion, 
+            filePath: filePath, 
+            cancellationToken: cancellationToken);
 
         return TypedResults.Ok();
     }
