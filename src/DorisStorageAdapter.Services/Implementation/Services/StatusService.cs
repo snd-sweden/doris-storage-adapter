@@ -66,17 +66,26 @@ internal sealed class StatusService(
 
         var payloadFilePaths = new HashSet<string>();
         long octetCount = 0;
+        bool payloadFileFound = false;
         await foreach (var file in bagContext.ListPayloadFilesAsync(cancellationToken))
         {
             payloadFilePaths.Add(file.Path);
+            payloadFileFound = true;
             octetCount += file.Size;
         }
         foreach (var item in fetch?.BagItElement?.Items ?? [])
         {
+            payloadFileFound = true;
             if (item.Length != null)
             {
                 octetCount += item.Length.Value;
             }
+        }
+
+        if (!payloadFileFound)
+        {
+            // No payload files found, abort.
+            return;
         }
 
         var payloadManifest = await bagContext
