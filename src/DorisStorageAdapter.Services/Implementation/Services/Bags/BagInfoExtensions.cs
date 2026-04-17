@@ -10,15 +10,11 @@ internal static class BagInfoExtensions
     private const string DatasetStatusLabel = "Dataset-Status";
     private const string VersionLabel = "Version";
 
-    // http://publications.europa.eu/resource/authority/access-right/PUBLIC
-    private const string PublicAccessRightValue = "PUBLIC";
-    // http://publications.europa.eu/resource/authority/access-right/NON_PUBLIC
-    private const string NonPublicAccessRightValue = "NON_PUBLIC";
+    private const string PublicAccessRightValue = "http://publications.europa.eu/resource/authority/access-right/PUBLIC";
+    private const string NonPublicAccessRightValue = "http://publications.europa.eu/resource/authority/access-right/NON_PUBLIC";
 
-    // http://publications.europa.eu/resource/authority/dataset-status/COMPLETED
-    private const string CompletedDatasetStatusValue = "COMPLETED";
-    // http://publications.europa.eu/resource/authority/dataset-status/WITHDRAWN
-    private const string WithdrawnDatasetStatusValue = "WITHDRAWN";
+    private const string CompletedDatasetStatusValue = "http://publications.europa.eu/resource/authority/dataset-status/COMPLETED";
+    private const string WithdrawnDatasetStatusValue = "http://publications.europa.eu/resource/authority/dataset-status/WITHDRAWN";
 
     public static AccessRight? GetAccessRight(this BagItInfo bagItInfo) =>
         bagItInfo.GetCustomValues(AccessRightLabel).FirstOrDefault() switch
