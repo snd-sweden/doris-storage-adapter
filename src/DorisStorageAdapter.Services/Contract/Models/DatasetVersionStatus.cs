@@ -2,6 +2,6 @@
 
 public enum DatasetVersionStatus
 {
-    published,
-    withdrawn
+    Published,
+    Withdrawn
 }

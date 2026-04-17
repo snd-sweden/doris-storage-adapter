@@ -19,16 +19,16 @@ internal static class BagInfoExtensions
     public static AccessRight? GetAccessRight(this BagItInfo bagItInfo) =>
         bagItInfo.GetCustomValues(AccessRightLabel).FirstOrDefault() switch
         {
-            PublicAccessRightValue => AccessRight.@public,
-            NonPublicAccessRightValue => AccessRight.nonPublic,
+            PublicAccessRightValue => AccessRight.Public,
+            NonPublicAccessRightValue => AccessRight.NonPublic,
             _ => null
         };
 
     public static void SetAccessRight(this BagItInfo bagItInfo, AccessRight? accessRight) =>
         bagItInfo.SetCustomValues(AccessRightLabel, accessRight switch
         {
-            AccessRight.@public => [PublicAccessRightValue],
-            AccessRight.nonPublic => [NonPublicAccessRightValue],
+            AccessRight.Public => [PublicAccessRightValue],
+            AccessRight.NonPublic => [NonPublicAccessRightValue],
             _ => []
         });
 
@@ -36,16 +36,16 @@ internal static class BagInfoExtensions
     public static DatasetVersionStatus? GetDatasetVersionStatus(this BagItInfo bagItInfo) =>
         bagItInfo.GetCustomValues(DatasetStatusLabel).FirstOrDefault() switch
         {
-            CompletedDatasetStatusValue => DatasetVersionStatus.published,
-            WithdrawnDatasetStatusValue => DatasetVersionStatus.withdrawn,
+            CompletedDatasetStatusValue => DatasetVersionStatus.Published,
+            WithdrawnDatasetStatusValue => DatasetVersionStatus.Withdrawn,
             _ => null
         };
 
     public static void SetDatasetVersionStatus(this BagItInfo bagItInfo, DatasetVersionStatus? status) =>
         bagItInfo.SetCustomValues(DatasetStatusLabel, status switch
         {
-            DatasetVersionStatus.published => [CompletedDatasetStatusValue],
-            DatasetVersionStatus.withdrawn => [WithdrawnDatasetStatusValue],
+            DatasetVersionStatus.Published => [CompletedDatasetStatusValue],
+            DatasetVersionStatus.Withdrawn => [WithdrawnDatasetStatusValue],
             _ => []
         });
 

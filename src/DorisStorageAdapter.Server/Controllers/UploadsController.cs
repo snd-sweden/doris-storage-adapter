@@ -1,6 +1,6 @@
 ﻿using DorisStorageAdapter.Server.Controllers.Attributes;
 using DorisStorageAdapter.Server.Controllers.Authorization;
-using DorisStorageAdapter.Server.Controllers.Models;
+using DorisStorageAdapter.Server.Controllers.Models.Responses;
 using DorisStorageAdapter.Services.Contract;
 using DorisStorageAdapter.Services.Contract.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -63,7 +63,7 @@ public sealed class UploadsController(
             contentType: Request.Headers.ContentType,
             cancellationToken: cancellationToken);
 
-        return TypedResults.Ok(Models.File.FromFileMetadata(result));
+        return TypedResults.Ok(Models.Responses.File.FromFileMetadata(result));
     }
 
     [HttpDelete("uploads/{identifier}/{version}/{**filePath}")]

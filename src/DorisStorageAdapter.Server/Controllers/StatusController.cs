@@ -1,4 +1,5 @@
 ﻿using DorisStorageAdapter.Server.Controllers.Authorization;
+using DorisStorageAdapter.Server.Controllers.Models.Requests;
 using DorisStorageAdapter.Services.Contract;
 using DorisStorageAdapter.Services.Contract.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -17,20 +18,23 @@ public sealed class StatusController(IStatusService statusService) : BaseControl
 
     [HttpPut("datasets/{identifier}/versions/{version}/status/publish")]
     [Authorize(Roles = Roles.Service)]
-    [Consumes("application/x-www-form-urlencoded")]
+    [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(void), StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, MediaTypeNames.Application.ProblemJson)]
-    public async Task<Results<Ok, ForbidHttpResult>> PublishAsync(
+    public async Task<Results<Ok, BadRequest, ForbidHttpResult>> PublishAsync(
         string identifier,
         string version,
-        [FromForm(Name = "access_right")] AccessRight accessRight,
-        [FromForm(Name = "canonical_doi")] string canonicalDoi,
-        [FromForm] string doi,
+        [FromBody] PublishRequest request,
         CancellationToken cancellationToken)
     {
+        if (request == null)
+        {
+            return TypedResults.BadRequest();
+        }
+
         var datasetVersion = new DatasetVersion(identifier, version);
 
         if (!CheckClaims(datasetVersion))
@@ -38,25 +42,35 @@ public sealed class StatusController(IStatusService statusService) : BaseControl
             return TypedResults.Forbid();
         }
 
-        await _statusService.PublishAsync(datasetVersion, accessRight, canonicalDoi, doi, cancellationToken);
+        await _statusService.PublishAsync(
+            datasetVersion: datasetVersion,
+            accessRight: request.AccessRight,
+            canonicalDoi: request.CanonicalDoi,
+            doi: request.Doi,
+            cancellationToken: cancellationToken);
 
         return TypedResults.Ok();
     }
 
     [HttpPut("datasets/{identifier}/versions/{version}/status")]
     [Authorize(Roles = Roles.Service)]
-    [Consumes("application/x-www-form-urlencoded")]
+    [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(void), StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, MediaTypeNames.Application.ProblemJson)]
-    public async Task<Results<Ok, ForbidHttpResult>> SetStatusAsync(
+    public async Task<Results<Ok, BadRequest, ForbidHttpResult>> SetStatusAsync(
         string identifier, 
         string version,
-        [FromForm] DatasetVersionStatus status,
+        [FromBody] SetStatusRequest request,
         CancellationToken cancellationToken)
     {
+        if (request == null)
+        {
+            return TypedResults.BadRequest();
+        }
+
         var datasetVersion = new DatasetVersion(identifier, version);
 
         if (!CheckClaims(datasetVersion))
@@ -64,7 +78,10 @@ public sealed class StatusController(IStatusService statusService) : BaseControl
             return TypedResults.Forbid();
         }
 
-        await _statusService.SetStatusAsync(datasetVersion, status, cancellationToken);
+        await _statusService.SetStatusAsync(
+            datasetVersion: datasetVersion, 
+            status: request.Status, 
+            cancellationToken: cancellationToken);
 
         return TypedResults.Ok();
     }

@@ -46,13 +46,18 @@ internal sealed class StatusService(
         ArgumentException.ThrowIfNullOrEmpty(doi);
         DatasetVersionValidator.ThrowIfInvalid(datasetVersion);
 
-        if (accessRight == AccessRight.@public &&
+        if (accessRight == AccessRight.Public &&
             _systemConfiguration.DatasetAccessMode != DatasetAccessMode.Open ||
-            accessRight == AccessRight.nonPublic &&
+            accessRight == AccessRight.NonPublic &&
             _systemConfiguration.DatasetAccessMode != DatasetAccessMode.Restricted)
         {
-            throw new ValidationException([new("Access right does not match the configured access mode.")]);
+            throw new ValidationException([new(
+                Target: nameof(accessRight),
+                Message: "Requested access right does not match the system's configured dataset access mode.")]);
         }
+
+        DoiValidator.ThrowIfInvalid(canonicalDoi);
+        DoiValidator.ThrowIfInvalid(doi);
 
         var bagContext = _bagContextFactory.Create(datasetVersion);
 
@@ -116,7 +121,7 @@ internal sealed class StatusService(
         };
 
         bagInfo.SetAccessRight(accessRight);
-        bagInfo.SetDatasetVersionStatus(DatasetVersionStatus.published);
+        bagInfo.SetDatasetVersionStatus(DatasetVersionStatus.Published);
         bagInfo.SetVersion(datasetVersion.Version);
 
         byte[] bagInfoContents = await bagContext.StoreBagItElementAsync(bagInfo, cancellationToken);

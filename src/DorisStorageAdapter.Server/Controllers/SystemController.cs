@@ -1,6 +1,6 @@
 ﻿using DorisStorageAdapter.Server.Configuration;
 using DorisStorageAdapter.Server.Controllers.Authorization;
-using DorisStorageAdapter.Server.Controllers.Models;
+using DorisStorageAdapter.Server.Controllers.Models.Responses;
 using DorisStorageAdapter.Services.Contract;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;

@@ -10,7 +10,7 @@ public interface IStatusService
         DatasetVersion datasetVersion, 
         AccessRight accessRight, 
         string canonicalDoi, 
-        string doi, 
+        string doi,
         CancellationToken cancellationToken);
 
     Task SetStatusAsync(

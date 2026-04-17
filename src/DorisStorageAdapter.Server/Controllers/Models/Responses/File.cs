@@ -1,9 +1,9 @@
 ﻿using DorisStorageAdapter.Services.Contract.Models;
 using System;
 
-namespace DorisStorageAdapter.Server.Controllers.Models;
+namespace DorisStorageAdapter.Server.Controllers.Models.Responses;
 
-public record File(
+public sealed record File(
     long ContentSize,
     DateTime? DateCreated,
     DateTime? DateModified,

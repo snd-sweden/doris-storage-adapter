@@ -1,12 +1,12 @@
 using DorisStorageAdapter.Server.Controllers.Authorization;
-using DorisStorageAdapter.Server.Controllers.Models;
+using DorisStorageAdapter.Server.Controllers.Models.Requests;
+using DorisStorageAdapter.Server.Controllers.Models.Responses;
 using DorisStorageAdapter.Services.Contract;
 using DorisStorageAdapter.Services.Contract.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.ModelBinding;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Mime;
@@ -22,16 +22,22 @@ public sealed class FilesController(
 
     [HttpPut("datasets/{identifier}/versions/{version}/files/import")]
     [Authorize(Roles = Roles.Service)]
+    [Consumes("application/json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(void), StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, MediaTypeNames.Application.ProblemJson)]
-    public async Task<Results<Ok, ForbidHttpResult>> ImportAsync(
+    public async Task<Results<Ok, BadRequest, ForbidHttpResult>> ImportAsync(
         string identifier,
         string version,
-        [FromQuery, BindRequired] string fromVersion,
+        [FromBody] ImportFilesRequest request,
         CancellationToken cancellationToken)
     {
+        if (request == null)
+        {
+            return TypedResults.BadRequest();
+        }
+           
         var datasetVersion = new DatasetVersion(identifier, version);
 
         if (!CheckClaims(datasetVersion))
@@ -39,7 +45,10 @@ public sealed class FilesController(
             return TypedResults.Forbid();
         }
 
-        await _fileService.ImportAsync(datasetVersion, fromVersion, cancellationToken);
+        await _fileService.ImportAsync(
+            datasetVersion: datasetVersion, 
+            fromVersion: request.FromVersion, 
+            cancellationToken: cancellationToken);
 
         return TypedResults.Ok();
     }
@@ -64,7 +73,7 @@ public sealed class FilesController(
 
         var result = _fileService
             .ListAsync(datasetVersion, cancellationToken)
-            .Select(Models.File.FromFileMetadata);
+            .Select(Models.Responses.File.FromFileMetadata);
 
         return TypedResults.Ok(result);
     }

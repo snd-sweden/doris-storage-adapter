@@ -432,11 +432,15 @@ internal sealed class FileService(
         }
     }
 
-    private static void ThrowIfInvalidFilePath(string filePath)
+    private static void ThrowIfInvalidFilePath(
+        string filePath,
+        [CallerArgumentExpression(nameof(filePath))] string? paramName = null)
     {
         if (!PathValidation.HasOnlyValidComponents(filePath))
         {
-            throw new ValidationException([new("Invalid path.")]);
+            throw new ValidationException([new(
+                Target: paramName,
+                Message: "Invalid path.")]);
         }
     }
 
@@ -477,8 +481,8 @@ internal sealed class FileService(
 
             var bagInfo = await bagContext.LoadBagItElementAsync<BagItInfo>(cancellationToken);
 
-            if (bagInfo.GetAccessRight() != AccessRight.@public ||
-                bagInfo.GetDatasetVersionStatus() != DatasetVersionStatus.published)
+            if (bagInfo.GetAccessRight() != AccessRight.Public ||
+                bagInfo.GetDatasetVersionStatus() != DatasetVersionStatus.Published)
             {
                 return false;
             }

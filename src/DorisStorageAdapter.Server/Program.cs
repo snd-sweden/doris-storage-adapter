@@ -31,7 +31,8 @@ builder.Services.AddOptionsWithValidateOnStart<SecurityConfiguration>()
 
 static void SetupJsonSerializer(JsonSerializerOptions options)
 {
-    options.Converters.Add(new JsonStringEnumConverter());
+    options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, false));
+    options.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
 }
 
 builder.Services.AddControllers().AddJsonOptions(options => SetupJsonSerializer(options.JsonSerializerOptions));

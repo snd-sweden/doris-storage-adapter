@@ -2,6 +2,6 @@
 
 public enum AccessRight
 {
-    @public,
-    nonPublic
+    Public,
+    NonPublic
 };
