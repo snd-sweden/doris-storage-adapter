@@ -16,7 +16,7 @@ public sealed class StatusController(IStatusService statusService) : BaseControl
     private readonly IStatusService _statusService = statusService;
 
     [HttpPut("datasets/{identifier}/versions/{version}/status/publish")]
-    //[Authorize(Roles = Roles.Service)]
+    [Authorize(Roles = Roles.Service)]
     [Consumes("application/x-www-form-urlencoded")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
