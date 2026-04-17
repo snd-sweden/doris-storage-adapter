@@ -51,7 +51,7 @@ internal sealed class StatusService(
             accessRight == AccessRight.nonPublic &&
             _systemConfiguration.DatasetAccessMode != DatasetAccessMode.Restricted)
         {
-            throw new PublicAccessRightNotAllowedException();
+            throw new ValidationException([new("Access right does not match the configured access mode.")]);
         }
 
         var bagContext = _bagContextFactory.Create(datasetVersion);
