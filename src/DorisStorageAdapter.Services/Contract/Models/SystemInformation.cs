@@ -1,6 +1,6 @@
 ﻿namespace DorisStorageAdapter.Services.Contract.Models;
 
 public sealed record SystemInformation(
-    bool AllowPublicAccessRight,
+    DatasetAccessMode DatasetAccessMode,
     string StorageProvider);
     

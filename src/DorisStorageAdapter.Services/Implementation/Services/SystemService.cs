@@ -6,11 +6,11 @@ using Microsoft.Extensions.Options;
 namespace DorisStorageAdapter.Services.Implementation.Services;
 
 internal sealed class SystemService(
-    IOptions<PublicationConfiguration> publicationConfiguration,
+    IOptions<SystemConfiguration> systemConfiguration,
     IOptions<StorageConfiguration> storageConfiguration) : ISystemService
 {
     private readonly SystemInformation systemInformation = new(
-        publicationConfiguration.Value.AllowPublicAccessRight,
+        systemConfiguration.Value.DatasetAccessMode,
         storageConfiguration.Value.Provider);
 
     public SystemInformation GetSystemInformation() => systemInformation;

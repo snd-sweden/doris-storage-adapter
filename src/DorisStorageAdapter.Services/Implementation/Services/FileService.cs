@@ -31,12 +31,12 @@ internal sealed class FileService(
     ILockProvider lockProvider,
     DatasetVersionLocks datasetVersionLocks,
     BagContextFactory bagContextFactory,
-    IOptions<PublicationConfiguration> publicationConfiguration) : IFileService
+    IOptions<SystemConfiguration> systemConfiguration) : IFileService
 {
     private readonly ILockProvider _lockProvider = lockProvider;
     private readonly DatasetVersionLocks _datasetVersionLocks = datasetVersionLocks;
     private readonly BagContextFactory _bagContextFactory = bagContextFactory;
-    private readonly PublicationConfiguration _publicationConfiguration = publicationConfiguration.Value;
+    private readonly SystemConfiguration _systemConfiguration = systemConfiguration.Value;
 
     public const string UploadMarkerFilePrefix = "_upload-";
 
@@ -462,7 +462,7 @@ internal sealed class FileService(
     private async Task<bool> IsReadAccessToFilesAllowedAsync(
         BagContext bagContext, bool allowDraft, CancellationToken cancellationToken)
     {
-        if (!_publicationConfiguration.AllowPublicAccessRight &&
+        if (_systemConfiguration.DatasetAccessMode != DatasetAccessMode.Open &&
             !allowDraft)
         {
             return false;
@@ -470,7 +470,7 @@ internal sealed class FileService(
 
         if (await bagContext.HasBeenPublishedAsync(cancellationToken))
         {
-            if (!_publicationConfiguration.AllowPublicAccessRight)
+            if (_systemConfiguration.DatasetAccessMode != DatasetAccessMode.Open)
             {
                 return false;
             }

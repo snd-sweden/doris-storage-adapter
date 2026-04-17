@@ -1,7 +1,9 @@
-﻿namespace DorisStorageAdapter.Server.Controllers.Models;
+﻿using DorisStorageAdapter.Services.Contract.Models;
+
+namespace DorisStorageAdapter.Server.Controllers.Models;
 
 public record SystemInformation(
-    bool AllowPublicAccessRight,
     bool AllowReadDraftFiles,
+    DatasetAccessMode DatasetAccessMode,
     string StorageProvider,
     string Version);

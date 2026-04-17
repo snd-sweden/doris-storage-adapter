@@ -20,10 +20,10 @@ namespace DorisStorageAdapter.Server.Controllers;
 
 public sealed class DownloadsController(
     IFileService fileService,
-    IOptions<AuthorizationConfiguration> authorizationConfiguration) : BaseController
+    IOptions<SecurityConfiguration> securityConfiguration) : BaseController
 {
     private readonly IFileService _fileService = fileService;
-    private readonly AuthorizationConfiguration _authorizationConfiguration = authorizationConfiguration.Value;
+    private readonly SecurityConfiguration _securityConfiguration = securityConfiguration.Value;
 
     private const string CorsPrefix = nameof(DownloadsController) + "_";
     public const string DownloadPublicFileCorsPolicyName = CorsPrefix + nameof(DownloadPublicFileAsync);
@@ -45,7 +45,7 @@ public sealed class DownloadsController(
         string filePath,
         CancellationToken cancellationToken)
     {
-        if (!_authorizationConfiguration.AllowReadDraftFiles)
+        if (!_securityConfiguration.AllowReadDraftFiles)
         {
             return TypedResults.Forbid();
         }
@@ -105,7 +105,7 @@ public sealed class DownloadsController(
         [FromQuery] string[] path,
         CancellationToken cancellationToken)
     {
-        if (!_authorizationConfiguration.AllowReadDraftFiles)
+        if (!_securityConfiguration.AllowReadDraftFiles)
         {
             return TypedResults.Forbid();
         }

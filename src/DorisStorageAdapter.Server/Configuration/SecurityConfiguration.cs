@@ -4,9 +4,9 @@ using System.ComponentModel.DataAnnotations;
 
 namespace DorisStorageAdapter.Server.Configuration;
 
-public sealed record AuthorizationConfiguration
+public sealed record SecurityConfiguration
 {
-    public const string ConfigurationSection = "Authorization";
+    public const string ConfigurationSection = "Security";
 
     [Required]
     public required bool AllowReadDraftFiles { get; init; }

@@ -13,7 +13,7 @@ namespace DorisStorageAdapter.Server.Controllers;
 
 public sealed class SystemController(
     ISystemService systemService,
-    IOptions<AuthorizationConfiguration> authorizationConfiguration) : BaseController
+    IOptions<SecurityConfiguration> securityConfiguration) : BaseController
 {
     private readonly ISystemService _systemService = systemService;
 
@@ -30,8 +30,8 @@ public sealed class SystemController(
         var info = _systemService.GetSystemInformation();
 
         return new(
-            AllowPublicAccessRight: info.AllowPublicAccessRight,
-            AllowReadDraftFiles: authorizationConfiguration.Value.AllowReadDraftFiles,
+            AllowReadDraftFiles: securityConfiguration.Value.AllowReadDraftFiles,
+            DatasetAccessMode: info.DatasetAccessMode,
             StorageProvider: info.StorageProvider, 
             Version: version);
     }

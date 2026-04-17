@@ -31,8 +31,8 @@ public sealed class TokenController(IJwtService jwtService, IConfiguration confi
         var key = await _jwtService.GetCurrentSigningCredentials();
         var publicUrl = _configuration.Get<GeneralConfiguration>()!.PublicUrl;
         var jwksUri = _configuration
-            .GetSection(AuthorizationConfiguration.ConfigurationSection)
-            .Get<AuthorizationConfiguration>()!
+            .GetSection(SecurityConfiguration.ConfigurationSection)
+            .Get<SecurityConfiguration>()!
             .JwksUri;
 
         var tokenHandler = new JsonWebTokenHandler();

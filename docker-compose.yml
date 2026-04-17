@@ -9,11 +9,11 @@ services:
       - 8081:8081
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - Publication__AllowPublicAccessRight=true
+      - System__DatasetAccessMode=Open
       - Storage__Provider=FileSystem
       - Storage__FileSystem__BasePath=/tmp/doris-data
       - Storage__FileSystem__TempFilePath=/tmp
-      - Authorization__AllowReadDraftFiles=true
-      - Authorization__JwksUri=http://doris-storage-adapter:8080/jwks
-      - Authorization__CorsAllowedOrigins__0=http://doris-storage-adapter:8080
+      - Security__AllowReadDraftFiles=true
+      - Security__JwksUri=http://doris-storage-adapter:8080/jwks
+      - Security__CorsAllowedOrigins__0=http://doris-storage-adapter:8080
       - PublicUrl=http://doris-storage-adapter:8080

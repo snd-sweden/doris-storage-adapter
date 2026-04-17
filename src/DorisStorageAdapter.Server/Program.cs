@@ -25,8 +25,8 @@ builder.Services.AddOptionsWithValidateOnStart<GeneralConfiguration>()
     .Bind(builder.Configuration)
     .ValidateDataAnnotations();
 
-builder.Services.AddOptionsWithValidateOnStart<AuthorizationConfiguration>()
-    .Bind(builder.Configuration.GetSection(AuthorizationConfiguration.ConfigurationSection))
+builder.Services.AddOptionsWithValidateOnStart<SecurityConfiguration>()
+    .Bind(builder.Configuration.GetSection(SecurityConfiguration.ConfigurationSection))
     .ValidateDataAnnotations();
 
 static void SetupJsonSerializer(JsonSerializerOptions options)
@@ -67,9 +67,9 @@ if (builder.Environment.IsDevelopment())
     .PersistKeysInMemory();
 }
 
-var authorizationConfiguration = builder.Configuration
-    .GetSection(AuthorizationConfiguration.ConfigurationSection)
-    .Get<AuthorizationConfiguration>()!;
+var securityConfiguration = builder.Configuration
+    .GetSection(SecurityConfiguration.ConfigurationSection)
+    .Get<SecurityConfiguration>()!;
 
 var generalConfiguration = builder.Configuration.Get<GeneralConfiguration>()!;
 
@@ -94,7 +94,7 @@ builder.Services
         // SetJwkOptions sets ValidIssuer and ValidAudience
         options.SetJwksOptions(
             new(
-                jwksUri: authorizationConfiguration.JwksUri.AbsoluteUri,
+                jwksUri: securityConfiguration.JwksUri.AbsoluteUri,
                 audience: generalConfiguration.PublicUrl.AbsoluteUri
             ));
     
@@ -119,7 +119,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy(UploadsController.UploadCorsPolicyName, policy =>
     {
         policy
-            .WithOrigins([.. authorizationConfiguration.CorsAllowedOrigins])
+            .WithOrigins([.. securityConfiguration.CorsAllowedOrigins])
             .WithHeaders(
                 HeaderNames.Authorization, 
                 HeaderNames.ContentLength, 
@@ -129,7 +129,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy(UploadsController.DeleteCorsPolicyName, policy =>
     {
         policy
-            .WithOrigins([.. authorizationConfiguration.CorsAllowedOrigins])
+            .WithOrigins([.. securityConfiguration.CorsAllowedOrigins])
             .WithHeaders(HeaderNames.Authorization)
             .WithMethods(HttpMethods.Delete);
     });

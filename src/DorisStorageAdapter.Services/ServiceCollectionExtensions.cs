@@ -21,8 +21,8 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
 
-        services.AddOptionsWithValidateOnStart<PublicationConfiguration>()
-            .Bind(configuration.GetSection(PublicationConfiguration.ConfigurationSection))
+        services.AddOptionsWithValidateOnStart<SystemConfiguration>()
+            .Bind(configuration.GetSection(SystemConfiguration.ConfigurationSection))
             .ValidateDataAnnotations();
 
         services.AddSingleton<ILockProvider, InProcessLockProvider>();
