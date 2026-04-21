@@ -1,4 +1,5 @@
-﻿using DorisStorageAdapter.Services.Contract.Exceptions;
+﻿using DorisStorageAdapter.Server.Controllers.Models.Responses;
+using DorisStorageAdapter.Services.Contract.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -26,16 +27,12 @@ internal sealed class ServiceExceptionHandler(IProblemDetailsService problemDeta
 
         httpContext.Response.StatusCode = GetStatusCode(se);
 
-        var problem = new ProblemDetails
+        var problem = new ErrorProblemDetails
         {
             Title = se.Title,
-            Detail = se.Message
+            Detail = se.Message,
+            Errors = se.Errors
         };
-
-        if (se.Errors.Count > 0)
-        {
-            problem.Extensions["errors"] = se.Errors;
-        }
 
         // This writes using the registered ProblemDetails writers
         await _problemDetailsService.WriteAsync(new ProblemDetailsContext

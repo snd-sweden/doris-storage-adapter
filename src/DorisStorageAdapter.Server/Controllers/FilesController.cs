@@ -23,10 +23,10 @@ public sealed class FilesController(
     [HttpPut("datasets/{identifier}/versions/{version}/files/import")]
     [Authorize(Roles = Roles.Service)]
     [Consumes("application/json")]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
+    [ProducesResponseType<ErrorProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(void), StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, MediaTypeNames.Application.ProblemJson)]
+    [ProducesResponseType<ErrorProblemDetails>(StatusCodes.Status409Conflict, MediaTypeNames.Application.ProblemJson)]
     public async Task<Results<Ok, BadRequest, ForbidHttpResult>> ImportAsync(
         string identifier,
         string version,
@@ -56,7 +56,7 @@ public sealed class FilesController(
     [HttpGet("datasets/{identifier}/versions/{version}/files")]
     [Authorize(Roles = Roles.Service)]
     [ProducesResponseType<IEnumerable<File>>(StatusCodes.Status200OK, MediaTypeNames.Application.Json)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
+    [ProducesResponseType<ErrorProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(void), StatusCodes.Status403Forbidden)]
     public Results<Ok<IAsyncEnumerable<File>>, ForbidHttpResult> List(

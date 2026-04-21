@@ -32,11 +32,11 @@ public sealed class UploadsController(
     [EnableCors(UploadCorsPolicyName)]
     [BinaryRequestBody("*/*")]
     [ProducesResponseType<File>(StatusCodes.Status200OK, MediaTypeNames.Application.Json)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
+    [ProducesResponseType<ErrorProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(void), StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, MediaTypeNames.Application.ProblemJson)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status411LengthRequired, MediaTypeNames.Application.ProblemJson)]
+    [ProducesResponseType<ErrorProblemDetails>(StatusCodes.Status409Conflict, MediaTypeNames.Application.ProblemJson)]
+    [ProducesResponseType<ErrorProblemDetails>(StatusCodes.Status411LengthRequired, MediaTypeNames.Application.ProblemJson)]
     public async Task<Results<Ok<File>, ForbidHttpResult, ProblemHttpResult>> UploadAsync(
         string identifier,
         string version,
@@ -70,10 +70,10 @@ public sealed class UploadsController(
     [Authorize(Roles = Roles.WriteDraftFiles)]
     [EnableCors(DeleteCorsPolicyName)]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
+    [ProducesResponseType<ErrorProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(void), StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, MediaTypeNames.Application.ProblemJson)]
+    [ProducesResponseType<ErrorProblemDetails>(StatusCodes.Status409Conflict, MediaTypeNames.Application.ProblemJson)]
     public async Task<Results<Ok, ForbidHttpResult>> DeleteAsync(
         string identifier,
         string version,

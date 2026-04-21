@@ -2,6 +2,7 @@
 using DorisStorageAdapter.Server.Configuration;
 using DorisStorageAdapter.Server.Controllers.Attributes;
 using DorisStorageAdapter.Server.Controllers.Authorization;
+using DorisStorageAdapter.Server.Controllers.Models.Responses;
 using DorisStorageAdapter.Services.Contract;
 using DorisStorageAdapter.Services.Contract.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -34,7 +35,7 @@ public sealed class DownloadsController(
     [Authorize(Roles = Roles.ReadDraftFiles)]
     [BinaryResponseBody(StatusCodes.Status200OK, "*/*")]
     [BinaryResponseBody(StatusCodes.Status206PartialContent, "*/*")]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
+    [ProducesResponseType<ErrorProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(void), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(void), StatusCodes.Status404NotFound)]
@@ -72,7 +73,7 @@ public sealed class DownloadsController(
     [EnableCors(DownloadPublicFileCorsPolicyName)]
     [BinaryResponseBody(StatusCodes.Status200OK, "*/*")]
     [BinaryResponseBody(StatusCodes.Status206PartialContent, "*/*")]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
+    [ProducesResponseType<ErrorProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
     [ProducesResponseType(typeof(void), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(void), StatusCodes.Status416RangeNotSatisfiable)]
     public async Task<Results<FileStreamHttpResult, NotFound>> DownloadPublicFileAsync(
@@ -96,7 +97,7 @@ public sealed class DownloadsController(
     [HttpGet("downloads/draft/{identifier}/{version}.zip")]
     [Authorize(Roles = Roles.ReadDraftFiles)]
     [BinaryResponseBody(StatusCodes.Status200OK, MediaTypeNames.Application.Zip)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
+    [ProducesResponseType<ErrorProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(void), StatusCodes.Status403Forbidden)]
     public Results<PushStreamHttpResult, ForbidHttpResult> DownloadDraftFilesAsZip(
@@ -123,7 +124,7 @@ public sealed class DownloadsController(
     [HttpGet("downloads/public/{identifier}/{version}.zip")]
     [EnableCors(DownloadPublicFilesAsZipCorsPolicyName)]
     [BinaryResponseBody(StatusCodes.Status200OK, MediaTypeNames.Application.Zip)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
+    [ProducesResponseType<ErrorProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
     public Results<PushStreamHttpResult, ForbidHttpResult> DownloadPublicFilesAsZip(
         string identifier,
         string version,

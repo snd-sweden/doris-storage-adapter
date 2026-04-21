@@ -10,12 +10,15 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Net.Http.Headers;
+using Microsoft.OpenApi;
 using NetDevPack.Security.Jwt.Core.Jwa;
 using NetDevPack.Security.JwtExtensions;
 using Scalar.AspNetCore;
 using System;
+using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading.Tasks;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -56,6 +59,23 @@ builder.Services.AddOpenApi(options =>
 {
     options.AddOperationTransformer<BinaryRequestBodyTransformer>();
     options.AddOperationTransformer<BinaryResponseBodyTransformer>();
+
+    options.AddDocumentTransformer((doc, ctx, ct) =>
+    {
+        doc.Info = new OpenApiInfo
+        {
+            Title = "DORIS Storage Adapter",
+            Version = ApplicationInfo.Version,
+            License = new()
+            {
+                Name = "BSD 2-Clause License",
+                Identifier = "BSD-2-Clause",
+                Url = new("https://opensource.org/license/BSD-2-Clause")
+            }
+        };
+
+        return Task.CompletedTask;
+    });
 });
 
 if (builder.Environment.IsDevelopment())
@@ -89,7 +109,7 @@ builder.Services
         {
             options.IncludeErrorDetails = false;
             // MUST be true in production for security reasons!
-            options.RequireHttpsMetadata = true; 
+            options.RequireHttpsMetadata = true;
         }
 
         // SetJwkOptions sets ValidIssuer and ValidAudience
@@ -98,7 +118,7 @@ builder.Services
                 jwksUri: securityConfiguration.JwksUri.AbsoluteUri,
                 audience: generalConfiguration.PublicUrl.AbsoluteUri
             ));
-    
+
         // Limiting the valid algorithms to only the one used by Doris hardens security by
         // making algorithm confusion attacks impossible, but also means that it's harder
         // for SND to change the signing algorithm.
@@ -122,8 +142,8 @@ builder.Services.AddCors(options =>
         policy
             .WithOrigins([.. securityConfiguration.CorsAllowedOrigins])
             .WithHeaders(
-                HeaderNames.Authorization, 
-                HeaderNames.ContentLength, 
+                HeaderNames.Authorization,
+                HeaderNames.ContentLength,
                 HeaderNames.ContentType)
             .WithMethods(HttpMethods.Put);
     });
@@ -141,8 +161,8 @@ builder.Services.AddCors(options =>
             .AllowAnyHeader()
             .WithMethods(HttpMethods.Get, HttpMethods.Head)
             .WithExposedHeaders(
-                HeaderNames.AcceptRanges, 
-                HeaderNames.ContentDisposition, 
+                HeaderNames.AcceptRanges,
+                HeaderNames.ContentDisposition,
                 HeaderNames.ContentRange);
     });
     options.AddPolicy(DownloadsController.DownloadPublicFilesAsZipCorsPolicyName, policy =>

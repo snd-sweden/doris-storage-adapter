@@ -1,5 +1,6 @@
 ﻿using DorisStorageAdapter.Server.Controllers.Authorization;
 using DorisStorageAdapter.Server.Controllers.Models.Requests;
+using DorisStorageAdapter.Server.Controllers.Models.Responses;
 using DorisStorageAdapter.Services.Contract;
 using DorisStorageAdapter.Services.Contract.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -20,10 +21,10 @@ public sealed class StatusController(IStatusService statusService) : BaseControl
     [Authorize(Roles = Roles.Service)]
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
+    [ProducesResponseType<ErrorProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(void), StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, MediaTypeNames.Application.ProblemJson)]
+    [ProducesResponseType<ErrorProblemDetails>(StatusCodes.Status409Conflict, MediaTypeNames.Application.ProblemJson)]
     public async Task<Results<Ok, BadRequest, ForbidHttpResult>> PublishAsync(
         string identifier,
         string version,
@@ -56,10 +57,10 @@ public sealed class StatusController(IStatusService statusService) : BaseControl
     [Authorize(Roles = Roles.Service)]
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
+    [ProducesResponseType<ErrorProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(void), StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, MediaTypeNames.Application.ProblemJson)]
+    [ProducesResponseType<ErrorProblemDetails>(StatusCodes.Status409Conflict, MediaTypeNames.Application.ProblemJson)]
     public async Task<Results<Ok, BadRequest, ForbidHttpResult>> SetStatusAsync(
         string identifier, 
         string version,

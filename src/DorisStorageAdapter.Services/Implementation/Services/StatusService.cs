@@ -10,15 +10,12 @@ using DorisStorageAdapter.Services.Implementation.Configuration;
 using DorisStorageAdapter.Services.Implementation.Services.Bags;
 using DorisStorageAdapter.Services.Implementation.Services.Locking;
 using DorisStorageAdapter.Services.Implementation.Services.Validation;
-using DorisStorageAdapter.Services.Implementation.Storage;
 using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -59,10 +56,10 @@ internal sealed class StatusService(
         DoiValidator.ThrowIfInvalid(canonicalDoi);
         DoiValidator.ThrowIfInvalid(doi);
 
-        var bagContext = _bagContextFactory.Create(datasetVersion);
-
         await using var datasetVersionLock = await _datasetVersionLocks
             .AcquireWriteLockOrThrowAsync(datasetVersion, cancellationToken);
+
+        var bagContext = _bagContextFactory.Create(datasetVersion);
 
         if (await bagContext.HasBeenPublishedAsync(cancellationToken))
         {
@@ -98,7 +95,8 @@ internal sealed class StatusService(
         var payloadManifest = await bagContext
             .LoadBagItElementWithChecksumAsync<BagItPayloadManifest>(cancellationToken);
 
-        var errors = await CheckBagConsistencyAsync(
+        var errors = await BagConsistencyChecker.CheckAsync(
+            _bagContextFactory,
             bagContext,
             payloadFilePaths,
             fetch?.BagItElement,
@@ -143,147 +141,6 @@ internal sealed class StatusService(
         await bagContext.StoreBagItElementAsync(BagItDeclaration.CreateEmpty(), CancellationToken.None);
     }
 
-    private async Task<IEnumerable<ErrorItem>> CheckBagConsistencyAsync(
-        BagContext bagContext,
-        HashSet<string> payloadFilePaths,
-        BagItFetch? fetch,
-        BagItPayloadManifest? payloadManifest,
-        CancellationToken cancellationToken)
-    {
-        var errors = new List<ErrorItem>();
-
-        void AddError(string target, string message) =>
-            errors.Add(new ErrorItem(message, target));
-
-        void CheckPayloadFilePaths()
-        {
-            foreach (var filePath in payloadFilePaths)
-            {
-                string target = $"Payload directory:{filePath}";
-
-                if (fetch != null &&
-                    fetch.Contains(filePath))
-                {
-                    AddError(target, "Found in fetch file.");
-                }
-
-                if (payloadManifest == null ||
-                    !payloadManifest.Contains(filePath))
-                {
-                    AddError(target, "Not found in payload manifest.");
-                }
-            }
-        }
-
-        async Task CheckFetchAsync()
-        {
-            if (fetch == null)
-            {
-                return;
-            }
-
-            foreach (var reference in bagContext.GroupFetchReferences(fetch))
-            {
-                var referencedBagContext = _bagContextFactory.Create(reference.ReferencedBagStoragePath);
-
-                var referencedVersionManifest = await referencedBagContext
-                    .LoadBagItElementAsync<BagItPayloadManifest>(cancellationToken);
-
-                var referencedVersionFiles = new Dictionary<string, StorageFileMetadata>(StringComparer.Ordinal);
-                await foreach (var file in referencedBagContext.ListPayloadFilesAsync(cancellationToken))
-                {
-                    referencedVersionFiles[file.Path] = file;
-                }
-
-                bool referencedVersionIsPublished =
-                    await referencedBagContext.HasBeenPublishedAsync(cancellationToken);
-
-                foreach (var r in reference.References)
-                {
-                    string target = $"Fetch file:{r.Item.FilePath}";
-
-                    if (!referencedVersionIsPublished)
-                    {
-                        AddError(target, "Does not reference a published dataset version.");
-                    }
-
-                    if (r.Item.Length == null)
-                    {
-                        AddError(target, "Missing length.");
-                    }
-
-                    if (!referencedVersionFiles.TryGetValue(r.PathInBag, out var referencedFile))
-                    {
-                        AddError(target, "Referenced payload file not found.");
-                    }
-                    else if (
-                        r.Item.Length != null &&
-                        r.Item.Length != referencedFile.Size)
-                    {
-                        AddError(target, "Size does not match referenced payload file's size.");
-                    }
-
-                    if (payloadManifest == null ||
-                        !payloadManifest.TryGetItem(r.Item.FilePath, out var itemThisManifest))
-                    {
-                        AddError(target, "Not found in payload manifest.");
-                    }
-                    else if (
-                        referencedVersionManifest == null ||
-                        !referencedVersionManifest.TryGetItem(r.PathInBag, out var itemPreviousManifest) ||
-                        !itemThisManifest.Checksum.SequenceEqual(itemPreviousManifest.Checksum))
-                    {
-                        AddError(target, "Payload manifest checksum does not match referenced file's payload manifest checksum.");
-                    }
-                }
-            }
-        }
-
-        void CheckPayloadManifest()
-        {
-            foreach (var item in payloadManifest?.Items ?? [])
-            {
-                string target = $"Payload manifest:{item.FilePath}";
-
-                if ((fetch == null ||
-                    !fetch.Contains(item.FilePath))
-                    && !payloadFilePaths.Contains(item.FilePath))
-                {
-                    AddError(target, "Not found in payload directory or fetch file.");
-                }
-            }
-        }
-
-        async Task CheckUploadMarkers()
-        {
-            await foreach (var file in bagContext.ListFilesAsync("", cancellationToken))
-            {
-                if (file.Path.StartsWith(FileService.UploadMarkerFilePrefix, StringComparison.Ordinal))
-                {
-                    var fileData = await bagContext.GetFileDataAsync(file.Path, null, cancellationToken);
-
-                    if (fileData != null)
-                    {
-                        await using var stream = fileData.Stream;
-                        using var reader = new StreamReader(stream, Encoding.UTF8);
-                        string errorFileName = await reader.ReadToEndAsync(cancellationToken);
-
-                        AddError(
-                            $"Payload directory:{errorFileName}", 
-                            $"Found marker file indicating unfinished upload ({file.Path}");
-                    }
-                }
-            }
-        }
-
-        CheckPayloadFilePaths();
-        await CheckFetchAsync();
-        CheckPayloadManifest();
-        await CheckUploadMarkers();
-
-        return errors;
-    }
-
     public async Task SetStatusAsync(
         DatasetVersion datasetVersion,
         DatasetVersionStatus status,
@@ -292,10 +149,10 @@ internal sealed class StatusService(
         ArgumentNullException.ThrowIfNull(datasetVersion);
         DatasetVersionValidator.ThrowIfInvalid(datasetVersion);
 
-        var bagContext = _bagContextFactory.Create(datasetVersion);
-
         await using var datasetVersionLock = await _datasetVersionLocks
             .AcquireWriteLockOrThrowAsync(datasetVersion, cancellationToken);
+
+        var bagContext = _bagContextFactory.Create(datasetVersion);
 
         if (!await bagContext.HasBeenPublishedAsync(cancellationToken))
         {

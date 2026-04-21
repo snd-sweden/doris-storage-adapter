@@ -17,10 +17,6 @@ public sealed class SystemController(
 {
     private readonly ISystemService _systemService = systemService;
 
-    private readonly static string version = FileVersionInfo
-        .GetVersionInfo(typeof(SystemController).Assembly.Location)
-        .ProductVersion ?? "";
-
     [HttpGet("system/information")]
     [Authorize(Roles = Roles.Service)]
     [ProducesResponseType<SystemInformation>(StatusCodes.Status200OK, MediaTypeNames.Application.Json)]
@@ -33,6 +29,6 @@ public sealed class SystemController(
             AllowReadDraftFiles: securityConfiguration.Value.AllowReadDraftFiles,
             DatasetAccessMode: info.DatasetAccessMode,
             StorageProvider: info.StorageProvider, 
-            Version: version);
+            Version: ApplicationInfo.Version);
     }
 }
