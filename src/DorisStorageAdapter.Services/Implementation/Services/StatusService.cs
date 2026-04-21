@@ -63,33 +63,27 @@ internal sealed class StatusService(
 
         if (await bagContext.HasBeenPublishedAsync(cancellationToken))
         {
-            throw new DatasetStatusException();
+            // Already published, return success.
+            return;
         }
 
         var fetch = await bagContext.LoadBagItElementWithChecksumAsync<BagItFetch>(cancellationToken);
 
         var payloadFilePaths = new HashSet<string>();
         long octetCount = 0;
-        bool payloadFileFound = false;
+
         await foreach (var file in bagContext.ListPayloadFilesAsync(cancellationToken))
         {
             payloadFilePaths.Add(file.Path);
-            payloadFileFound = true;
             octetCount += file.Size;
         }
+
         foreach (var item in fetch?.BagItElement?.Items ?? [])
         {
-            payloadFileFound = true;
             if (item.Length != null)
             {
                 octetCount += item.Length.Value;
             }
-        }
-
-        if (!payloadFileFound)
-        {
-            // No payload files found, abort.
-            return;
         }
 
         var payloadManifest = await bagContext
