@@ -72,7 +72,9 @@ internal sealed class S3StorageProvider(
             DateModified: DateTime.UtcNow);
     }
 
-    public async Task DeleteAsync(string filePath, CancellationToken cancellationToken)
+    public async Task DeleteAsync(
+        string filePath, 
+        CancellationToken cancellationToken)
     {
         await _client.DeleteObjectAsync(new()
         {
@@ -82,7 +84,9 @@ internal sealed class S3StorageProvider(
         cancellationToken);
     }
 
-    public async Task<StorageFileMetadata?> GetMetadataAsync(string filePath, CancellationToken cancellationToken)
+    public async Task<StorageFileMetadata?> GetMetadataAsync(
+        string filePath, 
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -111,7 +115,10 @@ internal sealed class S3StorageProvider(
         }
     }
 
-    public async Task<StorageFileData?> GetDataAsync(string filePath, StorageByteRange? byteRange, CancellationToken cancellationToken)
+    public async Task<StorageFileData?> GetDataAsync(
+        string filePath, 
+        StorageByteRange? byteRange, 
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -187,11 +194,13 @@ internal sealed class S3StorageProvider(
 
     public async IAsyncEnumerable<StorageFileMetadata> ListAsync(
         string path,
+        bool recursive,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var paginator = _client.Paginators.ListObjectsV2(new()
         {
             BucketName = _configuration.BucketName,
+            Delimiter = recursive ? null : "/",
             Prefix = path
         });
 

@@ -87,13 +87,14 @@ internal sealed class BagContext
 
     public IAsyncEnumerable<StorageFileMetadata> ListPayloadFilesAsync(
         CancellationToken cancellationToken) =>
-        ListFilesAsync(BagPathLayout.PayloadRootPath, cancellationToken);
+        ListFilesAsync(BagPathLayout.PayloadRootPath, true, cancellationToken);
 
     public IAsyncEnumerable<StorageFileMetadata> ListFilesAsync(
         string pathInBag,
+        bool recursive,
         CancellationToken cancellationToken) =>
         _storageProvider
-            .ListAsync(ToStoragePath(pathInBag), cancellationToken)
+            .ListAsync(ToStoragePath(pathInBag), recursive, cancellationToken)
             .Select(file => file with { Path = FromStoragePath(file.Path) });
 
     public Task<StorageFileBaseMetadata> StoreFileAsync(

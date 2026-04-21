@@ -34,6 +34,9 @@ internal sealed class InMemoryStorage
     public bool TryGet(string filePath, [NotNullWhen(true)] out InMemoryFile? file) =>
         _files.TryGetValue(filePath, out file);
 
-    public IEnumerable<InMemoryFile> ListFiles(string path) =>
-        _files.Where(f => f.Key.StartsWith(path, StringComparison.Ordinal)).Select(f => f.Value);
+    public IEnumerable<InMemoryFile> ListFiles(string path, bool recursive) =>
+        _files.Where(f => 
+            f.Key.StartsWith(path, StringComparison.Ordinal) &&
+            (recursive || !f.Key[path.Length..].Contains('/', StringComparison.Ordinal)))
+        .Select(f => f.Value);
 }

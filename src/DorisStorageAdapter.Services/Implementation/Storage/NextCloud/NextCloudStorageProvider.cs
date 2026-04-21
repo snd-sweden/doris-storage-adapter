@@ -211,7 +211,9 @@ internal sealed class NextCloudStorageProvider : IStorageProvider
             DateModified: DateTimeOffset.FromUnixTimeSeconds(now).UtcDateTime);
     }
 
-    public async Task DeleteAsync(string filePath, CancellationToken cancellationToken)
+    public async Task DeleteAsync(
+        string filePath, 
+        CancellationToken cancellationToken)
     {
         var fileUri = GetWebDavFileUri(filePath);
 
@@ -268,7 +270,10 @@ internal sealed class NextCloudStorageProvider : IStorageProvider
             Size: resource.ContentLength.GetValueOrDefault());
     }
 
-    public async Task<StorageFileData?> GetDataAsync(string filePath, StorageByteRange? byteRange, CancellationToken cancellationToken)
+    public async Task<StorageFileData?> GetDataAsync(
+        string filePath, 
+        StorageByteRange? byteRange, 
+        CancellationToken cancellationToken)
     {
         IReadOnlyCollection<KeyValuePair<string, string>> headers =
             byteRange == null
@@ -335,12 +340,15 @@ internal sealed class NextCloudStorageProvider : IStorageProvider
 
     public async IAsyncEnumerable<StorageFileMetadata> ListAsync(
         string path,
+        bool recursive,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         Task<PropfindResponse> DoPropfindAsync(Uri uri, CancellationToken cancellationToken) =>
             this.DoPropfindAsync(
                 uri,
-                ApplyTo.Propfind.ResourceAndAncestors,
+                recursive 
+                    ? ApplyTo.Propfind.ResourceAndAncestors
+                    : ApplyTo.Propfind.ResourceAndChildren,
                 [
                     _getLastModifiedProperty,
                     _getContentLengthProperty,

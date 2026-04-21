@@ -116,7 +116,9 @@ internal sealed class FileSystemStorageProvider(
             DateModified: dateModified ?? DateTime.UtcNow);
     }
 
-    public async Task DeleteAsync(string filePath, CancellationToken cancellationToken)
+    public async Task DeleteAsync(
+        string filePath, 
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -145,7 +147,9 @@ internal sealed class FileSystemStorageProvider(
 #pragma warning restore CA1031
     }
 
-    public Task<StorageFileMetadata?> GetMetadataAsync(string filePath, CancellationToken cancellationToken)
+    public Task<StorageFileMetadata?> GetMetadataAsync(
+        string filePath, 
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -160,7 +164,10 @@ internal sealed class FileSystemStorageProvider(
         return Task.FromResult<StorageFileMetadata?>(null);
     }
 
-    public Task<StorageFileData?> GetDataAsync(string filePath, StorageByteRange? byteRange, CancellationToken cancellationToken)
+    public Task<StorageFileData?> GetDataAsync(
+        string filePath, 
+        StorageByteRange? byteRange, 
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -221,20 +228,23 @@ internal sealed class FileSystemStorageProvider(
 #pragma warning disable CS1998 // This async method lacks 'await'
     public async IAsyncEnumerable<StorageFileMetadata> ListAsync(
         string path,
+        bool recursive,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        static IEnumerable<FileInfo> EnumerateFiles(DirectoryInfo directory, string path)
+        static IEnumerable<FileInfo> EnumerateFiles(
+            DirectoryInfo directory, string path, bool recursive)
         {
             foreach (var entry in directory.EnumerateFileSystemInfos())
             {
-                if (!string.IsNullOrEmpty(path) && !entry.FullName.StartsWith(path, StringComparison.Ordinal))
+                if (!string.IsNullOrEmpty(path) && 
+                    !entry.FullName.StartsWith(path, StringComparison.Ordinal))
                 {
                     continue;
                 }
 
-                if (entry is DirectoryInfo subDirectory)
+                if (entry is DirectoryInfo subDirectory && recursive)
                 {
-                    foreach (var file in EnumerateFiles(subDirectory, ""))
+                    foreach (var file in EnumerateFiles(subDirectory, "", recursive))
                     {
                         yield return file;
                     }
@@ -262,7 +272,8 @@ internal sealed class FileSystemStorageProvider(
             }
         }
 
-        foreach (var file in EnumerateFiles(directory, directory.FullName != path ? path : ""))
+        foreach (var file in EnumerateFiles(
+            directory, directory.FullName != path ? path : "", recursive))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -312,7 +323,8 @@ internal sealed class FileSystemStorageProvider(
             Path: NormalizePath(Path.GetRelativePath(_basePath, file.FullName)),
             Size: file.Length);
 
-    private async Task DeleteEmptyDirectoriesAsync(string directoryPath, CancellationToken cancellationToken)
+    private async Task DeleteEmptyDirectoriesAsync(
+        string directoryPath, CancellationToken cancellationToken)
     {
         await using var _ = await _lockProvider.AcquireAsync(cancellationToken);
 

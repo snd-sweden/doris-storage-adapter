@@ -127,7 +127,7 @@ internal static class BagConsistencyChecker
 
         async Task CheckUploadMarkers()
         {
-            await foreach (var file in bagContext.ListFilesAsync("", cancellationToken))
+            await foreach (var file in bagContext.ListFilesAsync("", false, cancellationToken))
             {
                 if (file.Path.StartsWith(FileService.UploadMarkerFilePrefix, StringComparison.Ordinal))
                 {

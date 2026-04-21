@@ -26,7 +26,9 @@ internal sealed class InMemoryStorageProvider(InMemoryStorage storage) : IStorag
             .Metadata;
     }
 
-    public Task DeleteAsync(string filePath, CancellationToken cancellationToken)
+    public Task DeleteAsync(
+        string filePath, 
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -34,7 +36,9 @@ internal sealed class InMemoryStorageProvider(InMemoryStorage storage) : IStorag
         return Task.CompletedTask;
     }
 
-    public Task<StorageFileMetadata?> GetMetadataAsync(string filePath, CancellationToken cancellationToken)
+    public Task<StorageFileMetadata?> GetMetadataAsync(
+        string filePath, 
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -46,7 +50,10 @@ internal sealed class InMemoryStorageProvider(InMemoryStorage storage) : IStorag
         return Task.FromResult<StorageFileMetadata?>(null);
     }
 
-    public Task<StorageFileData?> GetDataAsync(string filePath, StorageByteRange? byteRange, CancellationToken cancellationToken)
+    public Task<StorageFileData?> GetDataAsync(
+        string filePath, 
+        StorageByteRange? byteRange, 
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -68,14 +75,16 @@ internal sealed class InMemoryStorageProvider(InMemoryStorage storage) : IStorag
 
         return Task.FromResult<StorageFileData?>(null);
     }
+
     public IAsyncEnumerable<StorageFileMetadata> ListAsync(
         string path,
+        bool recursive,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         return _storage
-            .ListFiles(path)
+            .ListFiles(path, recursive)
             .Select(f => f.Metadata)
             .ToAsyncEnumerable();
     }
