@@ -6,14 +6,15 @@ using System.Threading.Tasks;
 
 namespace DorisStorageAdapter.Services.Implementation.Locking.InProcess;
 
-internal sealed class InProcessReaderWriterLockProvider : IReaderWriterLockProvider
+internal sealed class InProcessSharedExclusiveLockProvider : ISharedExclusiveLockProvider
 {
     private static readonly CancellationToken _alreadyCanceled = new(canceled: true);
 
     private readonly ConcurrentDictionary<string, AsyncReaderWriterLock> _locks =
         new(StringComparer.Ordinal);
 
-    public async ValueTask<IAsyncDisposable?> TryAcquireReadLockAsync(string name, CancellationToken cancellationToken)
+    public async ValueTask<IAsyncDisposable?> TryAcquireSharedLockAsync(
+        string name, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(name);
         cancellationToken.ThrowIfCancellationRequested();
@@ -34,7 +35,8 @@ internal sealed class InProcessReaderWriterLockProvider : IReaderWriterLockProvi
         }
     }
 
-    public async ValueTask<IAsyncDisposable?> TryAcquireWriteLockAsync(string name, CancellationToken cancellationToken)
+    public async ValueTask<IAsyncDisposable?> TryAcquireExclusiveLockAsync(
+        string name, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(name);
         cancellationToken.ThrowIfCancellationRequested();

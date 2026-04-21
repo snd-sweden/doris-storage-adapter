@@ -56,7 +56,7 @@ internal sealed class FileService(
         ThrowIfInvalidFilePath(filePath);
 
         await using var datasetVersionLock = await _datasetVersionLocks
-            .AcquireReadLockOrThrowAsync(datasetVersion, cancellationToken);
+            .AcquireSharedLockOrThrowAsync(datasetVersion, cancellationToken);
 
         await using var fileLock = await AcquireFileLockOrThrowAsync(
             datasetVersion, filePath, cancellationToken);
@@ -147,7 +147,7 @@ internal sealed class FileService(
         ThrowIfInvalidFilePath(filePath);
 
         await using var datasetVersionLock = await _datasetVersionLocks
-            .AcquireReadLockOrThrowAsync(datasetVersion, cancellationToken);
+            .AcquireSharedLockOrThrowAsync(datasetVersion, cancellationToken);
 
         await using var fileLock = await AcquireFileLockOrThrowAsync(
             datasetVersion, filePath, cancellationToken);
@@ -202,7 +202,7 @@ internal sealed class FileService(
         }
 
         await using var datasetVersionLock = await _datasetVersionLocks
-           .AcquireWriteLockOrThrowAsync(datasetVersion, cancellationToken);
+           .AcquireExclusiveLockOrThrowAsync(datasetVersion, cancellationToken);
 
         await ThrowIfHasBeenPublishedAsync(bagContext, cancellationToken);
 

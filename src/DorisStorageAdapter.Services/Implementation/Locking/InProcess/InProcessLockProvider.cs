@@ -9,7 +9,8 @@ internal sealed class InProcessLockProvider : ILockProvider, IDisposable
 {
     private readonly AsyncKeyedLocker<string> _locker = new();
 
-    public async ValueTask<IAsyncDisposable> AcquireAsync(string name, CancellationToken cancellationToken)
+    public async ValueTask<IAsyncDisposable> AcquireAsync(
+        string name, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(name);
         cancellationToken.ThrowIfCancellationRequested();
@@ -18,7 +19,8 @@ internal sealed class InProcessLockProvider : ILockProvider, IDisposable
         return new DisposableAsAsyncDisposable(releaser);
     }
 
-    public async ValueTask<IAsyncDisposable?> TryAcquireAsync(string name, CancellationToken cancellationToken)
+    public async ValueTask<IAsyncDisposable?> TryAcquireAsync(
+        string name, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(name);
         cancellationToken.ThrowIfCancellationRequested();

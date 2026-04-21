@@ -26,7 +26,7 @@ public static class ServiceCollectionExtensions
             .ValidateDataAnnotations();
 
         services.AddSingleton<ILockProvider, InProcessLockProvider>();
-        services.AddSingleton<IReaderWriterLockProvider, InProcessReaderWriterLockProvider>();
+        services.AddSingleton<ISharedExclusiveLockProvider, InProcessSharedExclusiveLockProvider>();
 
         services.AddTransient<BagContextFactory>();
         services.AddSingleton<DatasetVersionLocks>();

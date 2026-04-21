@@ -57,7 +57,7 @@ internal sealed class StatusService(
         DoiValidator.ThrowIfInvalid(doi);
 
         await using var datasetVersionLock = await _datasetVersionLocks
-            .AcquireWriteLockOrThrowAsync(datasetVersion, cancellationToken);
+            .AcquireExclusiveLockOrThrowAsync(datasetVersion, cancellationToken);
 
         var bagContext = _bagContextFactory.Create(datasetVersion);
 
@@ -144,7 +144,7 @@ internal sealed class StatusService(
         DatasetVersionValidator.ThrowIfInvalid(datasetVersion);
 
         await using var datasetVersionLock = await _datasetVersionLocks
-            .AcquireWriteLockOrThrowAsync(datasetVersion, cancellationToken);
+            .AcquireExclusiveLockOrThrowAsync(datasetVersion, cancellationToken);
 
         var bagContext = _bagContextFactory.Create(datasetVersion);
 

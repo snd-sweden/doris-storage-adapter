@@ -29,7 +29,7 @@ internal sealed class CheckService(
         DatasetVersionValidator.ThrowIfInvalid(datasetVersion);
 
         await using var datasetVersionLock = await _datasetVersionLocks
-            .AcquireWriteLockOrThrowAsync(datasetVersion, cancellationToken);
+            .AcquireExclusiveLockOrThrowAsync(datasetVersion, cancellationToken);
 
         var bagContext = _bagContextFactory.Create(datasetVersion);
 

@@ -7,24 +7,24 @@ using System.Threading.Tasks;
 
 namespace DorisStorageAdapter.Services.Implementation.Services.Locking;
 
-internal sealed class DatasetVersionLocks(IReaderWriterLockProvider lockProvider)
+internal sealed class DatasetVersionLocks(ISharedExclusiveLockProvider lockProvider)
 {
-    private readonly IReaderWriterLockProvider _lockProvider = lockProvider;
+    private readonly ISharedExclusiveLockProvider _lockProvider = lockProvider;
 
-    public async ValueTask<IAsyncDisposable> AcquireReadLockOrThrowAsync(
+    public async ValueTask<IAsyncDisposable> AcquireSharedLockOrThrowAsync(
         DatasetVersion datasetVersion,
         CancellationToken cancellationToken)
     {
-        return await _lockProvider.TryAcquireReadLockAsync(
+        return await _lockProvider.TryAcquireSharedLockAsync(
             LockKeys.DatasetVersion(datasetVersion),
             cancellationToken) ?? throw new ConflictException();
     }
 
-    public async ValueTask<IAsyncDisposable> AcquireWriteLockOrThrowAsync(
+    public async ValueTask<IAsyncDisposable> AcquireExclusiveLockOrThrowAsync(
         DatasetVersion datasetVersion,
         CancellationToken cancellationToken)
     {
-        return await _lockProvider.TryAcquireWriteLockAsync(
+        return await _lockProvider.TryAcquireExclusiveLockAsync(
             LockKeys.DatasetVersion(datasetVersion),
             cancellationToken) ?? throw new ConflictException();
     }
