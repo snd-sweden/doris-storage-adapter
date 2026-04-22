@@ -1,8 +1,8 @@
-﻿using DorisStorageAdapter.Services.Contract;
+﻿using DorisStorageAdapter.BagIt.Fetch;
+using DorisStorageAdapter.BagIt.Manifest;
+using DorisStorageAdapter.Services.Contract;
 using DorisStorageAdapter.Services.Contract.Exceptions;
 using DorisStorageAdapter.Services.Contract.Models;
-using DorisStorageAdapter.Services.Implementation.BagIt.Fetch;
-using DorisStorageAdapter.Services.Implementation.BagIt.Manifest;
 using DorisStorageAdapter.Services.Implementation.Services.Bags;
 using DorisStorageAdapter.Services.Implementation.Services.Locking;
 using DorisStorageAdapter.Services.Implementation.Services.Validation;

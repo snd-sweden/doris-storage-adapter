@@ -170,6 +170,9 @@
         "resolved": "10.0.2",
         "contentHash": "TVb4L6atqzRB33qBy4FVdmQMmDGzzBGwiwqI6u5WnJ6ag275pPLJgPWIVzYzT5hqTACrWyfHbttqylbexvur9w=="
       },
+      "dorisstorageadapter.bagit": {
+        "type": "Project"
+      },
       "dorisstorageadapter.common": {
         "type": "Project"
       },
@@ -179,6 +182,7 @@
           "AWSSDK.S3": "[4.0.19.4, )",
           "AsyncKeyedLock": "[8.0.2, )",
           "ByteSize": "[2.1.2, )",
+          "DorisStorageAdapter.BagIt": "[1.0.0, )",
           "DorisStorageAdapter.Common": "[1.0.0, )",
           "Nerdbank.Streams": "[2.13.16, )",
           "Nito.AsyncEx.Coordination": "[5.1.2, )",

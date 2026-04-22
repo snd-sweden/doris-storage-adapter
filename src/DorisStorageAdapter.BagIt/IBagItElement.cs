@@ -2,9 +2,9 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace DorisStorageAdapter.Services.Implementation.BagIt;
+namespace DorisStorageAdapter.BagIt;
 
-internal interface IBagItElement<T> where T : IBagItElement<T>
+public interface IBagItElement<T> where T : IBagItElement<T>
 {
     static abstract T CreateEmpty();
 

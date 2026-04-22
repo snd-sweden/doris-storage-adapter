@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -7,16 +8,18 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace DorisStorageAdapter.Services.Implementation.BagIt.Fetch;
+namespace DorisStorageAdapter.BagIt.Fetch;
 
-internal sealed class BagItFetch : IBagItElement<BagItFetch>
+public sealed class BagItFetch : IBagItElement<BagItFetch>
 {
-    private readonly SortedDictionary<string, BagItFetchItem> _items = new(StringComparer.Ordinal);
+    private readonly SortedDictionary<string, BagItFetchItem> _items = [];
 
     public IEnumerable<BagItFetchItem> Items => _items.Values;
 
     public bool AddOrUpdateItem(BagItFetchItem item)
     {
+        ArgumentNullException.ThrowIfNull(item);
+
         if (TryGetItem(item.FilePath, out var existingItem) &&
             item == existingItem)
         {
@@ -32,18 +35,9 @@ internal sealed class BagItFetch : IBagItElement<BagItFetch>
 
     public bool RemoveItem(string filePath) => _items.Remove(filePath);
 
-    public bool TryGetItem(string filePath, out BagItFetchItem item)
-    {
-        if (_items.TryGetValue(filePath, out var value))
-        {
-            item = value;
-            return true;
-        }
+    public bool TryGetItem(string filePath, [NotNullWhen(true)] out BagItFetchItem? item) =>
+        _items.TryGetValue(filePath, out item);
 
-        item = new("", 0, "");
-        return false;
-    }
- 
     public static BagItFetch CreateEmpty() => new();
 
     public static string FileName => "fetch.txt";
@@ -63,9 +57,9 @@ internal sealed class BagItFetch : IBagItElement<BagItFetch>
             string remaining = line[(index1 + 1)..];
             int index2 = remaining.IndexOf(' ', StringComparison.Ordinal);
             long? length = long.TryParse(remaining[..index2], out long value) ? value : null;
-            string filePath = BagItPathEncoder.DecodeFilePath(remaining[(index2 + 1)..]);
+            string filePath = BagItPathCodec.DecodeFilePath(remaining[(index2 + 1)..]);
 
-            result.AddOrUpdateItem(new(filePath, length, url));
+            result.AddOrUpdateItem(new(filePath, length, new(url)));
         }
 
         return result;
@@ -81,7 +75,7 @@ internal sealed class BagItFetch : IBagItElement<BagItFetch>
             builder.Append(' ');
             builder.Append(item.Length?.ToString(CultureInfo.InvariantCulture) ?? "-");
             builder.Append(' ');
-            builder.Append(BagItPathEncoder.EncodeFilePath(item.FilePath));
+            builder.Append(BagItPathCodec.EncodeFilePath(item.FilePath));
             builder.Append('\n');
         }
 

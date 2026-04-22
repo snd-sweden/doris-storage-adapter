@@ -20,6 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../DorisStorageAdapter.BagIt/DorisStorageAdapter.BagIt.csproj" />
     <ProjectReference Include="../DorisStorageAdapter.Common/DorisStorageAdapter.Common.csproj" />
   </ItemGroup>
 

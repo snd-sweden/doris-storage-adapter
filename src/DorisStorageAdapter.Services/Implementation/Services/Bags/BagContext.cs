@@ -1,6 +1,7 @@
-﻿using DorisStorageAdapter.Services.Contract.Models;
-using DorisStorageAdapter.Services.Implementation.BagIt;
-using DorisStorageAdapter.Services.Implementation.BagIt.Fetch;
+﻿using DorisStorageAdapter.BagIt;
+using DorisStorageAdapter.BagIt.Fetch;
+using DorisStorageAdapter.BagIt.Manifest;
+using DorisStorageAdapter.Services.Contract.Models;
 using DorisStorageAdapter.Services.Implementation.IO;
 using DorisStorageAdapter.Services.Implementation.Services.Validation;
 using DorisStorageAdapter.Services.Implementation.Storage;
@@ -45,7 +46,7 @@ internal sealed class BagContext
         return await T.ParseAsync(stream, cancellationToken);
     }
 
-    public async Task<(T BagItElement, byte[] Checksum)?> LoadBagItElementWithChecksumAsync<T>(
+    public async Task<(T BagItElement, Checksum Checksum)?> LoadBagItElementWithChecksumAsync<T>(
         CancellationToken cancellationToken)
         where T : IBagItElement<T>
     {
@@ -57,7 +58,7 @@ internal sealed class BagContext
         }
 
         await using var hashStream = new CountedHashStream(fileData.Stream);
-        return (await T.ParseAsync(hashStream, cancellationToken), hashStream.GetHash());
+        return (await T.ParseAsync(hashStream, cancellationToken), new(hashStream.GetHash()));
     }
 
     public async Task<byte[]> StoreBagItElementAsync<T>(

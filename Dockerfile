@@ -7,6 +7,7 @@ ARG SOURCE_DATE_EPOCH
 
 WORKDIR /src
 
+COPY src/DorisStorageAdapter.BagIt/DorisStorageAdapter.BagIt.csproj DorisStorageAdapter.BagIt/
 COPY src/DorisStorageAdapter.Common/DorisStorageAdapter.Common.csproj DorisStorageAdapter.Common/
 COPY src/DorisStorageAdapter.Server/DorisStorageAdapter.Server.csproj DorisStorageAdapter.Server/
 COPY src/DorisStorageAdapter.Services/DorisStorageAdapter.Services.csproj DorisStorageAdapter.Services/

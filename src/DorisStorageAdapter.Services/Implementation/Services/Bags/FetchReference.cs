@@ -1,4 +1,4 @@
-﻿using DorisStorageAdapter.Services.Implementation.BagIt.Fetch;
+﻿using DorisStorageAdapter.BagIt.Fetch;
 
 namespace DorisStorageAdapter.Services.Implementation.Services.Bags;
 

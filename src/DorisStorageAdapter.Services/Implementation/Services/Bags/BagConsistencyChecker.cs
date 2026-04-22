@@ -1,6 +1,6 @@
-﻿using DorisStorageAdapter.Services.Contract.Exceptions;
-using DorisStorageAdapter.Services.Implementation.BagIt.Fetch;
-using DorisStorageAdapter.Services.Implementation.BagIt.Manifest;
+﻿using DorisStorageAdapter.BagIt.Fetch;
+using DorisStorageAdapter.BagIt.Manifest;
+using DorisStorageAdapter.Services.Contract.Exceptions;
 using DorisStorageAdapter.Services.Implementation.Storage;
 using System;
 using System.Collections.Generic;
@@ -102,7 +102,7 @@ internal static class BagConsistencyChecker
                     else if (
                         referencedVersionManifest == null ||
                         !referencedVersionManifest.TryGetItem(r.PathInBag, out var itemPreviousManifest) ||
-                        !itemThisManifest.Checksum.SequenceEqual(itemPreviousManifest.Checksum))
+                        itemThisManifest.Checksum != itemPreviousManifest.Checksum)
                     {
                         AddError(target, "Payload manifest checksum does not match referenced file's payload manifest checksum.");
                     }

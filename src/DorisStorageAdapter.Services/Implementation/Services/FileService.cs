@@ -1,11 +1,10 @@
-﻿using DorisStorageAdapter.Common;
+﻿using DorisStorageAdapter.BagIt;
+using DorisStorageAdapter.BagIt.Fetch;
+using DorisStorageAdapter.BagIt.Info;
+using DorisStorageAdapter.BagIt.Manifest;
 using DorisStorageAdapter.Services.Contract;
 using DorisStorageAdapter.Services.Contract.Exceptions;
 using DorisStorageAdapter.Services.Contract.Models;
-using DorisStorageAdapter.Services.Implementation.BagIt;
-using DorisStorageAdapter.Services.Implementation.BagIt.Fetch;
-using DorisStorageAdapter.Services.Implementation.BagIt.Info;
-using DorisStorageAdapter.Services.Implementation.BagIt.Manifest;
 using DorisStorageAdapter.Services.Implementation.Configuration;
 using DorisStorageAdapter.Services.Implementation.IO;
 using DorisStorageAdapter.Services.Implementation.Locking;
@@ -121,7 +120,7 @@ internal sealed class FileService(
             // Remove from fetch if present there.
             await RemoveItemFromFetchAsync(bagContext, pathInBag, CancellationToken.None);
             // Update payload manifest.
-            await AddOrUpdatePayloadManifestItemAsync(bagContext, new(pathInBag, checksum), CancellationToken.None);
+            await AddOrUpdatePayloadManifestItemAsync(bagContext, new(pathInBag, new(checksum)), CancellationToken.None);
         }
 
         // Delete file marking that upload is in progress.
@@ -309,7 +308,7 @@ internal sealed class FileService(
         var payloadManifest = await bagContext.LoadBagItElementAsync<BagItPayloadManifest>(cancellationToken);
         var fetch = await bagContext.LoadBagItElementAsync<BagItFetch>(cancellationToken);
 
-        byte[]? GetChecksum(string pathInBag) =>
+        Checksum? GetChecksum(string pathInBag) =>
             payloadManifest.TryGetItem(pathInBag, out var value)
                 ? value.Checksum
                 : null;
@@ -342,7 +341,7 @@ internal sealed class FileService(
                 DateCreated: file.DateCreated,
                 DateModified: file.DateModified,
                 Path: BagPathLayout.FromPathInBag(file.Path),
-                Sha256: GetChecksum(file.Path),
+                Sha256: GetChecksum(file.Path)?.Bytes.ToArray(),
                 Size: file.Size);
         }
     }
@@ -426,7 +425,7 @@ internal sealed class FileService(
                     (name.Length > file.FilePath.Length
                         ? "\\"
                         : "") +
-                    Convert.ToHexStringLower(file.Checksum) + ' ' + name + '\n'),
+                    file.Checksum.HexString + ' ' + name + '\n'),
                     cancellationToken);
             }
         }

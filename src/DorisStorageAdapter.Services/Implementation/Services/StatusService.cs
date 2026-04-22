@@ -1,11 +1,11 @@
 ﻿using ByteSizeLib;
+using DorisStorageAdapter.BagIt;
+using DorisStorageAdapter.BagIt.Fetch;
+using DorisStorageAdapter.BagIt.Info;
+using DorisStorageAdapter.BagIt.Manifest;
 using DorisStorageAdapter.Services.Contract;
 using DorisStorageAdapter.Services.Contract.Exceptions;
 using DorisStorageAdapter.Services.Contract.Models;
-using DorisStorageAdapter.Services.Implementation.BagIt;
-using DorisStorageAdapter.Services.Implementation.BagIt.Fetch;
-using DorisStorageAdapter.Services.Implementation.BagIt.Info;
-using DorisStorageAdapter.Services.Implementation.BagIt.Manifest;
 using DorisStorageAdapter.Services.Implementation.Configuration;
 using DorisStorageAdapter.Services.Implementation.Services.Bags;
 using DorisStorageAdapter.Services.Implementation.Services.Locking;
@@ -30,7 +30,8 @@ internal sealed class StatusService(
     private readonly BagContextFactory _bagContextFactory = bagContextFactory;
     private readonly SystemConfiguration _systemConfiguration = systemConfiguration.Value;
 
-    private static readonly byte[] _bagItSha256 = SHA256.HashData(BagItDeclaration.CreateEmpty().Serialize());
+    private static readonly Checksum _bagItSha256 = 
+        new(SHA256.HashData(BagItDeclaration.CreateEmpty().Serialize()));
 
     public async Task PublishAsync(
         DatasetVersion datasetVersion,
@@ -121,7 +122,7 @@ internal sealed class StatusService(
         // Add bagit.txt, bag-info.txt and manifest-sha256.txt to tagmanifest-sha256.txt.
         var tagManifest = await bagContext.LoadBagItElementAsync<BagItTagManifest>(CancellationToken.None);
         tagManifest.AddOrUpdateItem(new(BagItDeclaration.FileName, _bagItSha256));
-        tagManifest.AddOrUpdateItem(new(BagItInfo.FileName, SHA256.HashData(bagInfoContents)));
+        tagManifest.AddOrUpdateItem(new(BagItInfo.FileName, new(SHA256.HashData(bagInfoContents))));
         if (payloadManifest != null)
         {
             tagManifest.AddOrUpdateItem(new(BagItPayloadManifest.FileName, payloadManifest.Value.Checksum));
@@ -171,7 +172,7 @@ internal sealed class StatusService(
         byte[] bagInfoContents = await bagContext.StoreBagItElementAsync(bagInfo, cancellationToken);
 
         var tagManifest = await bagContext.LoadBagItElementAsync<BagItTagManifest>(CancellationToken.None);
-        tagManifest.AddOrUpdateItem(new(BagItInfo.FileName, SHA256.HashData(bagInfoContents)));
+        tagManifest.AddOrUpdateItem(new(BagItInfo.FileName, new(SHA256.HashData(bagInfoContents))));
         await bagContext.StoreBagItElementAsync(tagManifest, CancellationToken.None);
     }
 }

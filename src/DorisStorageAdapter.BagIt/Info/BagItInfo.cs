@@ -7,11 +7,11 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace DorisStorageAdapter.Services.Implementation.BagIt.Info;
+namespace DorisStorageAdapter.BagIt.Info;
 
-internal sealed class BagItInfo : IBagItElement<BagItInfo>
+public sealed class BagItInfo : IBagItElement<BagItInfo>
 {
-    private readonly SortedDictionary<string, List<BagItInfoItem>> _items = new(StringComparer.Ordinal);
+    private readonly SortedDictionary<string, List<BagItInfoItem>> _items = [];
 
     private static readonly HashSet<string> _reservedLabels = new(
     [
@@ -203,7 +203,12 @@ internal sealed class BagItInfo : IBagItElement<BagItInfo>
         SetValues(label, values, false);
     }
 
-    public IEnumerable<string> GetCustomValues(string customLabel) => GetValues(customLabel, true);
+    public IEnumerable<string> GetCustomValues(string customLabel)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(customLabel);
+
+        return GetValues(customLabel, true);
+    }
 
     private IEnumerable<string> GetValues(string label, bool excludeReserved)
     {
@@ -223,7 +228,13 @@ internal sealed class BagItInfo : IBagItElement<BagItInfo>
         return [];
     }
 
-    public void SetCustomValues(string customLabel, IEnumerable<string> values) => SetValues(customLabel, values, true);
+    public void SetCustomValues(string customLabel, IEnumerable<string> values)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(customLabel);
+        ArgumentNullException.ThrowIfNull(values);
+
+        SetValues(customLabel, values, true);
+    }
 
     private void SetValues(string label, IEnumerable<string> values, bool excludeReserved)
     {

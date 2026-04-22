@@ -1,6 +1,6 @@
-﻿using DorisStorageAdapter.Services.Contract.Models;
+﻿using DorisStorageAdapter.BagIt.Info;
+using DorisStorageAdapter.Services.Contract.Models;
 using System.Linq;
-using DorisStorageAdapter.Services.Implementation.BagIt.Info;
 
 namespace DorisStorageAdapter.Services.Implementation.Services.Bags;
 
