@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System;
+using System.Text;
 
 namespace DorisStorageAdapter.BagIt;
 
@@ -46,7 +47,7 @@ internal static class BagItPathCodec
 
             if (i + 2 >= filePath.Length)
             {
-                throw new BagItParseException("Invalid escape sequence in file path.");
+                throw new FormatException("Invalid escape sequence in file path.");
             }
 
             char c1 = filePath[i + 1];
@@ -66,7 +67,7 @@ internal static class BagItPathCodec
             }
             else
             {
-                throw new BagItParseException(
+                throw new FormatException(
                     $"Invalid escape sequence '%{c1}{c2}' in file path.");
             }
 

@@ -83,13 +83,92 @@ public abstract class BagItManifest<T> where T : BagItManifest<T>, IBagItElement
 
         using var reader = new StreamReader(stream, Encoding.UTF8, leaveOpen: true);
         string? line;
-        while (!string.IsNullOrEmpty(line = await reader.ReadLineAsync(cancellationToken)))
-        {
-            int index = line.IndexOf(' ', StringComparison.Ordinal);
-            string checksum = line[..index];
-            string filePath = BagItPathCodec.DecodeFilePath(line[(index + 1)..]);
+        int lineNumber = 0;
+        int? firstEmptyLineNumber = null;
 
-            result.AddOrUpdateItem(new(filePath, Checksum.ParseHexString(checksum)));
+        static void ThrowParseException(int lineNumber, string text) =>
+              throw new BagItParseException($"Invalid manifest item at line {lineNumber}: {text}");
+
+        while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
+        {
+            lineNumber++;
+
+            if (line.Length == 0)
+            {
+                firstEmptyLineNumber ??= lineNumber;
+                continue;
+            }
+
+            if (firstEmptyLineNumber != null)
+            {
+                ThrowParseException(firstEmptyLineNumber.Value, 
+                    "Empty lines are only allowed at the end of the file.");
+            }
+
+            int startIndex = 0;
+
+            while (startIndex < line.Length && line[startIndex] != ' ' && line[startIndex] != '\t')
+            {
+                startIndex++;
+            }
+
+            if (startIndex == line.Length)
+            {
+                ThrowParseException(lineNumber,
+                   "Expected '<checksum><linear whitespace><file path>' but no linear whitespace was found.");
+            }
+
+            if (startIndex < 2)
+            {
+                ThrowParseException(lineNumber,
+                    "Expected '<checksum><linear whitespace><file path>' but no checksum was found.");
+            }
+
+            int endIndex = startIndex;
+            while (endIndex < line.Length && (line[endIndex] == ' ' || line[endIndex] == '\t'))
+            {
+                endIndex++;
+            }
+
+            if (endIndex == line.Length)
+            {
+                ThrowParseException(lineNumber,
+                    "Expected '<checksum><linear whitespace><file path>' but no file path was found.");
+            }
+
+            Checksum checksum;
+
+            try
+            {
+                checksum = Checksum.ParseHexString(line[..startIndex]);
+            }
+            catch (Exception e) when (e is FormatException or ArgumentException)
+            {
+                ThrowParseException(lineNumber, e.Message);
+            }
+
+            string filePath;
+
+            try
+            {
+                filePath = BagItPathCodec.DecodeFilePath(line[endIndex..]);
+            }
+            catch (FormatException e)
+            {
+                ThrowParseException(lineNumber, e.Message);
+            }
+
+            if (result.Contains(filePath))
+            {
+                ThrowParseException(lineNumber, "Duplicate file path {filePath} found.");
+            }
+
+            result.AddOrUpdateItem(new(filePath, checksum));
+        }
+
+        if (!result.HasValues())
+        {
+            throw new BagItParseException("Invalid manifest file: File contains no entries.");
         }
 
         return result;

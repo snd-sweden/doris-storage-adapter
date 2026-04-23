@@ -12,6 +12,13 @@ public sealed class Checksum : IEquatable<Checksum>
     public Checksum(byte[] bytes)
     {
         ArgumentNullException.ThrowIfNull(bytes);
+
+        if (bytes.Length != 32)
+        {
+            throw new ArgumentException(
+                $"SHA-256 checksum must be 32 bytes, but was {bytes.Length}.");
+        }
+
         _bytes = bytes;
         _hexString = Convert.ToHexStringLower(bytes);
     }
@@ -20,8 +27,23 @@ public sealed class Checksum : IEquatable<Checksum>
 
     public string HexString => _hexString;
 
-    public static Checksum ParseHexString(string hex) =>
-        new(Convert.FromHexString(hex));
+    public static Checksum ParseHexString(string hex)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(hex);
+
+        byte[] bytes;
+
+        try
+        {
+            bytes = Convert.FromHexString(hex);
+        }
+        catch (FormatException ex)
+        {
+            throw new FormatException("Invalid checksum hex string.", ex);
+        }
+
+        return new Checksum(bytes);
+    }
 
     public bool Equals(Checksum? other)
     {

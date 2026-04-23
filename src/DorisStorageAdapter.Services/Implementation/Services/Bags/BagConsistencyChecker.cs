@@ -30,18 +30,18 @@ internal static class BagConsistencyChecker
         {
             foreach (var filePath in payloadFilePaths)
             {
-                string target = $"Payload directory:{filePath}";
+                string target = $"{filePath}";
 
                 if (fetch != null &&
                     fetch.Contains(filePath))
                 {
-                    AddError(target, "Found in fetch file.");
+                    AddError(target, $"Found in {BagItFetch.FileName}.");
                 }
 
                 if (payloadManifest == null ||
                     !payloadManifest.Contains(filePath))
                 {
-                    AddError(target, "Not found in payload manifest.");
+                    AddError(target, $"Not found in {BagItPayloadManifest.FileName}.");
                 }
             }
         }
@@ -71,11 +71,12 @@ internal static class BagConsistencyChecker
 
                 foreach (var r in reference.References)
                 {
-                    string target = $"Fetch file:{r.Item.FilePath}";
+                    string target = $"{BagItFetch.FileName}:{r.Item.FilePath}";
+                    string referencedFilePath = Uri.UnescapeDataString(r.Item.Url);
 
                     if (!referencedVersionIsPublished)
                     {
-                        AddError(target, "Does not reference a published dataset version.");
+                        AddError(target, $"{referencedFilePath} does not belong to a published dataset version.");
                     }
 
                     if (r.Item.Length == null)
@@ -85,26 +86,32 @@ internal static class BagConsistencyChecker
 
                     if (!referencedVersionFiles.TryGetValue(r.PathInBag, out var referencedFile))
                     {
-                        AddError(target, "Referenced payload file not found.");
+                        AddError(target, $"Referenced file {referencedFilePath} not found.");
                     }
                     else if (
                         r.Item.Length != null &&
                         r.Item.Length != referencedFile.Size)
                     {
-                        AddError(target, "Size does not match referenced payload file's size.");
+                        AddError(target, $"Size does not match size of referenced file {referencedFilePath}.");
                     }
 
                     if (payloadManifest == null ||
                         !payloadManifest.TryGetItem(r.Item.FilePath, out var itemThisManifest))
                     {
-                        AddError(target, "Not found in payload manifest.");
+                        AddError(target, $"Not found in {BagItPayloadManifest.FileName}.");
                     }
                     else if (
                         referencedVersionManifest == null ||
                         !referencedVersionManifest.TryGetItem(r.PathInBag, out var itemPreviousManifest) ||
                         itemThisManifest.Checksum != itemPreviousManifest.Checksum)
                     {
-                        AddError(target, "Payload manifest checksum does not match referenced file's payload manifest checksum.");
+                        string referencedManifestPath =
+                            referencedFilePath[..(referencedFilePath.IndexOf('/', 3) + 1)] +
+                            BagItPayloadManifest.FileName;
+
+                        AddError(target, 
+                            $"Checksum in {BagItPayloadManifest.FileName} does not match checksum in " + 
+                            $"{referencedManifestPath} of referenced file {referencedFilePath}.");
                     }
                 }
             }
@@ -114,35 +121,33 @@ internal static class BagConsistencyChecker
         {
             foreach (var item in payloadManifest?.Items ?? [])
             {
-                string target = $"Payload manifest:{item.FilePath}";
+                string target = $"{BagItPayloadManifest.FileName}:{item.FilePath}";
 
                 if ((fetch == null ||
                     !fetch.Contains(item.FilePath))
                     && !payloadFilePaths.Contains(item.FilePath))
                 {
-                    AddError(target, "Not found in payload directory or fetch file.");
+                    AddError(target, $"Not found in {BagPathLayout.PayloadRootPath} or {BagItFetch.FileName}.");
                 }
             }
         }
 
         async Task CheckUploadMarkers()
         {
-            await foreach (var file in bagContext.ListFilesAsync("", false, cancellationToken))
+            await foreach (var file in bagContext.ListFilesAsync(
+                FileService.UploadMarkerFilePrefix, false, cancellationToken))
             {
-                if (file.Path.StartsWith(FileService.UploadMarkerFilePrefix, StringComparison.Ordinal))
+                var fileData = await bagContext.GetFileDataAsync(file.Path, null, cancellationToken);
+
+                if (fileData != null)
                 {
-                    var fileData = await bagContext.GetFileDataAsync(file.Path, null, cancellationToken);
+                    await using var stream = fileData.Stream;
+                    using var reader = new StreamReader(stream, Encoding.UTF8);
+                    string errorFileName = await reader.ReadToEndAsync(cancellationToken);
 
-                    if (fileData != null)
-                    {
-                        await using var stream = fileData.Stream;
-                        using var reader = new StreamReader(stream, Encoding.UTF8);
-                        string errorFileName = await reader.ReadToEndAsync(cancellationToken);
-
-                        AddError(
-                            $"Payload directory:{errorFileName}",
-                            $"Found marker file indicating unfinished upload ({file.Path}");
-                    }
+                    AddError(
+                        $"{errorFileName}",
+                        $"Found marker file indicating unfinished upload ({file.Path}).");
                 }
             }
         }

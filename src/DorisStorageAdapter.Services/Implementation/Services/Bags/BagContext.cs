@@ -1,6 +1,7 @@
 ﻿using DorisStorageAdapter.BagIt;
 using DorisStorageAdapter.BagIt.Fetch;
 using DorisStorageAdapter.BagIt.Manifest;
+using DorisStorageAdapter.Services.Contract.Exceptions;
 using DorisStorageAdapter.Services.Contract.Models;
 using DorisStorageAdapter.Services.Implementation.IO;
 using DorisStorageAdapter.Services.Implementation.Services.Validation;
@@ -43,7 +44,7 @@ internal sealed class BagContext
         }
 
         await using var stream = fileData.Stream;
-        return await T.ParseAsync(stream, cancellationToken);
+        return await ParseBagItElementOrThrow<T>(stream, cancellationToken);
     }
 
     public async Task<(T BagItElement, Checksum Checksum)?> LoadBagItElementWithChecksumAsync<T>(
@@ -58,7 +59,7 @@ internal sealed class BagContext
         }
 
         await using var hashStream = new CountedHashStream(fileData.Stream);
-        return (await T.ParseAsync(hashStream, cancellationToken), new(hashStream.GetHash()));
+        return (await ParseBagItElementOrThrow<T>(hashStream, cancellationToken), new(hashStream.GetHash()));
     }
 
     public async Task<byte[]> StoreBagItElementAsync<T>(
@@ -211,6 +212,21 @@ internal sealed class BagContext
         "../" +
             UrlEncodePath(otherBag.StoragePath[_groupStoragePath.Length..]) +
             UrlEncodePath(pathInBag);
+
+    private async Task<T> ParseBagItElementOrThrow<T>(Stream stream, CancellationToken cancellationToken)
+         where T : IBagItElement<T>
+    {
+        try
+        {
+            return await T.ParseAsync(stream, cancellationToken);
+        }
+        catch (BagItParseException e)
+        {
+            throw new DatasetInconsistentException(
+                $"Error parsing BagIt file {ToStoragePath(T.FileName)}.", 
+                    [new(e.Message, ToStoragePath(T.FileName))]);
+        }
+    }
 
     private static string UrlEncodePath(string path) =>
         string.Join('/', path.Split('/').Select(Uri.EscapeDataString));
