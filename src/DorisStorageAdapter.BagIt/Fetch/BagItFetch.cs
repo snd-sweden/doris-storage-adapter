@@ -48,18 +48,96 @@ public sealed class BagItFetch : IBagItElement<BagItFetch>
     {
         var result = new BagItFetch();
 
-        using var reader = new StreamReader(stream, Encoding.UTF8, leaveOpen: true);
         string? line;
-        while (!string.IsNullOrEmpty(line = await reader.ReadLineAsync(cancellationToken)))
-        {
-            int index1 = line.IndexOf(' ', StringComparison.Ordinal);
-            string url = line[..index1];
-            string remaining = line[(index1 + 1)..];
-            int index2 = remaining.IndexOf(' ', StringComparison.Ordinal);
-            long? length = long.TryParse(remaining[..index2], out long value) ? value : null;
-            string filePath = BagItPathCodec.DecodeFilePath(remaining[(index2 + 1)..]);
+        int lineNumber = 0;
+        int? firstEmptyLineNumber = null;
 
-            result.AddOrUpdateItem(new(filePath, length, new(url)));
+        static void ThrowParseException(int lineNumber, string text) =>
+              throw new BagItParseException($"Invalid fetch item at line {lineNumber}: {text}");
+
+        (string UrlText, string LengthText, string EncodedFilePath) SplitLine()
+        {
+            void Throw() =>
+                ThrowParseException(
+                    lineNumber, 
+                    $"Expected '<url><linear whitespace><length><linear whitespace><file path>'.");
+
+            int first = BagItParsing.FindLinearWhiteSpaceIndex(line);
+            if (first <= 0)
+            {
+                Throw();
+            }
+
+            int secondStart = BagItParsing.SkipLinearWhiteSpace(line, first);
+            if (secondStart == line.Length)
+            {
+                Throw();
+            }
+
+            int second = BagItParsing.FindLinearWhiteSpaceIndex(line, secondStart);
+            if (second <= 0)
+            {
+                Throw();
+            }
+
+            int thirdStart = BagItParsing.SkipLinearWhiteSpace(line, second);
+            if (thirdStart == line.Length)
+            {
+                Throw();
+            }
+
+            return (line[..first], line[secondStart..second], line[thirdStart..]);
+        }
+
+        using var reader = new StreamReader(stream, Encoding.UTF8, leaveOpen: true);
+
+        while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
+        {
+            lineNumber++;
+
+            if (line.Length == 0)
+            {
+                firstEmptyLineNumber ??= lineNumber;
+                continue;
+            }
+
+            if (firstEmptyLineNumber != null)
+            {
+                ThrowParseException(firstEmptyLineNumber.Value,
+                    "Empty lines are only allowed at the end of the file.");
+            }
+
+            (string url, string lengthString, string filePath) = SplitLine();
+
+            long length = -1;
+
+            if (lengthString != "-" &&
+                (!long.TryParse(lengthString, out length) ||
+                length < 0))
+            {
+                ThrowParseException(lineNumber, "Invalid length.");
+            }
+
+            try
+            {
+                filePath = BagItPathCodec.DecodeFilePath(filePath);
+            }
+            catch (FormatException e)
+            {
+                ThrowParseException(lineNumber, e.Message);
+            }
+
+            if (result.Contains(filePath))
+            {
+                ThrowParseException(lineNumber, "Duplicate file path {filePath} found.");
+            }
+
+            result.AddOrUpdateItem(new(filePath, length < 0 ? null : length, url));
+        }
+
+        if (!result.HasValues())
+        {
+            throw new BagItParseException("Invalid fetch file: File contains no entries.");
         }
 
         return result;

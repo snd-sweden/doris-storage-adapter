@@ -81,13 +81,36 @@ public abstract class BagItManifest<T> where T : BagItManifest<T>, IBagItElement
     {
         var result = T.CreateEmpty();
 
-        using var reader = new StreamReader(stream, Encoding.UTF8, leaveOpen: true);
         string? line;
         int lineNumber = 0;
         int? firstEmptyLineNumber = null;
 
         static void ThrowParseException(int lineNumber, string text) =>
               throw new BagItParseException($"Invalid manifest item at line {lineNumber}: {text}");
+
+        (string ChecksumHexString, string EncodedFilePath) SplitLine()
+        {
+            void Throw() =>
+                ThrowParseException(
+                    lineNumber,
+                    $"Expected '<checksum><linear whitespace><file path>'.");
+
+            int first = BagItParsing.FindLinearWhiteSpaceIndex(line);
+            if (first <= 0)
+            {
+                Throw();
+            }
+
+            int secondStart = BagItParsing.SkipLinearWhiteSpace(line, first);
+            if (secondStart == line.Length)
+            {
+                Throw();
+            }
+
+            return (line[..first], line[secondStart..]);
+        }
+
+        using var reader = new StreamReader(stream, Encoding.UTF8, leaveOpen: true);
 
         while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
         {
@@ -105,53 +128,22 @@ public abstract class BagItManifest<T> where T : BagItManifest<T>, IBagItElement
                     "Empty lines are only allowed at the end of the file.");
             }
 
-            int startIndex = 0;
-
-            while (startIndex < line.Length && line[startIndex] != ' ' && line[startIndex] != '\t')
-            {
-                startIndex++;
-            }
-
-            if (startIndex == line.Length)
-            {
-                ThrowParseException(lineNumber,
-                   "Expected '<checksum><linear whitespace><file path>' but no linear whitespace was found.");
-            }
-
-            if (startIndex < 2)
-            {
-                ThrowParseException(lineNumber,
-                    "Expected '<checksum><linear whitespace><file path>' but no checksum was found.");
-            }
-
-            int endIndex = startIndex;
-            while (endIndex < line.Length && (line[endIndex] == ' ' || line[endIndex] == '\t'))
-            {
-                endIndex++;
-            }
-
-            if (endIndex == line.Length)
-            {
-                ThrowParseException(lineNumber,
-                    "Expected '<checksum><linear whitespace><file path>' but no file path was found.");
-            }
+            (string checksumHexString, string filePath) = SplitLine();
 
             Checksum checksum;
 
             try
             {
-                checksum = Checksum.ParseHexString(line[..startIndex]);
+                checksum = Checksum.ParseHexString(checksumHexString);
             }
             catch (Exception e) when (e is FormatException or ArgumentException)
             {
                 ThrowParseException(lineNumber, e.Message);
             }
 
-            string filePath;
-
             try
             {
-                filePath = BagItPathCodec.DecodeFilePath(line[endIndex..]);
+                filePath = BagItPathCodec.DecodeFilePath(filePath);
             }
             catch (FormatException e)
             {
