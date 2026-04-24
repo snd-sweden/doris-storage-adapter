@@ -202,6 +202,12 @@ internal sealed class BagContext
 
         string pathInBag = decoded[index..];
 
+        if (!pathInBag.StartsWith(BagPathLayout.PayloadRootPath, StringComparison.Ordinal))
+        {
+            // Does not reference a payload file (under data/).
+            Throw();
+        }
+
         return new(
             ReferencedBagStoragePath: _groupStoragePath + referencedVersionPath,
             PathInBag: pathInBag,

@@ -74,6 +74,11 @@ internal static class BagConsistencyChecker
                     string target = $"{BagItFetch.FileName}:{r.Item.FilePath}";
                     string referencedFilePath = Uri.UnescapeDataString(r.Item.Url);
 
+                    if (!r.Item.FilePath.StartsWith(BagPathLayout.PayloadRootPath, StringComparison.Ordinal))
+                    {
+                        AddError(target, $"File path does not start with '{BagPathLayout.PayloadRootPath}'.");
+                    }
+
                     if (!referencedVersionIsPublished)
                     {
                         AddError(target, $"{referencedFilePath} does not belong to a published dataset version.");
@@ -122,6 +127,11 @@ internal static class BagConsistencyChecker
             foreach (var item in payloadManifest?.Items ?? [])
             {
                 string target = $"{BagItPayloadManifest.FileName}:{item.FilePath}";
+
+                if (!item.FilePath.StartsWith(BagPathLayout.PayloadRootPath, StringComparison.Ordinal))
+                {
+                    AddError(target, $"File path does not start with '{BagPathLayout.PayloadRootPath}'.");
+                }
 
                 if ((fetch == null ||
                     !fetch.Contains(item.FilePath))

@@ -38,8 +38,27 @@ internal sealed class CheckService(
             .Select(f => f.Path)
             .ToHashSetAsync(cancellationToken: cancellationToken);
 
-        var fetch = await bagContext.LoadBagItElementAsync<BagItFetch>(cancellationToken);
-        var payloadManifest = await bagContext.LoadBagItElementAsync<BagItPayloadManifest>(cancellationToken);
+        BagItFetch fetch;
+        try
+        {
+            fetch = await bagContext
+                .LoadBagItElementAsync<BagItFetch>(cancellationToken);
+        }
+        catch (DatasetInconsistentException e)
+        {
+            return e.Errors;
+        }
+
+        BagItPayloadManifest payloadManifest;
+        try
+        {
+            payloadManifest = await bagContext
+                .LoadBagItElementAsync<BagItPayloadManifest>(cancellationToken);
+        }
+        catch (DatasetInconsistentException e)
+        {
+            return e.Errors;
+        }
 
         return await BagConsistencyChecker.CheckAsync(
             _bagContextFactory,
