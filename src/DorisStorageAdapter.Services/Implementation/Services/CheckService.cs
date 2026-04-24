@@ -44,7 +44,7 @@ internal sealed class CheckService(
             fetch = await bagContext
                 .LoadBagItElementAsync<BagItFetch>(cancellationToken);
         }
-        catch (DatasetInconsistentException e)
+        catch (DatasetIntegrityException e)
         {
             return e.Errors;
         }
@@ -55,7 +55,7 @@ internal sealed class CheckService(
             payloadManifest = await bagContext
                 .LoadBagItElementAsync<BagItPayloadManifest>(cancellationToken);
         }
-        catch (DatasetInconsistentException e)
+        catch (DatasetIntegrityException e)
         {
             return e.Errors;
         }

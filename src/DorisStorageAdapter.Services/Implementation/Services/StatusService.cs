@@ -100,7 +100,7 @@ internal sealed class StatusService(
 
         if (errors.Any())
         {
-            throw new DatasetInconsistentException("Inconsistencies found in BagIt files.", errors);
+            throw new DatasetIntegrityException("Inconsistencies found in BagIt files.", errors);
         }
 
         var bagInfo = new BagItInfo

@@ -49,7 +49,7 @@ internal sealed class ServiceExceptionHandler(IProblemDetailsService problemDeta
         ex switch
         {
             ConflictException => StatusCodes.Status409Conflict,
-            DatasetInconsistentException => StatusCodes.Status500InternalServerError,
+            DatasetIntegrityException => StatusCodes.Status500InternalServerError,
             DatasetStatusException => StatusCodes.Status409Conflict,
             _ => StatusCodes.Status400BadRequest
         };

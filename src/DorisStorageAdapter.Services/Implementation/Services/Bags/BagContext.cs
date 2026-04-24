@@ -44,7 +44,11 @@ internal sealed class BagContext
         }
 
         await using var stream = fileData.Stream;
-        return await ParseBagItElementOrThrow<T>(stream, cancellationToken);
+        var result = await ParseBagItElementOrThrow<T>(stream, cancellationToken);
+
+        ValidateBagItElementOrThrow(result);
+
+        return result;
     }
 
     public async Task<(T BagItElement, Checksum Checksum)?> LoadBagItElementWithChecksumAsync<T>(
@@ -59,7 +63,11 @@ internal sealed class BagContext
         }
 
         await using var hashStream = new CountedHashStream(fileData.Stream);
-        return (await ParseBagItElementOrThrow<T>(hashStream, cancellationToken), new(hashStream.GetHash()));
+        var result = await ParseBagItElementOrThrow<T>(hashStream, cancellationToken);
+
+        ValidateBagItElementOrThrow(result);
+
+        return (result, new(hashStream.GetHash()));
     }
 
     public async Task<byte[]> StoreBagItElementAsync<T>(
@@ -155,7 +163,11 @@ internal sealed class BagContext
 
     public FetchReference ParseFetchReference(BagItFetchItem item)
     {
-        static void Throw() => throw new InvalidOperationException("Invalid fetch URL encountered.");
+        void Throw()
+        {
+            throw new DatasetIntegrityException($"Error validating {BagItFetch.FileName}.",
+                [new($"Invalid URL.", $"{BagItFetch.FileName}:{item.FilePath}")]);
+        }
 
         if (string.IsNullOrEmpty(item.Url))
         {
@@ -219,7 +231,7 @@ internal sealed class BagContext
             UrlEncodePath(otherBag.StoragePath[_groupStoragePath.Length..]) +
             UrlEncodePath(pathInBag);
 
-    private async Task<T> ParseBagItElementOrThrow<T>(Stream stream, CancellationToken cancellationToken)
+    private static async Task<T> ParseBagItElementOrThrow<T>(Stream stream, CancellationToken cancellationToken)
          where T : IBagItElement<T>
     {
         try
@@ -228,9 +240,28 @@ internal sealed class BagContext
         }
         catch (BagItParseException e)
         {
-            throw new DatasetInconsistentException(
-                $"Error parsing BagIt file {ToStoragePath(T.FileName)}.", 
-                    [new(e.Message, ToStoragePath(T.FileName))]);
+            throw new DatasetIntegrityException(
+                $"Error parsing BagIt file {T.FileName}.", 
+                    [new(e.Message, T.FileName)]);
+        }
+    }
+
+    private void ValidateBagItElementOrThrow<T>(T element)
+        where T : IBagItElement<T>
+    {
+        switch (element)
+        {
+            case BagItPayloadManifest payloadManifest:
+                ThrowIfInvalidPayloadManifest(payloadManifest);
+                break;
+
+            case BagItTagManifest tagManifest:
+                ThrowIfInvalidTagManifest(tagManifest);
+                break;
+
+            case BagItFetch fetch:
+                ThrowIfInvalidFetch(fetch);
+                break;
         }
     }
 
@@ -242,4 +273,42 @@ internal sealed class BagContext
 
     private string FromStoragePath(string path) =>
         path[StoragePath.Length..];
+
+    private void ThrowIfInvalidFetch(BagItFetch fetch)
+    {
+        foreach (var item in fetch.Items)
+        {
+            ParseFetchReference(item); // Throws if invalid.
+
+            ThrowIfInvalidFilePath(BagItFetch.FileName, item.FilePath, true);
+        }
+    }
+
+    private static void ThrowIfInvalidPayloadManifest(BagItPayloadManifest manifest)
+    {
+        foreach (var item in manifest.Items)
+        {
+            ThrowIfInvalidFilePath(BagItPayloadManifest.FileName, item.FilePath, true);
+        }
+    }
+
+    private static void ThrowIfInvalidTagManifest(BagItTagManifest manifest)
+    {
+        foreach (var item in manifest.Items)
+        {
+            ThrowIfInvalidFilePath(BagItTagManifest.FileName, item.FilePath, false);
+        }
+    }
+
+    private static void ThrowIfInvalidFilePath(string bagItFileName, string filePath, bool shouldBePayload)
+    {
+        bool isPayload = filePath.StartsWith(BagPathLayout.PayloadRootPath, StringComparison.Ordinal);
+
+        if (!PathValidation.HasOnlyValidComponents(filePath) ||
+            shouldBePayload != isPayload)
+        {
+            throw new DatasetIntegrityException($"Error validating {bagItFileName}.",
+                [new("Invalid file path.", $"{bagItFileName}:{filePath}")]);
+        }
+    }
 }

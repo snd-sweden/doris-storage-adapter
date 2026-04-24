@@ -1,4 +1,6 @@
-﻿using DorisStorageAdapter.BagIt.Fetch;
+﻿using DorisStorageAdapter.BagIt;
+using DorisStorageAdapter.BagIt.Fetch;
+using DorisStorageAdapter.BagIt.Info;
 using DorisStorageAdapter.BagIt.Manifest;
 using DorisStorageAdapter.Services.Contract.Exceptions;
 using DorisStorageAdapter.Services.Implementation.Storage;
@@ -74,11 +76,6 @@ internal static class BagConsistencyChecker
                     string target = $"{BagItFetch.FileName}:{r.Item.FilePath}";
                     string referencedFilePath = Uri.UnescapeDataString(r.Item.Url);
 
-                    if (!r.Item.FilePath.StartsWith(BagPathLayout.PayloadRootPath, StringComparison.Ordinal))
-                    {
-                        AddError(target, $"File path does not start with '{BagPathLayout.PayloadRootPath}'.");
-                    }
-
                     if (!referencedVersionIsPublished)
                     {
                         AddError(target, $"{referencedFilePath} does not belong to a published dataset version.");
@@ -128,11 +125,6 @@ internal static class BagConsistencyChecker
             {
                 string target = $"{BagItPayloadManifest.FileName}:{item.FilePath}";
 
-                if (!item.FilePath.StartsWith(BagPathLayout.PayloadRootPath, StringComparison.Ordinal))
-                {
-                    AddError(target, $"File path does not start with '{BagPathLayout.PayloadRootPath}'.");
-                }
-
                 if ((fetch == null ||
                     !fetch.Contains(item.FilePath))
                     && !payloadFilePaths.Contains(item.FilePath))
@@ -142,22 +134,36 @@ internal static class BagConsistencyChecker
             }
         }
 
-        async Task CheckUploadMarkers()
+        async Task CheckTagFiles()
         {
-            await foreach (var file in bagContext.ListFilesAsync(
-                FileService.UploadMarkerFilePrefix, false, cancellationToken))
+            await foreach (var file in bagContext.ListFilesAsync("", true, cancellationToken))
             {
-                var fileData = await bagContext.GetFileDataAsync(file.Path, null, cancellationToken);
-
-                if (fileData != null)
+                if (file.Path.StartsWith(FileService.UploadMarkerFilePrefix, StringComparison.Ordinal))
                 {
-                    await using var stream = fileData.Stream;
-                    using var reader = new StreamReader(stream, Encoding.UTF8);
-                    string errorFileName = await reader.ReadToEndAsync(cancellationToken);
+                    var fileData = await bagContext.GetFileDataAsync(file.Path, null, cancellationToken);
 
+                    if (fileData != null)
+                    {
+                        await using var stream = fileData.Stream;
+                        using var reader = new StreamReader(stream, Encoding.UTF8);
+                        string errorFileName = await reader.ReadToEndAsync(cancellationToken);
+
+                        AddError(
+                            $"{errorFileName}",
+                            $"Found marker file indicating unfinished upload ({file.Path}).");
+                    }
+                }
+                else if (
+                    !file.Path.StartsWith(BagPathLayout.PayloadRootPath, StringComparison.Ordinal) &&
+                    file.Path != BagItDeclaration.FileName &&
+                    file.Path != BagItInfo.FileName &&
+                    file.Path != BagItFetch.FileName &&
+                    file.Path != BagItTagManifest.FileName &&
+                    file.Path != BagItPayloadManifest.FileName)
+                {
                     AddError(
-                        $"{errorFileName}",
-                        $"Found marker file indicating unfinished upload ({file.Path}).");
+                        $"{file.Path}",
+                        $"Unexpected tag file.");
                 }
             }
         }
@@ -165,7 +171,7 @@ internal static class BagConsistencyChecker
         CheckPayloadFilePaths();
         await CheckFetchAsync();
         CheckPayloadManifest();
-        await CheckUploadMarkers();
+        await CheckTagFiles();
 
         return errors;
     }
