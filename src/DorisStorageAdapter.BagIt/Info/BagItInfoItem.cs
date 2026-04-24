@@ -1,5 +1,5 @@
 ﻿namespace DorisStorageAdapter.BagIt.Info;
 
-public sealed record BagItInfoItem(
+internal sealed record BagItInfoItem(
     string Label,
     string Value);

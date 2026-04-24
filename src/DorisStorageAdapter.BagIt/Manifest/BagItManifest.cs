@@ -86,7 +86,7 @@ public abstract class BagItManifest<T> where T : BagItManifest<T>, IBagItElement
         int? firstEmptyLineNumber = null;
 
         static void ThrowParseException(int lineNumber, string text) =>
-              throw new BagItParseException($"Invalid manifest item at line {lineNumber}: {text}");
+              throw new BagItParseException($"Invalid manifest entry at line {lineNumber}: {text}");
 
         (string ChecksumHexString, string EncodedFilePath) SplitLine()
         {

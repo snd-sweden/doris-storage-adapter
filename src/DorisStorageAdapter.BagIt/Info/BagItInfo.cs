@@ -31,6 +31,15 @@ public sealed class BagItInfo : IBagItElement<BagItInfo>
         PayloadOxumLabel.ToUpperInvariant()
     ]);
 
+    private static readonly HashSet<string> _nonRepeatableLabels = new(
+    [
+        BaggingDateLabel.ToUpperInvariant(),
+        BagCountLabel.ToUpperInvariant(),
+        BagGroupIdentifierLabel.ToUpperInvariant(),
+        BagSizeLabel.ToUpperInvariant(),
+        PayloadOxumLabel.ToUpperInvariant()
+    ]);
+
     private const string BaggingDateLabel = "Bagging-Date";
     private const string BagCountLabel = "Bag-Count";
     private const string BagGroupIdentifierLabel = "Bag-Group-Identifier";
@@ -46,19 +55,16 @@ public sealed class BagItInfo : IBagItElement<BagItInfo>
     private const string SourceOrganizationLabel = "Source-Organization";
     private const string PayloadOxumLabel = "Payload-Oxum";
 
-    public DateTime? BaggingDate
+    public DateOnly? BaggingDate
     {
-        get => GetSingleValue(BaggingDateLabel, v =>
-            DateTime.TryParseExact(v,
-                "yyyy-MM-dd",
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.None,
-                out var dateTime)
-                    ? dateTime
-                    : (DateTime?)null);
+        get;
+        set
+        {
+            SetSingleValue(BaggingDateLabel, value,
+                v => v?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
 
-        set => SetSingleValue(BaggingDateLabel, value,
-            v => v?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+            field = value;
+        }
     }
 
     public string? BagGroupIdentifier
@@ -69,29 +75,15 @@ public sealed class BagItInfo : IBagItElement<BagItInfo>
 
     public BagCount? BagCount
     {
-        get => GetSingleValue(BagCountLabel, v =>
+        get;
+        set
         {
-            var values = v.Split(" of ");
+            SetSingleValue(BagCountLabel, value,
+                v => v.Ordinal.ToString(CultureInfo.InvariantCulture) + " of " +
+                    (v.TotalCount?.ToString(CultureInfo.InvariantCulture) ?? "?"));
 
-            if (values.Length == 2 &&
-                long.TryParse(values[0], out long ordinal))
-            {
-                if (long.TryParse(values[1], out long totalCount))
-                {
-                    return new BagCount(ordinal, totalCount);
-                }
-                else if (values[1].Trim() == "?")
-                {
-                    return new BagCount(ordinal, null);
-                }
-            }
-
-            return null;
-        });
-
-        set => SetSingleValue(BagCountLabel, value,
-            v => v.Ordinal.ToString(CultureInfo.InvariantCulture) + " of " +
-                 v.TotalCount?.ToString(CultureInfo.InvariantCulture) ?? "?");
+            field = value;
+        }
     }
 
     public string? BagSize
@@ -150,22 +142,16 @@ public sealed class BagItInfo : IBagItElement<BagItInfo>
 
     public PayloadOxum? PayloadOxum
     {
-        get => GetSingleValue(PayloadOxumLabel, v =>
+        get;
+
+        set
         {
-            var values = v.Split('.');
-            if (values.Length == 2 &&
-                long.TryParse(values[0], out long octetCount) &&
-                long.TryParse(values[1], out long streamCount))
-            {
-                return new PayloadOxum(octetCount, streamCount);
-            }
+            SetSingleValue(PayloadOxumLabel, value,
+                v => v.OctetCount.ToString(CultureInfo.InvariantCulture) + '.' +
+                    v.StreamCount.ToString(CultureInfo.InvariantCulture));
 
-            return null;
-        });
-
-        set => SetSingleValue(PayloadOxumLabel, value,
-            v => v.OctetCount.ToString(CultureInfo.InvariantCulture) + '.' +
-                 v.StreamCount.ToString(CultureInfo.InvariantCulture));
+            field = value;
+        }
     }
 
     public IEnumerable<string> SourceOrganization
@@ -264,54 +250,197 @@ public sealed class BagItInfo : IBagItElement<BagItInfo>
 
     public static string FileName => "bag-info.txt";
 
-    public static async Task<BagItInfo> ParseAsync(Stream stream, CancellationToken cancellationToken)
+    public static async Task<BagItInfo> ParseAsync(
+        Stream stream,
+        CancellationToken cancellationToken)
     {
         var result = new BagItInfo();
 
         using var reader = new StreamReader(stream, Encoding.UTF8, leaveOpen: true);
-        string? line;
-        string value = "";
-        string label = "";
 
-        void AddItemIfNotEmpty()
+        string? line;
+        string? label = null;
+        string? value = null;
+        int labelLineNumber = 0;
+        int lineNumber = 0;
+        int? firstEmptyLineNumber = null;
+
+        static void ThrowParseException(int lineNumber, string message) =>
+            throw new BagItParseException($"Invalid bag-info element at line {lineNumber}: {message}");
+
+        void AddItem()
         {
-            if (string.IsNullOrEmpty(value))
+            if (label == null)
             {
                 return;
             }
 
-            var item = new BagItInfoItem(label, value);
+            if (value!.Length == 0)
+            {
+                ThrowParseException(labelLineNumber, $"Value for '{label}' is empty.");
+            }
+
             string key = label.ToUpperInvariant();
 
-            if (result._items.TryGetValue(key, out var existing))
+            if (_nonRepeatableLabels.Contains(key) &&
+                result._items.ContainsKey(key))
             {
-                existing.Add(item);
+                ThrowParseException(labelLineNumber, $"'{label}' is not repeatable.");
             }
-            else
+
+            if (!ParseNonStringProperties(label, value, labelLineNumber))
             {
-                result._items[key] = [item];
+                var item = new BagItInfoItem(label, value);
+
+                if (result._items.TryGetValue(key, out var existing))
+                {
+                    existing.Add(item);
+                }
+                else
+                {
+                    result._items[key] = [item];
+                }
             }
+
+            label = null;
+            value = null;
+            labelLineNumber = 0;
         }
 
-        while (!string.IsNullOrEmpty(line = await reader.ReadLineAsync(cancellationToken)))
+        bool ParseNonStringProperties(string label, string value, int lineNumber)
         {
-            if (line.StartsWith(' ') || line.StartsWith('\t'))
+            if (string.Equals(label, BaggingDateLabel, StringComparison.OrdinalIgnoreCase))
             {
-                // value is continued from previous line
-                value += ' ' + line.TrimStart();
+                if (DateOnly.TryParseExact(
+                        value,
+                        "yyyy-MM-dd",
+                        CultureInfo.InvariantCulture,
+                        DateTimeStyles.None,
+                        out var date))
+                {
+                    result.BaggingDate = date;
+                }
+                else
+                {
+                    ThrowParseException(lineNumber, $"{BaggingDateLabel} must use format 'yyyy-MM-dd'.");
+                }
+            }
+            else if (string.Equals(label, BagCountLabel, StringComparison.OrdinalIgnoreCase))
+            {
+                BagCount? bagCount = null;
+                var values = value.Split(" of ");
+
+                if (values.Length == 2 &&
+                    long.TryParse(values[0], out long ordinal) &&
+                    ordinal >= 0)
+                {
+                    if (long.TryParse(values[1], out long totalCount) &&
+                        totalCount >= 0)
+                    {
+                        bagCount = new(ordinal, totalCount);
+                    }
+                    else if (values[1].Trim() == "?")
+                    {
+                        bagCount = new(ordinal, null);
+                    }
+                }
+
+                if (bagCount != null)
+                {
+                    result.BagCount = bagCount;
+                }
+                else
+                {
+                    ThrowParseException(lineNumber, $"{BagCountLabel} has invalid format.");
+                }
+            }
+            else if (string.Equals(label, PayloadOxumLabel, StringComparison.OrdinalIgnoreCase))
+            {
+                var values = value.Split('.');
+                if (values.Length == 2 &&
+                    long.TryParse(values[0], out long octetCount) &&
+                    long.TryParse(values[1], out long streamCount) &&
+                    octetCount >= 0 &&
+                    streamCount >= 0)
+                {
+                    result.PayloadOxum = new(octetCount, streamCount);
+                }
+                else
+                {
+                    ThrowParseException(lineNumber, $"{PayloadOxumLabel} has invalid format.");
+                }
             }
             else
             {
-                AddItemIfNotEmpty();
-
-                int index = line.IndexOf(": ", StringComparison.Ordinal);
-                label = line[..index];
-                value = line[(index + 2)..];
+                return false;
             }
+
+            return true;
         }
 
-        // Add last item
-        AddItemIfNotEmpty();
+        while ((line = await reader.ReadLineAsync(cancellationToken)) is not null)
+        {
+            lineNumber++;
+
+            if (line.Length == 0)
+            {
+                firstEmptyLineNumber ??= lineNumber;
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                ThrowParseException(lineNumber, "Lines containing only whitespace are not allowed.");
+            }
+
+            if (firstEmptyLineNumber is not null)
+            {
+                ThrowParseException(
+                    firstEmptyLineNumber.Value,
+                    "Empty lines are only allowed at the end of the file.");
+            }
+
+            if (line[0] is ' ' or '\t')
+            {
+                if (label is null)
+                {
+                    ThrowParseException(lineNumber, "Continuation line without a preceding field.");
+                }
+
+                value += line.TrimStart(' ', '\t');
+                continue;
+            }
+
+            AddItem();
+
+            int colonIndex = line.IndexOf(':', StringComparison.Ordinal);
+            if (colonIndex <= 0)
+            {
+                ThrowParseException(lineNumber, "Expected '<label>: <value>'.");
+            }
+
+            if (colonIndex + 1 == line.Length || line[colonIndex + 1] is not (' ' or '\t'))
+            {
+                ThrowParseException(lineNumber, "Expected exactly one space or tab after ':'.");
+            }
+
+            int valueStart = colonIndex + 2;
+            if (valueStart == line.Length)
+            {
+                ThrowParseException(lineNumber, "Value is empty.");
+            }
+
+            label = line[..colonIndex];
+            value = line[valueStart..];
+            labelLineNumber = lineNumber;
+        }
+
+        AddItem();
+
+        if (!result.HasValues())
+        {
+            throw new BagItParseException("Invalid bag-info file: File contains no elements.");
+        }
 
         return result;
     }

@@ -105,7 +105,7 @@ internal sealed class StatusService(
 
         var bagInfo = new BagItInfo
         {
-            BaggingDate = DateTime.UtcNow,
+            BaggingDate = DateOnly.FromDateTime(DateTime.UtcNow),
             BagGroupIdentifier = canonicalDoi,
             BagSize = ByteSize.FromBytes(octetCount).ToBinaryString(CultureInfo.InvariantCulture),
             ExternalIdentifier = [doi],

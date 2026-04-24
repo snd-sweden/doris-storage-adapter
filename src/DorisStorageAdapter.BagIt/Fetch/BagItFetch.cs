@@ -53,7 +53,7 @@ public sealed class BagItFetch : IBagItElement<BagItFetch>
         int? firstEmptyLineNumber = null;
 
         static void ThrowParseException(int lineNumber, string text) =>
-              throw new BagItParseException($"Invalid fetch item at line {lineNumber}: {text}");
+              throw new BagItParseException($"Invalid fetch entry at line {lineNumber}: {text}");
 
         (string UrlText, string LengthText, string EncodedFilePath) SplitLine()
         {
