@@ -75,7 +75,7 @@ public sealed class BagItFetch : IBagItElement<BagItFetch>
             }
 
             int second = BagItParsing.FindLinearWhiteSpaceIndex(line, secondStart);
-            if (second <= 0)
+            if (second < 0)
             {
                 Throw();
             }
