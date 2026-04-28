@@ -9,16 +9,26 @@ using System.Threading.Tasks;
 
 namespace DorisStorageAdapter.BagIt.Manifest;
 
-public abstract class BagItManifest<T> where T : BagItManifest<T>, IBagItElement<T>
+public abstract class BagItManifest<T>(ChecksumAlgorithm algorithm) : IBagItElement
+    where T : BagItManifest<T>
 {
     private readonly SortedDictionary<string, BagItManifestItem> _items = [];
     private readonly Dictionary<Checksum, Dictionary<string, BagItManifestItem>> _checksumToItems = [];
 
+    public ChecksumAlgorithm Algorithm { get; } = algorithm;
+ 
     public IEnumerable<BagItManifestItem> Items => _items.Values;
 
     public bool AddOrUpdateItem(BagItManifestItem item)
     {
         ArgumentNullException.ThrowIfNull(item);
+        if (item.Checksum.Algorithm != Algorithm)
+        {
+            throw new ArgumentException(
+                $"Checksum algorithm mismatch. Manifest uses {Algorithm}, " +
+                $"but item uses {item.Checksum.Algorithm}.",
+                nameof(item));
+        }
 
         if (TryGetItem(item.FilePath, out var existingItem))
         {
@@ -77,9 +87,28 @@ public abstract class BagItManifest<T> where T : BagItManifest<T>, IBagItElement
 
     public bool HasValues() => Items.Any();
 
-    protected static async Task<T> ParseCoreAsync(Stream stream, CancellationToken cancellationToken)
+    public byte[] Serialize()
     {
-        var result = T.CreateEmpty();
+        var builder = new StringBuilder();
+
+        foreach (var item in Items)
+        {
+            builder.Append(item.Checksum.HexString);
+            builder.Append(' ');
+            builder.Append(BagItPathCodec.EncodeFilePath(item.FilePath));
+            builder.Append('\n');
+        }
+
+        return Encoding.UTF8.GetBytes(builder.ToString());
+    }
+
+    protected static string BuildFileName(string prefix, ChecksumAlgorithm algo) =>
+        $"{prefix}-{algo.ToBagItName()}.txt";
+
+    protected static async Task<T> ParseCoreAsync(
+        Stream stream, T result, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(result);
 
         string? line;
         int lineNumber = 0;
@@ -124,7 +153,7 @@ public abstract class BagItManifest<T> where T : BagItManifest<T>, IBagItElement
 
             if (firstEmptyLineNumber != null)
             {
-                ThrowParseException(firstEmptyLineNumber.Value, 
+                ThrowParseException(firstEmptyLineNumber.Value,
                     "Empty lines are only allowed at the end of the file.");
             }
 
@@ -134,7 +163,7 @@ public abstract class BagItManifest<T> where T : BagItManifest<T>, IBagItElement
 
             try
             {
-                checksum = Checksum.ParseHexString(checksumHexString);
+                checksum = Checksum.ParseHexString(result.Algorithm, checksumHexString);
             }
             catch (Exception e) when (e is FormatException or ArgumentException)
             {
@@ -152,7 +181,7 @@ public abstract class BagItManifest<T> where T : BagItManifest<T>, IBagItElement
 
             if (result.Contains(filePath))
             {
-                ThrowParseException(lineNumber, "Duplicate file path {filePath} found.");
+                ThrowParseException(lineNumber, $"Duplicate file path {filePath} found.");
             }
 
             result.AddOrUpdateItem(new(filePath, checksum));
@@ -164,21 +193,6 @@ public abstract class BagItManifest<T> where T : BagItManifest<T>, IBagItElement
         }
 
         return result;
-    }
-
-    public byte[] Serialize()
-    {
-        var builder = new StringBuilder();
-
-        foreach (var item in Items)
-        {
-            builder.Append(item.Checksum.HexString);
-            builder.Append(' ');
-            builder.Append(BagItPathCodec.EncodeFilePath(item.FilePath));
-            builder.Append('\n');
-        }
-
-        return Encoding.UTF8.GetBytes(builder.ToString());
     }
 
     private void RemoveItemFromChecksumDictionary(BagItManifestItem item)

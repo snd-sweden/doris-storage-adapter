@@ -120,7 +120,7 @@ internal sealed class FileService(
             // Remove from fetch if present there.
             await RemoveItemFromFetchAsync(bagContext, pathInBag, CancellationToken.None);
             // Update payload manifest.
-            await AddOrUpdatePayloadManifestItemAsync(bagContext, new(pathInBag, new(checksum)), CancellationToken.None);
+            await AddOrUpdatePayloadManifestItemAsync(bagContext, new(pathInBag, new(BagContext.ChecksumAlgorithm, checksum)), CancellationToken.None);
         }
 
         // Delete file marking that upload is in progress.
@@ -207,7 +207,7 @@ internal sealed class FileService(
 
         async Task<BagItFetch> PrepareFetchAsync()
         {
-            var fetch = await fromBagContext.LoadBagItElementAsync<BagItFetch>(cancellationToken);
+            var fetch = await fromBagContext.LoadFetchAsync(cancellationToken);
 
             await foreach (var file in fromBagContext.ListPayloadFilesAsync(cancellationToken))
             {
@@ -226,10 +226,10 @@ internal sealed class FileService(
         }
 
         var fetch = await PrepareFetchAsync();
-        var manifest = await fromBagContext.LoadBagItElementAsync<BagItPayloadManifest>(cancellationToken);
+        var manifest = await fromBagContext.LoadPayloadManifestAsync(cancellationToken);
 
-        await bagContext.StoreBagItElementAsync(fetch, cancellationToken);
-        await bagContext.StoreBagItElementAsync(manifest, CancellationToken.None);
+        await bagContext.StoreFetchAsync(fetch, cancellationToken);
+        await bagContext.StorePayloadManifestAsync(manifest, CancellationToken.None);
     }
 
     public async Task<FileData?> GetDataAsync(
@@ -257,7 +257,7 @@ internal sealed class FileService(
 
         string pathInBag = BagPathLayout.ToPathInBag(filePath);
 
-        var fetch = await bagContext.LoadBagItElementAsync<BagItFetch>(cancellationToken);
+        var fetch = await bagContext.LoadFetchAsync(cancellationToken);
         (bagContext, pathInBag) = ResolvePath(bagContext, fetch, pathInBag);
 
         FileData? result = null;
@@ -305,8 +305,8 @@ internal sealed class FileService(
 
         var bagContext = _bagContextFactory.Create(datasetVersion);
 
-        var payloadManifest = await bagContext.LoadBagItElementAsync<BagItPayloadManifest>(cancellationToken);
-        var fetch = await bagContext.LoadBagItElementAsync<BagItFetch>(cancellationToken);
+        var payloadManifest = await bagContext.LoadPayloadManifestAsync(cancellationToken);
+        var fetch = await bagContext.LoadFetchAsync(cancellationToken);
 
         Checksum? GetChecksum(string pathInBag) =>
             payloadManifest.TryGetItem(pathInBag, out var value)
@@ -374,8 +374,8 @@ internal sealed class FileService(
             return entry.Open();
         }
 
-        var payloadManifest = await bagContext.LoadBagItElementAsync<BagItPayloadManifest>(cancellationToken);
-        var fetch = await bagContext.LoadBagItElementAsync<BagItFetch>(cancellationToken);
+        var payloadManifest = await bagContext.LoadPayloadManifestAsync(cancellationToken);
+        var fetch = await bagContext.LoadFetchAsync(cancellationToken);
         string versionPath = datasetVersion.Identifier + '-' + datasetVersion.Version;
 
         using var zipArchive = new ZipArchive(stream, ZipArchiveMode.Create, false);
@@ -478,7 +478,7 @@ internal sealed class FileService(
                 return false;
             }
 
-            var bagInfo = await bagContext.LoadBagItElementAsync<BagItInfo>(cancellationToken);
+            var bagInfo = await bagContext.LoadInfoAsync(cancellationToken);
 
             if (bagInfo.GetAccessRight() != AccessRight.Public ||
                 bagInfo.GetDatasetVersionStatus() != DatasetVersionStatus.Published)
@@ -496,33 +496,44 @@ internal sealed class FileService(
         BagContext bagContext,
         BagItManifestItem item,
         CancellationToken cancellationToken) =>
-        UpdateBagItElementAsync<BagItPayloadManifest>(
-            bagContext, manifest => manifest.AddOrUpdateItem(item), cancellationToken);
+        UpdateBagItElementAsync(
+            bagContext.LoadPayloadManifestAsync, 
+            manifest => manifest.AddOrUpdateItem(item),
+            bagContext.StorePayloadManifestAsync,
+            cancellationToken);
 
     private static Task RemoveItemFromPayloadManifestAsync(
         BagContext bagContext,
         string pathInBag,
         CancellationToken cancellationToken) =>
-        UpdateBagItElementAsync<BagItPayloadManifest>(
-            bagContext, manifest => manifest.RemoveItem(pathInBag), cancellationToken);
+        UpdateBagItElementAsync(
+            bagContext.LoadPayloadManifestAsync,
+            manifest => manifest.RemoveItem(pathInBag),
+            bagContext.StorePayloadManifestAsync,
+            cancellationToken);
 
     private static Task RemoveItemFromFetchAsync(
         BagContext bagContext,
         string pathInBag,
         CancellationToken cancellationToken) =>
-        UpdateBagItElementAsync<BagItFetch>(bagContext, fetch => fetch.RemoveItem(pathInBag), cancellationToken);
+        UpdateBagItElementAsync(
+            bagContext.LoadFetchAsync, 
+            fetch => fetch.RemoveItem(pathInBag),
+            bagContext.StoreFetchAsync,
+            cancellationToken);
 
     private static async Task UpdateBagItElementAsync<T>(
-        BagContext bagContext,
+        Func<CancellationToken, Task<T>> loader,
         Func<T, bool> action,
+        Func<T, CancellationToken, Task<byte[]>> updater,
         CancellationToken cancellationToken)
-        where T : IBagItElement<T>
+        where T : IBagItElement
     {
-        var element = await bagContext.LoadBagItElementAsync<T>(cancellationToken);
+        var element = await loader(cancellationToken);
 
         if (action(element))
         {
-            await bagContext.StoreBagItElementAsync(element, cancellationToken);
+            await updater(element, cancellationToken);
         }
     }
 

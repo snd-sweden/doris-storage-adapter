@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace DorisStorageAdapter.BagIt.Info;
 
-public sealed class BagItInfo : IBagItElement<BagItInfo>
+public sealed class BagItInfo : IBagItElement
 {
     private readonly SortedDictionary<string, List<BagItInfoItem>> _items = [];
 
@@ -54,6 +54,8 @@ public sealed class BagItInfo : IBagItElement<BagItInfo>
     private const string OrganizationAddressLabel = "Organization-Address";
     private const string SourceOrganizationLabel = "Source-Organization";
     private const string PayloadOxumLabel = "Payload-Oxum";
+
+    public const string FileName = "bag-info.txt";
 
     public DateOnly? BaggingDate
     {
@@ -245,10 +247,6 @@ public sealed class BagItInfo : IBagItElement<BagItInfo>
             _items[key] = valuesToStore;
         }
     }
-
-    public static BagItInfo CreateEmpty() => new();
-
-    public static string FileName => "bag-info.txt";
 
     public static async Task<BagItInfo> ParseAsync(
         Stream stream,

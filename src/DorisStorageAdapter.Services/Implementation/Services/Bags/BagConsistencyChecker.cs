@@ -43,7 +43,7 @@ internal static class BagConsistencyChecker
                 if (payloadManifest == null ||
                     !payloadManifest.Contains(filePath))
                 {
-                    AddError(target, $"Not found in {BagItPayloadManifest.FileName}.");
+                    AddError(target, $"Not found in {BagItPayloadManifest.GetFileName(BagContext.ChecksumAlgorithm)}.");
                 }
             }
         }
@@ -60,7 +60,7 @@ internal static class BagConsistencyChecker
                 var referencedBagContext = bagContextFactory.Create(reference.ReferencedBagStoragePath);
 
                 var referencedVersionManifest = await referencedBagContext
-                    .LoadBagItElementAsync<BagItPayloadManifest>(cancellationToken);
+                    .LoadPayloadManifestAsync(cancellationToken);
 
                 var referencedVersionFiles = new Dictionary<string, StorageFileMetadata>(StringComparer.Ordinal);
                 await foreach (var file in referencedBagContext.ListPayloadFilesAsync(cancellationToken))
@@ -100,7 +100,7 @@ internal static class BagConsistencyChecker
                     if (payloadManifest == null ||
                         !payloadManifest.TryGetItem(r.Item.FilePath, out var itemThisManifest))
                     {
-                        AddError(target, $"Not found in {BagItPayloadManifest.FileName}.");
+                        AddError(target, $"Not found in {BagItPayloadManifest.GetFileName(BagContext.ChecksumAlgorithm)}.");
                     }
                     else if (
                         referencedVersionManifest == null ||
@@ -109,10 +109,10 @@ internal static class BagConsistencyChecker
                     {
                         string referencedManifestPath =
                             referencedFilePath[..(referencedFilePath.IndexOf('/', 3) + 1)] +
-                            BagItPayloadManifest.FileName;
+                            BagItPayloadManifest.GetFileName(BagContext.ChecksumAlgorithm);
 
                         AddError(target, 
-                            $"Checksum in {BagItPayloadManifest.FileName} does not match checksum in " + 
+                            $"Checksum in {BagItPayloadManifest.GetFileName(BagContext.ChecksumAlgorithm)} does not match checksum in " + 
                             $"{referencedManifestPath} of referenced file {referencedFilePath}.");
                     }
                 }
@@ -123,7 +123,7 @@ internal static class BagConsistencyChecker
         {
             foreach (var item in payloadManifest?.Items ?? [])
             {
-                string target = $"{BagItPayloadManifest.FileName}:{item.FilePath}";
+                string target = $"{BagItPayloadManifest.GetFileName(BagContext.ChecksumAlgorithm)}:{item.FilePath}";
 
                 if ((fetch == null ||
                     !fetch.Contains(item.FilePath))
@@ -158,8 +158,8 @@ internal static class BagConsistencyChecker
                     file.Path != BagItDeclaration.FileName &&
                     file.Path != BagItInfo.FileName &&
                     file.Path != BagItFetch.FileName &&
-                    file.Path != BagItTagManifest.FileName &&
-                    file.Path != BagItPayloadManifest.FileName)
+                    file.Path != BagItTagManifest.GetFileName(BagContext.ChecksumAlgorithm) &&
+                    file.Path != BagItPayloadManifest.GetFileName(BagContext.ChecksumAlgorithm))
                 {
                     AddError(
                         $"{file.Path}",

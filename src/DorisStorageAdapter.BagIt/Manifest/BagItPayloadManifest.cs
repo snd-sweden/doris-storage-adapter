@@ -4,13 +4,15 @@ using System.Threading.Tasks;
 
 namespace DorisStorageAdapter.BagIt.Manifest;
 
-public sealed class BagItPayloadManifest : BagItManifest<BagItPayloadManifest>, IBagItElement<BagItPayloadManifest>
+public sealed class BagItPayloadManifest(ChecksumAlgorithm algorithm) 
+    : BagItManifest<BagItPayloadManifest>(algorithm)
 {
-    public static BagItPayloadManifest CreateEmpty() => new();
-
-    public static string FileName => "manifest-sha256.txt";
+    public static string GetFileName(ChecksumAlgorithm algorithm) =>
+       BuildFileName("manifest", algorithm);
 
     public static Task<BagItPayloadManifest> ParseAsync(
-        Stream stream, CancellationToken cancellationToken) =>
-        ParseCoreAsync(stream, cancellationToken);
+        Stream stream,
+        ChecksumAlgorithm algorithm,
+        CancellationToken cancellationToken) =>
+        ParseCoreAsync(stream, new(algorithm), cancellationToken);
 }

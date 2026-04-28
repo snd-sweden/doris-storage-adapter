@@ -5,21 +5,16 @@ using System.Threading.Tasks;
 
 namespace DorisStorageAdapter.BagIt;
 
-public sealed class BagItDeclaration : IBagItElement<BagItDeclaration>
+public sealed class BagItDeclaration : IBagItElement
 {
     private static readonly byte[] _contents = Encoding.UTF8.GetBytes(
         "BagIt-Version: 1.0\nTag-File-Character-Encoding: UTF-8\n");
 
-    private static readonly BagItDeclaration _instance = new();
+    public const string FileName = "bagit.txt";
 
     private BagItDeclaration() { }
 
-    public static BagItDeclaration CreateEmpty() => _instance;
-
-    public static string FileName => "bagit.txt";
-
-    public static Task<BagItDeclaration> ParseAsync(Stream stream, CancellationToken cancellationToken) => 
-        Task.FromResult(_instance);
+    public static BagItDeclaration Instance { get; } = new();
 
     public bool HasValues() => true;
 

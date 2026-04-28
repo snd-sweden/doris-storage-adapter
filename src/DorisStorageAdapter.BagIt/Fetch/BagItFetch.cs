@@ -10,9 +10,11 @@ using System.Threading.Tasks;
 
 namespace DorisStorageAdapter.BagIt.Fetch;
 
-public sealed class BagItFetch : IBagItElement<BagItFetch>
+public sealed class BagItFetch : IBagItElement
 {
     private readonly SortedDictionary<string, BagItFetchItem> _items = [];
+
+    public const string FileName = "fetch.txt";
 
     public IEnumerable<BagItFetchItem> Items => _items.Values;
 
@@ -37,10 +39,6 @@ public sealed class BagItFetch : IBagItElement<BagItFetch>
 
     public bool TryGetItem(string filePath, [NotNullWhen(true)] out BagItFetchItem? item) =>
         _items.TryGetValue(filePath, out item);
-
-    public static BagItFetch CreateEmpty() => new();
-
-    public static string FileName => "fetch.txt";
 
     public bool HasValues() => Items.Any();
 

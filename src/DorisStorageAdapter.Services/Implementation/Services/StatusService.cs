@@ -31,7 +31,7 @@ internal sealed class StatusService(
     private readonly SystemConfiguration _systemConfiguration = systemConfiguration.Value;
 
     private static readonly Checksum _bagItSha256 = 
-        new(SHA256.HashData(BagItDeclaration.CreateEmpty().Serialize()));
+        new(BagContext.ChecksumAlgorithm, SHA256.HashData(BagItDeclaration.Instance.Serialize()));
 
     public async Task PublishAsync(
         DatasetVersion datasetVersion,
@@ -68,7 +68,7 @@ internal sealed class StatusService(
             return;
         }
 
-        var fetch = await bagContext.LoadBagItElementWithChecksumAsync<BagItFetch>(cancellationToken);
+        var fetch = await bagContext.LoadFetchWithChecksumAsync(cancellationToken);
 
         var payloadFilePaths = new HashSet<string>();
         long octetCount = 0;
@@ -79,7 +79,7 @@ internal sealed class StatusService(
             octetCount += file.Size;
         }
 
-        foreach (var item in fetch?.BagItElement?.Items ?? [])
+        foreach (var item in fetch?.Fetch?.Items ?? [])
         {
             if (item.Length != null)
             {
@@ -88,14 +88,14 @@ internal sealed class StatusService(
         }
 
         var payloadManifest = await bagContext
-            .LoadBagItElementWithChecksumAsync<BagItPayloadManifest>(cancellationToken);
+            .LoadPayloadManifestWithChecksumAsync(cancellationToken);
 
         var errors = await BagConsistencyChecker.CheckAsync(
             _bagContextFactory,
             bagContext,
             payloadFilePaths,
-            fetch?.BagItElement,
-            payloadManifest?.BagItElement,
+            fetch?.Fetch,
+            payloadManifest?.Manifest,
             cancellationToken);
 
         if (errors.Any())
@@ -110,30 +110,30 @@ internal sealed class StatusService(
             BagSize = ByteSize.FromBytes(octetCount).ToBinaryString(CultureInfo.InvariantCulture),
             ExternalIdentifier = [doi],
             InternalSenderIdentifier = [datasetVersion.Identifier + '-' + datasetVersion.Version],
-            PayloadOxum = new(octetCount, payloadManifest?.BagItElement?.Items?.LongCount() ?? 0),
+            PayloadOxum = new(octetCount, payloadManifest?.Manifest?.Items?.LongCount() ?? 0),
         };
 
         bagInfo.SetAccessRight(accessRight);
         bagInfo.SetDatasetVersionStatus(DatasetVersionStatus.Published);
         bagInfo.SetVersion(datasetVersion.Version);
 
-        byte[] bagInfoContents = await bagContext.StoreBagItElementAsync(bagInfo, cancellationToken);
+        byte[] bagInfoContents = await bagContext.StoreInfoAsync(bagInfo, cancellationToken);
 
         // Add bagit.txt, bag-info.txt and manifest-sha256.txt to tagmanifest-sha256.txt.
-        var tagManifest = await bagContext.LoadBagItElementAsync<BagItTagManifest>(CancellationToken.None);
+        var tagManifest = await bagContext.LoadTagManifestAsync(CancellationToken.None);
         tagManifest.AddOrUpdateItem(new(BagItDeclaration.FileName, _bagItSha256));
-        tagManifest.AddOrUpdateItem(new(BagItInfo.FileName, new(SHA256.HashData(bagInfoContents))));
+        tagManifest.AddOrUpdateItem(new(BagItInfo.FileName, new(BagContext.ChecksumAlgorithm, SHA256.HashData(bagInfoContents))));
         if (payloadManifest != null)
         {
-            tagManifest.AddOrUpdateItem(new(BagItPayloadManifest.FileName, payloadManifest.Value.Checksum));
+            tagManifest.AddOrUpdateItem(new(BagItPayloadManifest.GetFileName(BagContext.ChecksumAlgorithm), payloadManifest.Value.Checksum));
         }
         if (fetch != null)
         {
             tagManifest.AddOrUpdateItem(new(BagItFetch.FileName, fetch.Value.Checksum));
         }
 
-        await bagContext.StoreBagItElementAsync(tagManifest, CancellationToken.None);
-        await bagContext.StoreBagItElementAsync(BagItDeclaration.CreateEmpty(), CancellationToken.None);
+        await bagContext.StoreTagManifestAsync(tagManifest, CancellationToken.None);
+        await bagContext.StoreBagItDeclarationAsync(CancellationToken.None);
     }
 
     public async Task SetStatusAsync(
@@ -154,7 +154,7 @@ internal sealed class StatusService(
             throw new DatasetStatusException();
         }
 
-        var bagInfo = await bagContext.LoadBagItElementAsync<BagItInfo>(cancellationToken);
+        var bagInfo = await bagContext.LoadInfoAsync(cancellationToken);
 
         if (!bagInfo.HasValues())
         {
@@ -169,10 +169,10 @@ internal sealed class StatusService(
         }
 
         bagInfo.SetDatasetVersionStatus(status);
-        byte[] bagInfoContents = await bagContext.StoreBagItElementAsync(bagInfo, cancellationToken);
+        byte[] bagInfoContents = await bagContext.StoreInfoAsync(bagInfo, cancellationToken);
 
-        var tagManifest = await bagContext.LoadBagItElementAsync<BagItTagManifest>(CancellationToken.None);
-        tagManifest.AddOrUpdateItem(new(BagItInfo.FileName, new(SHA256.HashData(bagInfoContents))));
-        await bagContext.StoreBagItElementAsync(tagManifest, CancellationToken.None);
+        var tagManifest = await bagContext.LoadTagManifestAsync(CancellationToken.None);
+        tagManifest.AddOrUpdateItem(new(BagItInfo.FileName, new(BagContext.ChecksumAlgorithm, SHA256.HashData(bagInfoContents))));
+        await bagContext.StoreTagManifestAsync(tagManifest, CancellationToken.None);
     }
 }

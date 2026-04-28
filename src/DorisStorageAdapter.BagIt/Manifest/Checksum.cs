@@ -7,32 +7,29 @@ namespace DorisStorageAdapter.BagIt.Manifest;
 public sealed class Checksum : IEquatable<Checksum>
 {
     private readonly byte[] _bytes;
-    private readonly string _hexString;
 
-    public Checksum(byte[] bytes)
+    public Checksum(ChecksumAlgorithm algorithm, byte[] bytes)
     {
         ArgumentNullException.ThrowIfNull(bytes);
 
-        if (bytes.Length != 32)
-        {
-            throw new ArgumentException(
-                $"SHA-256 checksum must be 32 bytes, but was {bytes.Length}.");
-        }
+        ThrowIfInvalidLength(algorithm, bytes.Length);
 
+        Algorithm = algorithm;
         _bytes = bytes;
-        _hexString = Convert.ToHexStringLower(bytes);
+        HexString = Convert.ToHexStringLower(bytes);
     }
+
+    public ChecksumAlgorithm Algorithm { get; }
 
     public ReadOnlyMemory<byte> Bytes => _bytes;
 
-    public string HexString => _hexString;
+    public string HexString { get; }
 
-    public static Checksum ParseHexString(string hex)
+    public static Checksum ParseHexString(ChecksumAlgorithm algorithm, string hex)
     {
         ArgumentException.ThrowIfNullOrEmpty(hex);
 
         byte[] bytes;
-
         try
         {
             bytes = Convert.FromHexString(hex);
@@ -42,7 +39,7 @@ public sealed class Checksum : IEquatable<Checksum>
             throw new FormatException("Invalid checksum hex string.", ex);
         }
 
-        return new Checksum(bytes);
+        return new Checksum(algorithm, bytes);
     }
 
     public bool Equals(Checksum? other)
@@ -57,7 +54,9 @@ public sealed class Checksum : IEquatable<Checksum>
             return true;
         }
 
-        return _bytes.AsSpan().SequenceEqual(other._bytes);
+        return 
+            Algorithm == other.Algorithm && 
+            _bytes.AsSpan().SequenceEqual(other._bytes);
     }
 
     public override bool Equals(object? obj) => Equals(obj as Checksum);
@@ -65,6 +64,7 @@ public sealed class Checksum : IEquatable<Checksum>
     public override int GetHashCode()
     {
         var hash = new HashCode();
+        hash.Add(Algorithm);
         hash.AddBytes(_bytes);
         return hash.ToHashCode();
     }
@@ -74,4 +74,20 @@ public sealed class Checksum : IEquatable<Checksum>
 
     public static bool operator !=(Checksum? left, Checksum? right) =>
         !(left == right);
+
+    private static void ThrowIfInvalidLength(ChecksumAlgorithm algorithm, int length)
+    {
+        int expectedLength = algorithm switch
+        {
+            ChecksumAlgorithm.Sha256 => 32,
+            ChecksumAlgorithm.Sha512 => 64,
+            _ => throw new ArgumentOutOfRangeException(nameof(algorithm), algorithm, "Unsupported checksum algorithm.")
+        };
+
+        if (length != expectedLength)
+        {
+            throw new ArgumentException(
+                $"Checksum length {length} does not match algorithm {algorithm}. Expected {expectedLength} bytes.");
+        }
+    }
 }

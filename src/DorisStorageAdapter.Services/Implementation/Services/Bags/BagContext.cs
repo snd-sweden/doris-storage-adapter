@@ -1,5 +1,6 @@
 ﻿using DorisStorageAdapter.BagIt;
 using DorisStorageAdapter.BagIt.Fetch;
+using DorisStorageAdapter.BagIt.Info;
 using DorisStorageAdapter.BagIt.Manifest;
 using DorisStorageAdapter.Services.Contract.Exceptions;
 using DorisStorageAdapter.Services.Contract.Models;
@@ -21,6 +22,8 @@ internal sealed class BagContext
     private readonly string _groupStoragePath;
     private readonly string _versionPath;
 
+    public const ChecksumAlgorithm ChecksumAlgorithm = ChecksumAlgorithm.Sha256;
+
     public BagContext(string storagePath, IStorageProvider storageProvider)
     {
         StoragePath = storagePath;
@@ -33,48 +36,176 @@ internal sealed class BagContext
 
     public string StoragePath { get; }
 
-    public async Task<T> LoadBagItElementAsync<T>(CancellationToken cancellationToken)
-        where T : IBagItElement<T>
+    public async Task<BagItFetch> LoadFetchAsync(CancellationToken cancellationToken)
     {
-        var fileData = await GetFileDataAsync(T.FileName, null, cancellationToken);
+        var (result, _) = await LoadBagItElementAsync(
+            BagItFetch.FileName,
+            BagItFetch.ParseAsync,
+            ThrowIfInvalidFetch,
+            false,
+            cancellationToken);
 
-        if (fileData == null)
-        {
-            return T.CreateEmpty();
-        }
-
-        await using var stream = fileData.Stream;
-        var result = await ParseBagItElementOrThrow<T>(stream, cancellationToken);
-
-        ValidateBagItElementOrThrow(result);
-
-        return result;
+        return result ?? new();
     }
 
-    public async Task<(T BagItElement, Checksum Checksum)?> LoadBagItElementWithChecksumAsync<T>(
+    public async Task<BagItInfo> LoadInfoAsync(CancellationToken cancellationToken)
+    {
+        var (result, _) = await LoadBagItElementAsync(
+            BagItInfo.FileName,
+            BagItInfo.ParseAsync,
+            null,
+            false,
+            cancellationToken);
+
+        return result ?? new();
+    }
+
+    public async Task<BagItPayloadManifest> LoadPayloadManifestAsync(CancellationToken cancellationToken)
+    {
+        var (result, _) = await LoadBagItElementAsync(
+           BagItPayloadManifest.GetFileName(ChecksumAlgorithm),
+           ParsePayloadManifestAsync,
+           ThrowIfInvalidPayloadManifest,
+           false,
+           cancellationToken);
+
+        return result ?? new(ChecksumAlgorithm);
+    }
+
+    public async Task<BagItTagManifest> LoadTagManifestAsync(CancellationToken cancellationToken)
+    {
+        var (result, _) = await LoadBagItElementAsync(
+            BagItTagManifest.GetFileName(ChecksumAlgorithm),
+            ParseTagManifestAsync,
+            ThrowIfInvalidTagManifest,
+            false,
+            cancellationToken);
+
+        return result ?? new(ChecksumAlgorithm);
+    }
+
+    private async Task<(T? Element, Checksum? Checksum)> LoadBagItElementAsync<T>(
+        string fileName,
+        Func<Stream, CancellationToken, Task<T>> parser,
+        Action<T>? validate,
+        bool withChecksum,
         CancellationToken cancellationToken)
-        where T : IBagItElement<T>
+        where T : IBagItElement
     {
-        var fileData = await GetFileDataAsync(T.FileName, null, cancellationToken);
+        var fileData = await GetFileDataAsync(fileName, null, cancellationToken);
 
         if (fileData == null)
         {
-            return null;
+            return (default, null);
         }
 
-        await using var hashStream = new CountedHashStream(fileData.Stream);
-        var result = await ParseBagItElementOrThrow<T>(hashStream, cancellationToken);
+        await using var baseStream = fileData.Stream;
 
-        ValidateBagItElementOrThrow(result);
+        await using CountedHashStream? hashStream =
+            withChecksum ? new CountedHashStream(baseStream) : null;
 
-        return (result, new(hashStream.GetHash()));
+        var stream = hashStream ?? baseStream;
+
+        T element;
+        try
+        {
+            element = await parser(stream, cancellationToken);     
+        }
+        catch (BagItParseException e)
+        {
+            throw new DatasetIntegrityException(
+                $"Error parsing BagIt file {fileName}.",
+                [new(e.Message, fileName)]);
+        }
+
+        validate?.Invoke(element);
+
+        return hashStream == null
+            ? (element, null)
+            : (element, new Checksum(ChecksumAlgorithm, hashStream.GetHash()));
     }
 
-    public async Task<byte[]> StoreBagItElementAsync<T>(
-        T element, CancellationToken cancellationToken)
-        where T : IBagItElement<T>
+    private static Task<BagItPayloadManifest> ParsePayloadManifestAsync(
+        Stream stream,
+        CancellationToken cancellationToken) =>
+        BagItPayloadManifest.ParseAsync(stream, ChecksumAlgorithm, cancellationToken);
+
+    private static Task<BagItTagManifest> ParseTagManifestAsync(
+        Stream stream,
+        CancellationToken cancellationToken) =>
+        BagItTagManifest.ParseAsync(stream, ChecksumAlgorithm, cancellationToken);
+
+
+    public Task<(BagItFetch Fetch, Checksum Checksum)?> LoadFetchWithChecksumAsync(
+        CancellationToken cancellationToken) =>
+        LoadBagItElementWithChecksumAsync(
+            BagItFetch.FileName,
+            BagItFetch.ParseAsync,
+            ThrowIfInvalidFetch,
+            cancellationToken);
+
+    public Task<(BagItInfo Info, Checksum Checksum)?> LoadInfohWithChecksumAsync(
+        CancellationToken cancellationToken) =>
+        LoadBagItElementWithChecksumAsync(
+            BagItInfo.FileName,
+            BagItInfo.ParseAsync,
+            null,
+            cancellationToken);
+
+    public Task<(BagItPayloadManifest Manifest, Checksum Checksum)?> LoadPayloadManifestWithChecksumAsync(
+        CancellationToken cancellationToken) =>
+        LoadBagItElementWithChecksumAsync(
+            BagItPayloadManifest.GetFileName(ChecksumAlgorithm),
+            ParsePayloadManifestAsync,
+            ThrowIfInvalidPayloadManifest,
+            cancellationToken);
+
+    private async Task<(T Element, Checksum Checksum)?> LoadBagItElementWithChecksumAsync<T>(
+        string fileName,
+        Func<Stream, CancellationToken, Task<T>> parser,
+        Action<T>? validate,
+        CancellationToken cancellationToken)
+        where T : IBagItElement
     {
-        string storagePath = ToStoragePath(T.FileName);
+        var (element, checksum) = await LoadBagItElementAsync(
+            fileName,
+            parser,
+            validate,
+            withChecksum: true,
+            cancellationToken);
+
+        return element == null
+            ? null
+            : (element, checksum ?? throw new InvalidOperationException(
+                "Checksum was not calculated."));
+    }
+
+    public Task<byte[]> StoreFetchAsync(
+        BagItFetch fetch, CancellationToken cancellationToken) =>
+        StoreBagItElementAsync(fetch, BagItFetch.FileName, cancellationToken);
+
+    public Task<byte[]> StoreInfoAsync(
+        BagItInfo info, CancellationToken cancellationToken) =>
+        StoreBagItElementAsync(info, BagItInfo.FileName, cancellationToken);
+
+    public Task<byte[]> StoreBagItDeclarationAsync(
+        CancellationToken cancellationToken) =>
+        StoreBagItElementAsync(BagItDeclaration.Instance, BagItDeclaration.FileName, cancellationToken);
+
+    public Task<byte[]> StorePayloadManifestAsync(
+        BagItPayloadManifest manifest, CancellationToken cancellationToken) =>
+        StoreBagItElementAsync(manifest, BagItPayloadManifest.GetFileName(ChecksumAlgorithm), cancellationToken);
+
+    public Task<byte[]> StoreTagManifestAsync(
+       BagItTagManifest manifest, CancellationToken cancellationToken) =>
+       StoreBagItElementAsync(manifest, BagItTagManifest.GetFileName(ChecksumAlgorithm), cancellationToken);
+
+
+    private async Task<byte[]> StoreBagItElementAsync<T>(
+        T element, string fileName, CancellationToken cancellationToken)
+        where T : IBagItElement
+    {
+        string storagePath = ToStoragePath(fileName);
 
         if (element.HasValues())
         {
@@ -231,40 +362,6 @@ internal sealed class BagContext
             UrlEncodePath(otherBag.StoragePath[_groupStoragePath.Length..]) +
             UrlEncodePath(pathInBag);
 
-    private static async Task<T> ParseBagItElementOrThrow<T>(Stream stream, CancellationToken cancellationToken)
-         where T : IBagItElement<T>
-    {
-        try
-        {
-            return await T.ParseAsync(stream, cancellationToken);
-        }
-        catch (BagItParseException e)
-        {
-            throw new DatasetIntegrityException(
-                $"Error parsing BagIt file {T.FileName}.", 
-                    [new(e.Message, T.FileName)]);
-        }
-    }
-
-    private void ValidateBagItElementOrThrow<T>(T element)
-        where T : IBagItElement<T>
-    {
-        switch (element)
-        {
-            case BagItPayloadManifest payloadManifest:
-                ThrowIfInvalidPayloadManifest(payloadManifest);
-                break;
-
-            case BagItTagManifest tagManifest:
-                ThrowIfInvalidTagManifest(tagManifest);
-                break;
-
-            case BagItFetch fetch:
-                ThrowIfInvalidFetch(fetch);
-                break;
-        }
-    }
-
     private static string UrlEncodePath(string path) =>
         string.Join('/', path.Split('/').Select(Uri.EscapeDataString));
 
@@ -288,7 +385,7 @@ internal sealed class BagContext
     {
         foreach (var item in manifest.Items)
         {
-            ThrowIfInvalidFilePath(BagItPayloadManifest.FileName, item.FilePath, true);
+            ThrowIfInvalidFilePath(BagItPayloadManifest.GetFileName(ChecksumAlgorithm), item.FilePath, true);
         }
     }
 
@@ -296,7 +393,7 @@ internal sealed class BagContext
     {
         foreach (var item in manifest.Items)
         {
-            ThrowIfInvalidFilePath(BagItTagManifest.FileName, item.FilePath, false);
+            ThrowIfInvalidFilePath(BagItTagManifest.GetFileName(ChecksumAlgorithm), item.FilePath, false);
         }
     }
 
