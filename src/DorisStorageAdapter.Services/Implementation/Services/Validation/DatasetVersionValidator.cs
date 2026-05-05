@@ -15,36 +15,32 @@ internal sealed class DatasetVersionValidator(
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
 
-        ValidatePart(datasetVersion.Identifier);
-        ValidatePart(datasetVersion.Version);
-        ValidateTenant(datasetVersion.TenantId);
+        if (!IsValid(datasetVersion))
+        {
+            throw new ValidationException(
+                [new(Message: "Invalid dataset version or tenant id.")]);
+        }
     }
 
-    private void ValidateTenant(string? tenantId)
+    public bool IsValid(DatasetVersion datasetVersion)
+    {
+        ArgumentNullException.ThrowIfNull(datasetVersion);
+
+        return
+            PathValidation.IsValidComponent(datasetVersion.Identifier) &&
+            PathValidation.IsValidComponent(datasetVersion.Version) &&
+            IsValidTenant(datasetVersion.TenantId);
+    }
+
+    private bool IsValidTenant(string? tenantId)
     {
         if (_configuration.EnableTenancy)
         {
-            if (string.IsNullOrWhiteSpace(tenantId))
-            {
-                throw new ValidationException([new(
-                    Message: "Tenant id is required when tenancy is enabled.")]);
-            }
+            return
+                !string.IsNullOrWhiteSpace(tenantId) &&
+                PathValidation.IsValidComponent(tenantId);
+        }
 
-            ValidatePart(tenantId);
-        }
-        else if (tenantId is not null)
-        {
-            throw new ValidationException([new(
-                Message: "Tenant id is not supported when tenancy is disabled.")]);
-        }
-    }
-
-    private static void ValidatePart(string value)
-    {
-        if (!PathValidation.IsValidComponent(value))
-        {
-            throw new ValidationException([new(
-                Message: "Invalid dataset version.")]);
-        }
+        return tenantId is null;
     }
 }

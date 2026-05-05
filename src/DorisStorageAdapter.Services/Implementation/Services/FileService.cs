@@ -245,8 +245,16 @@ internal sealed class FileService(
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
         ArgumentException.ThrowIfNullOrEmpty(filePath);
-        _datasetVersionValidator.ThrowIfInvalid(datasetVersion);
-        ThrowIfInvalidFilePath(filePath);
+
+        if (!IsValidFilePath(filePath))
+        {
+            return null;
+        }
+
+        if (!_datasetVersionValidator.IsValid(datasetVersion))
+        {
+            return null;
+        }
 
         var bagContext = _bagContextFactory.Create(datasetVersion);
 
@@ -359,7 +367,11 @@ internal sealed class FileService(
         ArgumentNullException.ThrowIfNull(datasetVersion);
         ArgumentNullException.ThrowIfNull(paths);
         ArgumentNullException.ThrowIfNull(stream);
-        _datasetVersionValidator.ThrowIfInvalid(datasetVersion);
+
+        if (!_datasetVersionValidator.IsValid(datasetVersion))
+        {
+            return;
+        }
 
         var bagContext = _bagContextFactory.Create(datasetVersion);
 
@@ -434,11 +446,14 @@ internal sealed class FileService(
         }
     }
 
+    private static bool IsValidFilePath(string filePath) =>
+        PathValidation.HasOnlyValidComponents(filePath);
+
     private static void ThrowIfInvalidFilePath(
         string filePath,
         [CallerArgumentExpression(nameof(filePath))] string? paramName = null)
     {
-        if (!PathValidation.HasOnlyValidComponents(filePath))
+        if (!IsValidFilePath(filePath))
         {
             throw new ValidationException([new(
                 Target: paramName,
