@@ -1,26 +1,46 @@
 ﻿using DorisStorageAdapter.Services.Contract.Exceptions;
 using DorisStorageAdapter.Services.Contract.Models;
-using System.Runtime.CompilerServices;
+using DorisStorageAdapter.Services.Implementation.Configuration;
+using Microsoft.Extensions.Options;
+using System;
 
 namespace DorisStorageAdapter.Services.Implementation.Services.Validation;
 
-internal static class DatasetVersionValidator
+internal sealed class DatasetVersionValidator(
+    IOptions<SystemConfiguration> configuration)
 {
-    public static void ThrowIfInvalid(
-        DatasetVersion datasetVersion,
-        [CallerArgumentExpression(nameof(datasetVersion))] string? paramName = null)
+    private readonly SystemConfiguration _configuration = configuration.Value;
+
+    public void ThrowIfInvalid(DatasetVersion datasetVersion)
     {
-        ValidatePart(datasetVersion.Identifier, paramName);
-        ValidatePart(datasetVersion.Version, paramName);
+        ArgumentNullException.ThrowIfNull(datasetVersion);
+
+        if (!IsValid(datasetVersion))
+        {
+            throw new ValidationException(
+                [new(Message: "Invalid dataset version or tenant id.")]);
+        }
     }
 
-    private static void ValidatePart(string value, string? paramName)
+    public bool IsValid(DatasetVersion datasetVersion)
     {
-        if (!PathValidation.IsValidComponent(value))
+        ArgumentNullException.ThrowIfNull(datasetVersion);
+
+        return
+            PathValidation.IsValidComponent(datasetVersion.Identifier) &&
+            PathValidation.IsValidComponent(datasetVersion.Version) &&
+            IsValidTenant(datasetVersion.TenantId);
+    }
+
+    private bool IsValidTenant(string? tenantId)
+    {
+        if (_configuration.EnableTenancy)
         {
-            throw new ValidationException([new(
-                Target: paramName,
-                Message: "Invalid dataset version.")]);
+            return
+                !string.IsNullOrWhiteSpace(tenantId) &&
+                PathValidation.IsValidComponent(tenantId);
         }
+
+        return tenantId is null;
     }
 }

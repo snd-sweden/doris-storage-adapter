@@ -1,8 +1,9 @@
 ﻿using DorisStorageAdapter.Common;
+using DorisStorageAdapter.Server.Authorization;
 using DorisStorageAdapter.Server.Configuration;
 using DorisStorageAdapter.Server.Controllers.Attributes;
-using DorisStorageAdapter.Server.Controllers.Authorization;
 using DorisStorageAdapter.Server.Controllers.Models.Responses;
+using DorisStorageAdapter.Server.Tenancy;
 using DorisStorageAdapter.Services.Contract;
 using DorisStorageAdapter.Services.Contract.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -23,7 +24,8 @@ namespace DorisStorageAdapter.Server.Controllers;
 
 public sealed class DownloadsController(
     IFileService fileService,
-    IOptions<SecurityConfiguration> securityConfiguration) : BaseController
+    IOptions<SecurityConfiguration> securityConfiguration,
+    ITenantResolver tenantResolver) : BaseController(tenantResolver)
 {
     private readonly IFileService _fileService = fileService;
     private readonly SecurityConfiguration _securityConfiguration = securityConfiguration.Value;
@@ -53,7 +55,7 @@ public sealed class DownloadsController(
             return TypedResults.Forbid();
         }
 
-        var datasetVersion = new DatasetVersion(identifier, version);
+        var datasetVersion = CreateDatasetVersion(identifier, version);
 
         if (!CheckClaims(datasetVersion))
         {
@@ -88,7 +90,7 @@ public sealed class DownloadsController(
        string filePath,
        CancellationToken cancellationToken)
     {
-        var datasetVersion = new DatasetVersion(identifier, version);
+        var datasetVersion = CreateDatasetVersion(identifier, version);
 
         var result = await GetDataAsync(
             datasetVersion: datasetVersion,
@@ -122,7 +124,7 @@ public sealed class DownloadsController(
             return TypedResults.Forbid();
         }
 
-        var datasetVersion = new DatasetVersion(identifier, version);
+        var datasetVersion = CreateDatasetVersion(identifier, version);
 
         if (!CheckClaims(datasetVersion))
         {
@@ -147,7 +149,7 @@ public sealed class DownloadsController(
         [FromQuery] string[] path,
         CancellationToken cancellationToken)
     {
-        var datasetVersion = new DatasetVersion(identifier, version);
+        var datasetVersion = CreateDatasetVersion(identifier, version);
 
         return TryWriteDataAsZip(
             datasetVersion: datasetVersion,

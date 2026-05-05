@@ -10,4 +10,6 @@ internal sealed record SystemConfiguration
     [Required]
     [EnumDataType(typeof(DatasetAccessMode))]
     public required DatasetAccessMode DatasetAccessMode { get; init; }
+
+    public bool EnableTenancy { get; init; }
 }

@@ -37,5 +37,10 @@ internal static class DatasetVersionStoragePaths
     }
 
     public static string GetDatasetVersionPath(DatasetVersion datasetVersion) =>
-        GetDatasetPath(datasetVersion) + datasetVersion.Identifier + '-' + datasetVersion.Version + '/';
+        (datasetVersion.TenantId is null
+            ? ""
+            : datasetVersion.TenantId + '/') +
+        GetDatasetPath(datasetVersion) + 
+        datasetVersion.Identifier + '-' + 
+        datasetVersion.Version + '/';
 }

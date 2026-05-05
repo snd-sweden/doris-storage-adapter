@@ -10,6 +10,7 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - System__DatasetAccessMode=Open
+      - System__EnableTenancy=false
       - Storage__Provider=FileSystem
       - Storage__FileSystem__BasePath=/tmp/doris-data
       - Security__AllowReadDraftFiles=true

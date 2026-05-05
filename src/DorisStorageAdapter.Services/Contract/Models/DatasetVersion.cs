@@ -2,4 +2,5 @@
 
 public sealed record DatasetVersion(
     string Identifier,
-    string Version);
+    string Version,
+    string? TenantId);
