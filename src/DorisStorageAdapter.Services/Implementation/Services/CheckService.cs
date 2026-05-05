@@ -15,10 +15,12 @@ using System.Threading.Tasks;
 namespace DorisStorageAdapter.Services.Implementation.Services;
 
 internal sealed class CheckService(
+    DatasetVersionValidator datasetVersionValidator,
     DatasetVersionLocks datasetVersionLocks,
     BagContextFactory bagContextFactory) : ICheckService
 {
     private readonly DatasetVersionLocks _datasetVersionLocks = datasetVersionLocks;
+    private readonly DatasetVersionValidator _datasetVersionValidator = datasetVersionValidator;
     private readonly BagContextFactory _bagContextFactory = bagContextFactory;
 
     public async Task<IReadOnlyList<ErrorItem>> CheckConsistencyAsync(
@@ -26,7 +28,7 @@ internal sealed class CheckService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
-        DatasetVersionValidator.ThrowIfInvalid(datasetVersion);
+        _datasetVersionValidator.ThrowIfInvalid(datasetVersion);
 
         await using var datasetVersionLock = await _datasetVersionLocks
             .AcquireExclusiveLockOrThrowAsync(datasetVersion, cancellationToken);

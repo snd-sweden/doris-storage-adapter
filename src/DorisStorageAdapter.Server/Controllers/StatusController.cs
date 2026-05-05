@@ -1,6 +1,7 @@
-﻿using DorisStorageAdapter.Server.Controllers.Authorization;
+﻿using DorisStorageAdapter.Server.Authorization;
 using DorisStorageAdapter.Server.Controllers.Models.Requests;
 using DorisStorageAdapter.Server.Controllers.Models.Responses;
+using DorisStorageAdapter.Server.Tenancy;
 using DorisStorageAdapter.Services.Contract;
 using DorisStorageAdapter.Services.Contract.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -13,7 +14,9 @@ using System.Threading.Tasks;
 
 namespace DorisStorageAdapter.Server.Controllers;
 
-public sealed class StatusController(IStatusService statusService) : BaseController
+public sealed class StatusController(
+    IStatusService statusService,
+    ITenantResolver tenantResolver) : BaseController(tenantResolver)
 {
     private readonly IStatusService _statusService = statusService;
 
@@ -36,7 +39,7 @@ public sealed class StatusController(IStatusService statusService) : BaseControl
             return TypedResults.BadRequest();
         }
 
-        var datasetVersion = new DatasetVersion(identifier, version);
+        var datasetVersion = CreateDatasetVersion(identifier, version);
 
         if (!CheckClaims(datasetVersion))
         {
@@ -72,7 +75,7 @@ public sealed class StatusController(IStatusService statusService) : BaseControl
             return TypedResults.BadRequest();
         }
 
-        var datasetVersion = new DatasetVersion(identifier, version);
+        var datasetVersion = CreateDatasetVersion(identifier, version);
 
         if (!CheckClaims(datasetVersion))
         {

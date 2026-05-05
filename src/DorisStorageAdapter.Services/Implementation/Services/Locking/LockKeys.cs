@@ -8,15 +8,22 @@ namespace DorisStorageAdapter.Services.Implementation.Services.Locking;
 internal static class LockKeys
 {
     public static string BagStructure(DatasetVersion datasetVersion) =>
-        $"bag-structure:{datasetVersion.Identifier}:{datasetVersion.Version}";
+        $"bag-structure:{DatasetVersionKey(datasetVersion)}";
 
     public static string DatasetVersion(DatasetVersion datasetVersion) =>
-        $"dataset-version:{datasetVersion.Identifier}:{datasetVersion.Version}";
+        $"dataset-version:{DatasetVersionKey(datasetVersion)}";
 
     public static string DatasetVersionFile(DatasetVersion datasetVersion, string filePath) =>
-        $"dataset-version-file:{datasetVersion.Identifier}:{datasetVersion.Version}:{Hash(filePath)}";
+        $"dataset-version-file:{DatasetVersionKey(datasetVersion)}:{Hash(filePath)}";
 
     public static string Storage => "storage";
+
+    private static string DatasetVersionKey(DatasetVersion datasetVersion) =>
+        (datasetVersion.TenantId is null 
+            ? "" : 
+            datasetVersion.TenantId + ':'
+        ) +
+        $"{datasetVersion.Identifier}:{datasetVersion.Version}";
 
     private static string Hash(string value)
     {

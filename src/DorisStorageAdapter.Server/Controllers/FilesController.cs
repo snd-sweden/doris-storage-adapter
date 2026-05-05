@@ -1,12 +1,15 @@
-using DorisStorageAdapter.Server.Controllers.Authorization;
+using DorisStorageAdapter.Server.Authorization;
+using DorisStorageAdapter.Server.Configuration;
 using DorisStorageAdapter.Server.Controllers.Models.Requests;
 using DorisStorageAdapter.Server.Controllers.Models.Responses;
+using DorisStorageAdapter.Server.Tenancy;
 using DorisStorageAdapter.Services.Contract;
 using DorisStorageAdapter.Services.Contract.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Mime;
@@ -16,7 +19,8 @@ using System.Threading.Tasks;
 namespace DorisStorageAdapter.Server.Controllers;
 
 public sealed class FilesController(
-    IFileService fileService) : BaseController
+    IFileService fileService,
+    ITenantResolver tenantResolver) : BaseController(tenantResolver)
 {
     private readonly IFileService _fileService = fileService;
 
@@ -37,8 +41,8 @@ public sealed class FilesController(
         {
             return TypedResults.BadRequest();
         }
-           
-        var datasetVersion = new DatasetVersion(identifier, version);
+
+        var datasetVersion = CreateDatasetVersion(identifier, version);
 
         if (!CheckClaims(datasetVersion))
         {
@@ -64,7 +68,7 @@ public sealed class FilesController(
         string version,
         CancellationToken cancellationToken)
     {
-        var datasetVersion = new DatasetVersion(identifier, version);
+        var datasetVersion = CreateDatasetVersion(identifier, version);
 
         if (!CheckClaims(datasetVersion))
         {

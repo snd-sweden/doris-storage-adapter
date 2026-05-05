@@ -5,6 +5,7 @@ using DorisStorageAdapter.Services.Implementation.Locking.InProcess;
 using DorisStorageAdapter.Services.Implementation.Services;
 using DorisStorageAdapter.Services.Implementation.Services.Bags;
 using DorisStorageAdapter.Services.Implementation.Services.Locking;
+using DorisStorageAdapter.Services.Implementation.Services.Validation;
 using DorisStorageAdapter.Services.Implementation.Storage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,6 +31,7 @@ public static class ServiceCollectionExtensions
 
         services.AddTransient<BagContextFactory>();
         services.AddSingleton<DatasetVersionLocks>();
+        services.AddSingleton<DatasetVersionValidator>();
         services.AddSingleton<IStorageLockProvider, StorageLockProvider>();
         services.AddTransient<ICheckService, CheckService>();
         services.AddTransient<IFileService, FileService>();
