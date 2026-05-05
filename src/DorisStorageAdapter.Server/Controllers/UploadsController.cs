@@ -3,7 +3,6 @@ using DorisStorageAdapter.Server.Controllers.Attributes;
 using DorisStorageAdapter.Server.Controllers.Models.Responses;
 using DorisStorageAdapter.Server.Tenancy;
 using DorisStorageAdapter.Services.Contract;
-using DorisStorageAdapter.Services.Contract.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Http;
