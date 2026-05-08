@@ -16,7 +16,7 @@ internal static class LockKeys
     public static string DatasetVersionFile(DatasetVersion datasetVersion, string filePath) =>
         $"dataset-version-file:{datasetVersion.Identifier}:{datasetVersion.Version}:{Hash(filePath)}";
 
-    public static string Storage => "storage";
+    public static string Storage(string name) => $"storage:{name}";
 
     private static string Hash(string value)
     {

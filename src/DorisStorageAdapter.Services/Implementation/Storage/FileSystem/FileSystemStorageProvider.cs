@@ -68,7 +68,7 @@ internal sealed class FileSystemStorageProvider(
                 await data.CopyToAsync(stream, cancellationToken);
             }
 
-            await using (await _lockProvider.AcquireAsync(cancellationToken))
+            await using (await AcquireDirectoryLockAsync(directoryPath, cancellationToken))
             {
                 Directory.CreateDirectory(directoryPath);
                 File.Move(tempFile, filePath, true);
@@ -323,10 +323,39 @@ internal sealed class FileSystemStorageProvider(
             Path: NormalizePath(Path.GetRelativePath(_basePath, file.FullName)),
             Size: file.Length);
 
+    /// <summary>
+    /// Returns the root directory of the given directory path
+    /// to be used as lock name when creating/deleting directories.
+    /// </summary>
+    /// <param name="directoryPath">The directory path to get lock name for.</param>
+    /// <returns>The lock name (the root directory).</returns>
+    private string GetDirectoryLockName(string directoryPath)
+    {
+        string relativePath = NormalizePath(Path.GetRelativePath(_basePath, directoryPath));
+
+        if (relativePath == ".")
+        {
+            return "/";
+        }
+
+        int slashIndex = relativePath.IndexOf('/', StringComparison.Ordinal);
+
+        if (slashIndex >= 0)
+        {
+            return "/" + relativePath[..slashIndex];
+        }
+
+        return "/" + relativePath;
+    }
+
+    private ValueTask<IAsyncDisposable> AcquireDirectoryLockAsync(
+        string directoryPath, CancellationToken cancellationToken) =>
+        _lockProvider.AcquireAsync(GetDirectoryLockName(directoryPath), cancellationToken);
+
     private async Task DeleteEmptyDirectoriesAsync(
         string directoryPath, CancellationToken cancellationToken)
     {
-        await using var _ = await _lockProvider.AcquireAsync(cancellationToken);
+        await using var _ = await AcquireDirectoryLockAsync(directoryPath, cancellationToken);
 
         if (!IsUnderBasePath(directoryPath))
         {

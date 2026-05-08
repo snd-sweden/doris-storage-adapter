@@ -6,5 +6,5 @@ namespace DorisStorageAdapter.Services.Implementation.Storage;
 
 internal interface IStorageLockProvider
 {
-    ValueTask<IAsyncDisposable> AcquireAsync(CancellationToken cancellationToken);
+    ValueTask<IAsyncDisposable> AcquireAsync(string name, CancellationToken cancellationToken);
 }

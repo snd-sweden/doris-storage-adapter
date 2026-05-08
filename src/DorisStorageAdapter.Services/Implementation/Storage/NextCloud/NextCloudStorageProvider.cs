@@ -75,7 +75,7 @@ internal sealed class NextCloudStorageProvider : IStorageProvider
                     Headers = [new("X-OC-MTime", now.ToString(CultureInfo.InvariantCulture))] // Explicitly sets last modified date
                 }));
 
-                await using (await _lockProvider.AcquireAsync(cancellationToken))
+                await using (await AcquireDirectoryLockAsync(directoryUri, cancellationToken))
                 {
                     await CreateDirectoryAsync(directoryUri, cancellationToken);
 
@@ -144,7 +144,7 @@ internal sealed class NextCloudStorageProvider : IStorageProvider
 
                 now = GetNow();
 
-                await using (await _lockProvider.AcquireAsync(cancellationToken))
+                await using (await AcquireDirectoryLockAsync(directoryUri, cancellationToken))
                 {
                     await CreateDirectoryAsync(directoryUri, cancellationToken);
 
@@ -452,6 +452,37 @@ internal sealed class NextCloudStorageProvider : IStorageProvider
             response.Resources.First().IsCollection;
     }
 
+    /// <summary>
+    /// Returns the root directory of the given directory
+    /// to be used as lock name when creating/deleting directories.
+    /// </summary>
+    /// <param name="directoryUri">The directory to get lock name for.</param>
+    /// <returns>The lock name (the root directory).</returns>
+    private string GetDirectoryLockName(Uri directoryUri)
+    {
+        string relativePath =
+            _storageBaseUri.MakeRelativeUri(directoryUri).ToString();
+
+        // base/root itself
+        if (string.IsNullOrEmpty(relativePath))
+        {
+            return "/";
+        }
+
+        int slashIndex = relativePath.IndexOf('/', StringComparison.Ordinal);
+
+        if (slashIndex >= 0)
+        {
+            return "/" + relativePath[..slashIndex];
+        }
+
+        return "/" + relativePath;
+    }
+
+    private ValueTask<IAsyncDisposable> AcquireDirectoryLockAsync(
+        Uri directoryUri, CancellationToken cancellationToken) =>
+        _lockProvider.AcquireAsync(GetDirectoryLockName(directoryUri), cancellationToken);
+
     private async Task CreateDirectoryAsync(Uri directoryUri, CancellationToken cancellationToken)
     {
         var directoriesToCreate = new Stack<Uri>();
@@ -478,7 +509,7 @@ internal sealed class NextCloudStorageProvider : IStorageProvider
 
     private async Task DeleteEmptyDirectoriesAsync(Uri directoryUri, CancellationToken cancellationToken)
     {
-        await using var _ = await _lockProvider.AcquireAsync(cancellationToken);
+        await using var _ = await AcquireDirectoryLockAsync(directoryUri, cancellationToken);
 
         while (!_storageBaseUri.Equals(directoryUri))
         {

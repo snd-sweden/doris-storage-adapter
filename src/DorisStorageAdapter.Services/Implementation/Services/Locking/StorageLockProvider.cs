@@ -10,6 +10,7 @@ internal sealed class StorageLockProvider(ILockProvider lockProvider) : IStorage
 {
     private readonly ILockProvider _lockProvider = lockProvider;
 
-    public ValueTask<IAsyncDisposable> AcquireAsync(CancellationToken cancellationToken) =>
-        _lockProvider.AcquireAsync(LockKeys.Storage, cancellationToken);
+    public ValueTask<IAsyncDisposable> AcquireAsync(
+        string name, CancellationToken cancellationToken) =>
+        _lockProvider.AcquireAsync(LockKeys.Storage(name), cancellationToken);
 }
