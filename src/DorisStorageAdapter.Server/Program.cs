@@ -3,6 +3,7 @@ using DorisStorageAdapter.Server.Configuration;
 using DorisStorageAdapter.Server.Controllers;
 using DorisStorageAdapter.Server.Controllers.Attributes;
 using DorisStorageAdapter.Services;
+using DorisStorageAdapter.Services.Contract.Audit;
 using Invio.Extensions.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -54,6 +55,9 @@ builder.Services.AddProblemDetails(o =>
 });
 // Map ServiceExceptions to problem details response
 builder.Services.AddExceptionHandler<ServiceExceptionHandler>();
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<IAuditContextAccessor, AuditContextAccessor>();
 
 builder.Services.AddOpenApi(options =>
 {

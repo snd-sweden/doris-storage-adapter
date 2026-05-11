@@ -85,6 +85,18 @@
           "Microsoft.Extensions.Options": "10.0.7"
         }
       },
+      "Microsoft.Extensions.Telemetry.Abstractions": {
+        "type": "Direct",
+        "requested": "[10.5.0, )",
+        "resolved": "10.5.0",
+        "contentHash": "VmU7e6xHqoubWKl7y9MtWyQAjlDpvbds3gY8ZKMS/1GxY2+U1/aMNnMj09aOXAa3p5qhHSSkBzDJvyokCjVkPg==",
+        "dependencies": {
+          "Microsoft.Extensions.Compliance.Abstractions": "10.5.0",
+          "Microsoft.Extensions.Logging.Abstractions": "10.0.6",
+          "Microsoft.Extensions.ObjectPool": "10.0.6",
+          "Microsoft.Extensions.Options": "10.0.6"
+        }
+      },
       "MimeTypes": {
         "type": "Direct",
         "requested": "[2.5.2, )",
@@ -121,6 +133,15 @@
         "type": "Transitive",
         "resolved": "4.0.4",
         "contentHash": "RjBk1WDrOCpsSRGn6j2lYhgiyYnXEhMctwJevNnIPIIGpgj49ifbU6FmG1Dk+1M/VSuqeTQ1WVsssziTty7b2w=="
+      },
+      "Microsoft.Extensions.Compliance.Abstractions": {
+        "type": "Transitive",
+        "resolved": "10.5.0",
+        "contentHash": "xbWZji13Vb2jDJNtwVrKpI09jd8x3n3fL+GzhiLK+8O5Wc2A+GyqCZalST2fV46Pf0QfCwkXf83y+3/rDkCd7A==",
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.6",
+          "Microsoft.Extensions.ObjectPool": "10.0.6"
+        }
       },
       "Microsoft.Extensions.Configuration": {
         "type": "Transitive",
@@ -184,6 +205,11 @@
         "dependencies": {
           "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.7"
         }
+      },
+      "Microsoft.Extensions.ObjectPool": {
+        "type": "Transitive",
+        "resolved": "10.0.6",
+        "contentHash": "2Jafd4fdxxiwiQ08mcF+Lf3vqikkQZusGVThOKZNSmPDceGk4IwkjeHL7OEb9Ov8q9ICY5wofL98CS153K5VvQ=="
       },
       "Microsoft.Extensions.Primitives": {
         "type": "Transitive",

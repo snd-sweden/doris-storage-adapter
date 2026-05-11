@@ -8,6 +8,7 @@ using DorisStorageAdapter.Services.Contract.Models;
 using DorisStorageAdapter.Services.Implementation.Configuration;
 using DorisStorageAdapter.Services.Implementation.IO;
 using DorisStorageAdapter.Services.Implementation.Locking;
+using DorisStorageAdapter.Services.Implementation.Services.Audit;
 using DorisStorageAdapter.Services.Implementation.Services.Bags;
 using DorisStorageAdapter.Services.Implementation.Services.Locking;
 using DorisStorageAdapter.Services.Implementation.Services.Validation;
@@ -30,16 +31,49 @@ internal sealed class FileService(
     ILockProvider lockProvider,
     DatasetVersionLocks datasetVersionLocks,
     BagContextFactory bagContextFactory,
-    IOptions<SystemConfiguration> systemConfiguration) : IFileService
+    IOptions<SystemConfiguration> systemConfiguration,
+    AuditedOperationRunner audit) : IFileService
 {
     private readonly ILockProvider _lockProvider = lockProvider;
     private readonly DatasetVersionLocks _datasetVersionLocks = datasetVersionLocks;
     private readonly BagContextFactory _bagContextFactory = bagContextFactory;
     private readonly SystemConfiguration _systemConfiguration = systemConfiguration.Value;
+    private readonly AuditedOperationRunner _audit = audit;
 
     public const string UploadMarkerFilePrefix = "_upload-";
 
-    public async Task<FileMetadata> StoreAsync(
+
+    public Task<FileMetadata> StoreAsync(
+       DatasetVersion datasetVersion,
+       string filePath,
+       Stream data,
+       long size,
+       string? contentType,
+       CancellationToken cancellationToken)
+    {
+        return _audit.RunAsync(
+           new()
+           {
+               Action = "UploadFile",
+               DatasetVersion = datasetVersion,
+               ResourceId = filePath,
+
+               Metadata = new Dictionary<string, object?>
+               {
+                   ["FileSize"] = size
+               }
+           },
+           ct => StoreCoreAsync(
+               datasetVersion,
+               filePath,
+               data,
+               size,
+               contentType,
+               ct),
+           cancellationToken);
+    }
+
+    public async Task<FileMetadata> StoreCoreAsync(
         DatasetVersion datasetVersion,
         string filePath,
         Stream data,

@@ -65,6 +65,11 @@
           "Microsoft.IdentityModel.Protocols.OpenIdConnect": "8.0.1"
         }
       },
+      "Microsoft.Extensions.Compliance.Abstractions": {
+        "type": "Transitive",
+        "resolved": "10.5.0",
+        "contentHash": "xbWZji13Vb2jDJNtwVrKpI09jd8x3n3fL+GzhiLK+8O5Wc2A+GyqCZalST2fV46Pf0QfCwkXf83y+3/rDkCd7A=="
+      },
       "Microsoft.IdentityModel.Abstractions": {
         "type": "Transitive",
         "resolved": "8.15.0",
@@ -184,6 +189,7 @@
           "ByteSize": "[2.1.2, )",
           "DorisStorageAdapter.BagIt": "[1.0.0, )",
           "DorisStorageAdapter.Common": "[1.0.0, )",
+          "Microsoft.Extensions.Telemetry.Abstractions": "[10.5.0, )",
           "Nerdbank.Streams": "[2.13.16, )",
           "Nito.AsyncEx.Coordination": "[5.1.2, )",
           "WebDav.Client": "[2.9.0, )"
@@ -209,6 +215,15 @@
         "requested": "[2.1.2, )",
         "resolved": "2.1.2",
         "contentHash": "dSiH9B0apNU5abV3OVUs3eTfHiidEAa8IMOLGW0eEl5tB8Ba1ngkGC7RT/RGy61ifGcPzCe7DMP78KB8pA5kNg=="
+      },
+      "Microsoft.Extensions.Telemetry.Abstractions": {
+        "type": "CentralTransitive",
+        "requested": "[10.5.0, )",
+        "resolved": "10.5.0",
+        "contentHash": "VmU7e6xHqoubWKl7y9MtWyQAjlDpvbds3gY8ZKMS/1GxY2+U1/aMNnMj09aOXAa3p5qhHSSkBzDJvyokCjVkPg==",
+        "dependencies": {
+          "Microsoft.Extensions.Compliance.Abstractions": "10.5.0"
+        }
       },
       "Nerdbank.Streams": {
         "type": "CentralTransitive",

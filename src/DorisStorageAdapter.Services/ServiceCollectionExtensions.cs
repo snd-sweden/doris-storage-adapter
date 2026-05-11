@@ -3,6 +3,7 @@ using DorisStorageAdapter.Services.Implementation.Configuration;
 using DorisStorageAdapter.Services.Implementation.Locking;
 using DorisStorageAdapter.Services.Implementation.Locking.InProcess;
 using DorisStorageAdapter.Services.Implementation.Services;
+using DorisStorageAdapter.Services.Implementation.Services.Audit;
 using DorisStorageAdapter.Services.Implementation.Services.Bags;
 using DorisStorageAdapter.Services.Implementation.Services.Locking;
 using DorisStorageAdapter.Services.Implementation.Storage;
@@ -35,6 +36,9 @@ public static class ServiceCollectionExtensions
         services.AddTransient<IFileService, FileService>();
         services.AddTransient<IStatusService, StatusService>();
         services.AddSingleton<ISystemService, SystemService>();
+
+        services.AddSingleton<IAuditSink, LoggerAuditSink>();
+        services.AddSingleton<AuditedOperationRunner>();
 
         services.AddStorageProvider(configuration);
 
