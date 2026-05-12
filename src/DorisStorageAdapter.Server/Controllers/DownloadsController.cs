@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using Microsoft.Net.Http.Headers;
 using System;
 using System.IO;
 using System.Linq;
@@ -60,9 +61,9 @@ public sealed class DownloadsController(
         }
 
         var result = await GetDataAsync(
-            datasetVersion: datasetVersion, 
-            filePath: filePath, 
-            scope: FileAccessScope.Draft, 
+            datasetVersion: datasetVersion,
+            filePath: filePath,
+            scope: FileAccessScope.Draft,
             cancellationToken: cancellationToken);
 
         if (result == null)
@@ -90,9 +91,9 @@ public sealed class DownloadsController(
         var datasetVersion = new DatasetVersion(identifier, version);
 
         var result = await GetDataAsync(
-            datasetVersion: datasetVersion, 
-            filePath: filePath, 
-            scope: FileAccessScope.Public, 
+            datasetVersion: datasetVersion,
+            filePath: filePath,
+            scope: FileAccessScope.Public,
             cancellationToken: cancellationToken);
 
         if (result == null)
@@ -109,7 +110,8 @@ public sealed class DownloadsController(
     [ProducesResponseType<ErrorProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
     [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(void), StatusCodes.Status403Forbidden)]
-    public Results<PushStreamHttpResult, ForbidHttpResult> DownloadDraftFilesAsZip(
+    [ProducesResponseType(typeof(void), StatusCodes.Status404NotFound)]
+    public async Task<IResult> DownloadDraftFilesAsZip(
         string identifier,
         string version,
         [FromQuery] string[] path,
@@ -127,10 +129,10 @@ public sealed class DownloadsController(
             return TypedResults.Forbid();
         }
 
-        return WriteDataAsZip(
-            datasetVersion: datasetVersion, 
-            paths: path, 
-            scope: FileAccessScope.Draft, 
+        return await TryWriteDataAsZip(
+            datasetVersion: datasetVersion,
+            paths: path,
+            scope: FileAccessScope.Draft,
             cancellationToken: cancellationToken);
     }
 
@@ -138,7 +140,8 @@ public sealed class DownloadsController(
     [EnableCors(DownloadPublicFilesAsZipCorsPolicyName)]
     [BinaryResponseBody(StatusCodes.Status200OK, MediaTypeNames.Application.Zip)]
     [ProducesResponseType<ErrorProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
-    public Results<PushStreamHttpResult, ForbidHttpResult> DownloadPublicFilesAsZip(
+    [ProducesResponseType(typeof(void), StatusCodes.Status404NotFound)]
+    public Task<IResult> DownloadPublicFilesAsZip(
         string identifier,
         string version,
         [FromQuery] string[] path,
@@ -146,10 +149,10 @@ public sealed class DownloadsController(
     {
         var datasetVersion = new DatasetVersion(identifier, version);
 
-        return WriteDataAsZip(
-            datasetVersion: datasetVersion, 
-            paths: path, 
-            scope: FileAccessScope.Public, 
+        return TryWriteDataAsZip(
+            datasetVersion: datasetVersion,
+            paths: path,
+            scope: FileAccessScope.Public,
             cancellationToken: cancellationToken);
     }
 
@@ -236,20 +239,36 @@ public sealed class DownloadsController(
             enableRangeProcessing: true);
     }
 
-    private PushStreamHttpResult WriteDataAsZip(
+    private async Task<IResult> TryWriteDataAsZip(
         DatasetVersion datasetVersion,
         string[] paths,
         FileAccessScope scope,
         CancellationToken cancellationToken)
     {
-        return TypedResults.Stream(_ =>
-           _fileService.WriteDataAsZipAsync(
-               datasetVersion: datasetVersion,
-               paths: paths,
-               stream: Response.BodyWriter.AsStream(),
-               scope: scope,
-               cancellationToken: cancellationToken),
-           MediaTypeNames.Application.Zip,
-           datasetVersion.Identifier + '-' + datasetVersion.Version + ".zip");
+        var contentDisposition = new ContentDispositionHeaderValue("attachment");
+        contentDisposition.SetHttpFileName(
+            datasetVersion.Identifier + '-' + datasetVersion.Version + ".zip");
+        Response.Headers.ContentDisposition = contentDisposition.ToString();
+
+        Response.Headers.ContentType = MediaTypeNames.Application.Zip;
+        Response.StatusCode = StatusCodes.Status200OK;
+
+        bool success = await _fileService.TryWriteDataAsZipAsync(
+            datasetVersion: datasetVersion,
+            paths: paths,
+            stream: Response.BodyWriter.AsStream(),
+            scope: scope,
+            cancellationToken: cancellationToken);
+
+        if (!success)
+        {
+            if (!Response.HasStarted)
+            {
+                Response.Headers.Clear();
+                return TypedResults.NotFound();
+            }
+        }
+
+        return Results.Empty;
     }
 }

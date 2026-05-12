@@ -362,7 +362,7 @@ internal sealed class FileService(
         }
     }
 
-    public async Task WriteDataAsZipAsync(
+    public async Task<bool> TryWriteDataAsZipAsync(
         DatasetVersion datasetVersion,
         string[] paths,
         Stream stream,
@@ -381,7 +381,7 @@ internal sealed class FileService(
 
         if (!allowed)
         {
-            return;
+            return false;
         }
 
         static Stream CreateZipEntryStream(ZipArchive zipArchive, string path)
@@ -447,6 +447,8 @@ internal sealed class FileService(
                     cancellationToken);
             }
         }
+
+        return true;
     }
 
     private static string GetMimeType(string filePath) =>

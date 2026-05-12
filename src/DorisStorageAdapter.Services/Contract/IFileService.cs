@@ -42,7 +42,7 @@ public interface IFileService
         DatasetVersion datasetVersion,
         CancellationToken cancellationToken);
 
-    Task WriteDataAsZipAsync(
+    Task<bool> TryWriteDataAsZipAsync(
         DatasetVersion datasetVersion,
         string[] paths,
         Stream stream,
