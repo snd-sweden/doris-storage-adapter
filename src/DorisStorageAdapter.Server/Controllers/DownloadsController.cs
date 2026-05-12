@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using System;
+using System.IO;
 using System.Linq;
 using System.Net.Mime;
 using System.Threading;
@@ -58,7 +59,11 @@ public sealed class DownloadsController(
             return TypedResults.Forbid();
         }
 
-        var result = await GetDataAsync(datasetVersion, filePath, true, cancellationToken);
+        var result = await GetDataAsync(
+            datasetVersion: datasetVersion, 
+            filePath: filePath, 
+            scope: FileAccessScope.Draft, 
+            cancellationToken: cancellationToken);
 
         if (result == null)
         {
@@ -84,7 +89,11 @@ public sealed class DownloadsController(
     {
         var datasetVersion = new DatasetVersion(identifier, version);
 
-        var result = await GetDataAsync(datasetVersion, filePath, false, cancellationToken);
+        var result = await GetDataAsync(
+            datasetVersion: datasetVersion, 
+            filePath: filePath, 
+            scope: FileAccessScope.Public, 
+            cancellationToken: cancellationToken);
 
         if (result == null)
         {
@@ -118,7 +127,11 @@ public sealed class DownloadsController(
             return TypedResults.Forbid();
         }
 
-        return WriteDataAsZip(datasetVersion, path, true, cancellationToken);
+        return WriteDataAsZip(
+            datasetVersion: datasetVersion, 
+            paths: path, 
+            scope: FileAccessScope.Draft, 
+            cancellationToken: cancellationToken);
     }
 
     [HttpGet("downloads/public/{identifier}/{version}.zip")]
@@ -133,13 +146,22 @@ public sealed class DownloadsController(
     {
         var datasetVersion = new DatasetVersion(identifier, version);
 
-        return WriteDataAsZip(datasetVersion, path, false, cancellationToken);
+        return WriteDataAsZip(
+            datasetVersion: datasetVersion, 
+            paths: path, 
+            scope: FileAccessScope.Public, 
+            cancellationToken: cancellationToken);
     }
+
+    private sealed record ResponseStream(
+        Stream Stream,
+        string? ContentType,
+        long Size);
 
     private async Task<FileStreamHttpResult?> GetDataAsync(
         DatasetVersion datasetVersion,
         string filePath,
-        bool allowDraft,
+        FileAccessScope scope,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(filePath);
@@ -156,33 +178,60 @@ public sealed class DownloadsController(
             return null;
         }
 
-        var data = await _fileService.GetDataAsync(
-            datasetVersion: datasetVersion,
-            filePath: filePath,
-            isHeadRequest: Request.Method == HttpMethods.Head,
-            byteRange: ParseByteRange(),
-            allowDraft: allowDraft,
-            cancellationToken: cancellationToken);
+        ResponseStream response;
 
-        if (data == null)
+        if (HttpMethods.IsHead(Request.Method))
         {
-            return null;
+            var metadata = await _fileService.GetMetaDataAsync(
+                datasetVersion: datasetVersion,
+                filePath: filePath,
+                scope: scope,
+                cancellationToken: cancellationToken);
+
+            if (metadata is null)
+            {
+                return null;
+            }
+
+            response = new(
+                Stream.Null,
+                metadata.ContentType,
+                metadata.Size);
+        }
+        else
+        {
+            var data = await _fileService.GetDataAsync(
+                datasetVersion: datasetVersion,
+                filePath: filePath,
+                scope: scope,
+                byteRange: ParseByteRange(),
+                cancellationToken: cancellationToken);
+
+            if (data == null)
+            {
+                return null;
+            }
+
+            response = new(
+                data.Stream,
+                data.ContentType,
+                data.Size);
         }
 
         // Use a fake seekable stream here in order for TypedResults.Stream()
         // to work as intended when using byte ranges.
-        // fileData.Stream as returned from fileService.GetFileData() is already sliced
+        // fileData.Stream as returned from fileService.GetFileDataAsync() is already sliced
         // according to the given byte range, but the internal logic in TypedResults.Stream()
         // will try to seek according to the byte range. Using a FakeSeekableStream fixes
         // that by making seeking a no-op.
-        data = data with
+        response = response with
         {
-            Stream = new FakeSeekableStream(data.Stream, data.Size)
+            Stream = new FakeSeekableStream(response.Stream, response.Size)
         };
 
         return TypedResults.Stream(
-            stream: data.Stream,
-            contentType: data.ContentType,
+            stream: response.Stream,
+            contentType: response.ContentType,
             fileDownloadName: filePath.Split('/').Last(),
             enableRangeProcessing: true);
     }
@@ -190,7 +239,7 @@ public sealed class DownloadsController(
     private PushStreamHttpResult WriteDataAsZip(
         DatasetVersion datasetVersion,
         string[] paths,
-        bool allowDraft,
+        FileAccessScope scope,
         CancellationToken cancellationToken)
     {
         return TypedResults.Stream(_ =>
@@ -198,7 +247,7 @@ public sealed class DownloadsController(
                datasetVersion: datasetVersion,
                paths: paths,
                stream: Response.BodyWriter.AsStream(),
-               allowDraft: allowDraft,
+               scope: scope,
                cancellationToken: cancellationToken),
            MediaTypeNames.Application.Zip,
            datasetVersion.Identifier + '-' + datasetVersion.Version + ".zip");

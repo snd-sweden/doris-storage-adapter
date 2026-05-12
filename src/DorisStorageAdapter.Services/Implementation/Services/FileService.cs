@@ -231,9 +231,8 @@ internal sealed class FileService(
     public async Task<FileData?> GetDataAsync(
         DatasetVersion datasetVersion,
         string filePath,
-        bool isHeadRequest,
+        FileAccessScope scope,
         ByteRange? byteRange,
-        bool allowDraft,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
@@ -244,7 +243,7 @@ internal sealed class FileService(
         var bagContext = _bagContextFactory.Create(datasetVersion);
 
         bool allow = await IsReadAccessToFilesAllowedAsync(
-            bagContext, allowDraft, cancellationToken);
+            bagContext, scope, cancellationToken);
 
         if (!allow)
         {
@@ -256,31 +255,58 @@ internal sealed class FileService(
         var fetch = await bagContext.LoadBagItElementAsync<BagItFetch>(cancellationToken);
         (bagContext, pathInBag) = ResolvePath(bagContext, fetch, pathInBag);
 
-        if (isHeadRequest)
-        {
-            var metadata = await bagContext.GetFileMetadataAsync(pathInBag, cancellationToken);
+        var data = await bagContext.GetFileDataAsync(
+            pathInBag, byteRange, cancellationToken);
 
-            if (metadata != null)
-            {
-                return new(
-                    ContentType: GetMimeType(filePath),
-                    Size: metadata.Size,
-                    Stream: Stream.Null,
-                    StreamLength: 0);
-            }
+        if (data != null)
+        {
+            return new(
+                ContentType: GetMimeType(filePath),
+                Size: data.Size,
+                Stream: data.Stream,
+                StreamLength: data.StreamLength);
         }
-        else
-        {
-            var data = await bagContext.GetFileDataAsync(pathInBag, byteRange, cancellationToken);
 
-            if (data != null)
-            {
-                return new(
-                    ContentType: GetMimeType(filePath),
-                    Size: data.Size,
-                    Stream: data.Stream,
-                    StreamLength: data.StreamLength);
-            }
+        return null;
+    }
+
+    public async Task<FileMetadata?> GetMetaDataAsync(
+        DatasetVersion datasetVersion,
+        string filePath,
+        FileAccessScope scope,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(datasetVersion);
+        ArgumentException.ThrowIfNullOrEmpty(filePath);
+        DatasetVersionValidator.ThrowIfInvalid(datasetVersion);
+        ThrowIfInvalidFilePath(filePath);
+
+        var bagContext = _bagContextFactory.Create(datasetVersion);
+
+        bool allow = await IsReadAccessToFilesAllowedAsync(
+            bagContext, scope, cancellationToken);
+
+        if (!allow)
+        {
+            return null;
+        }
+
+        string pathInBag = BagPathLayout.ToPathInBag(filePath);
+
+        var fetch = await bagContext.LoadBagItElementAsync<BagItFetch>(cancellationToken);
+        (bagContext, pathInBag) = ResolvePath(bagContext, fetch, pathInBag);
+
+        var metadata = await bagContext.GetFileMetadataAsync(pathInBag, cancellationToken);
+
+        if (metadata != null)
+        {
+            return new(
+                ContentType: GetMimeType(filePath),
+                DateCreated: metadata.DateCreated,
+                DateModified: metadata.DateModified,
+                Sha256: null,
+                Path: filePath,
+                Size: metadata.Size);
         }
 
         return null;
@@ -340,7 +366,7 @@ internal sealed class FileService(
         DatasetVersion datasetVersion,
         string[] paths,
         Stream stream,
-        bool allowDraft,
+        FileAccessScope scope,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
@@ -351,7 +377,7 @@ internal sealed class FileService(
         var bagContext = _bagContextFactory.Create(datasetVersion);
 
         bool allowed = await IsReadAccessToFilesAllowedAsync(
-           bagContext, allowDraft, cancellationToken);
+           bagContext, scope, cancellationToken);
 
         if (!allowed)
         {
@@ -456,25 +482,31 @@ internal sealed class FileService(
     }
 
     private async Task<bool> IsReadAccessToFilesAllowedAsync(
-        BagContext bagContext, bool allowDraft, CancellationToken cancellationToken)
+        BagContext bagContext, FileAccessScope scope, CancellationToken cancellationToken)
     {
-        if (_systemConfiguration.DatasetAccessMode != DatasetAccessMode.Open &&
-            !allowDraft)
-        {
-            return false;
-        }
-
-        if (await bagContext.HasBeenPublishedAsync(cancellationToken))
+        if (scope == FileAccessScope.Public)
         {
             if (_systemConfiguration.DatasetAccessMode != DatasetAccessMode.Open)
             {
                 return false;
             }
 
-            var bagInfo = await bagContext.LoadBagItElementAsync<BagItInfo>(cancellationToken);
+            if (await bagContext.HasBeenPublishedAsync(cancellationToken))
+            {
+                var bagInfo = await bagContext.LoadBagItElementAsync<BagItInfo>(cancellationToken);
 
-            if (bagInfo.GetAccessRight() != AccessRight.Public ||
-                bagInfo.GetDatasetVersionStatus() != DatasetVersionStatus.Published)
+                if (bagInfo.GetAccessRight() != AccessRight.Public ||
+                    bagInfo.GetDatasetVersionStatus() != DatasetVersionStatus.Published)
+                {
+                    return false;
+                }
+
+                return true;
+            }
+        }
+        else if (scope == FileAccessScope.Draft)
+        {
+            if (await bagContext.HasBeenPublishedAsync(cancellationToken))
             {
                 return false;
             }
@@ -482,7 +514,7 @@ internal sealed class FileService(
             return true;
         }
 
-        return allowDraft;
+        return false;
     }
 
     private static Task AddOrUpdatePayloadManifestItemAsync(

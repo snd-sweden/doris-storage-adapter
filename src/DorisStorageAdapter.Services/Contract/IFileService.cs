@@ -28,10 +28,15 @@ public interface IFileService
     Task<FileData?> GetDataAsync(
         DatasetVersion datasetVersion,
         string filePath,
-        bool isHeadRequest,
+        FileAccessScope scope,
         ByteRange? byteRange,
-        bool allowDraft,
         CancellationToken cancellationToken);
+
+    Task<FileMetadata?> GetMetaDataAsync(
+       DatasetVersion datasetVersion,
+       string filePath,
+       FileAccessScope scope,
+       CancellationToken cancellationToken);
 
     IAsyncEnumerable<FileMetadata> ListAsync(
         DatasetVersion datasetVersion,
@@ -41,6 +46,6 @@ public interface IFileService
         DatasetVersion datasetVersion,
         string[] paths,
         Stream stream,
-        bool allowDraft,
+        FileAccessScope scope,
         CancellationToken cancellationToken);
 }
