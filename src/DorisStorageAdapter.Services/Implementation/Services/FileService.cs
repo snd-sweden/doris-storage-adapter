@@ -399,20 +399,22 @@ internal sealed class FileService(
 
         foreach (var manifestItem in payloadManifest.Items)
         {
-            string zipFilePath = BagPathLayout.FromPathInBag(manifestItem.FilePath);
+            string filePath = BagPathLayout.FromPathInBag(manifestItem.FilePath);
 
             if (paths.Length > 0 &&
-                !paths.Any(p => zipFilePath.StartsWith(p, StringComparison.Ordinal)))
+                !paths.Any(p => filePath.StartsWith(p, StringComparison.Ordinal)))
             {
                 continue;
             }
+
+            string zipFilePath = versionPath + '/' + filePath;
 
             (var fromBagContext, string pathInBag) = ResolvePath(bagContext, fetch, manifestItem.FilePath);
             var fileData = await fromBagContext.GetFileDataAsync(pathInBag, null, cancellationToken);
 
             if (fileData != null)
             {
-                await using var entryStream = CreateZipEntryStream(zipArchive, versionPath + '/' + zipFilePath);
+                await using var entryStream = CreateZipEntryStream(zipArchive, zipFilePath);
                 await using var fileStream = fileData.Stream;
                 await fileStream.CopyToAsync(entryStream, cancellationToken);
 
@@ -429,7 +431,7 @@ internal sealed class FileService(
             // starting the line with a backslash and escaping \ as \\
             // and newline as \n.
 
-            await using var entryStream = CreateZipEntryStream(zipArchive, versionPath + "/sha256.txt");
+            await using var entryStream = CreateZipEntryStream(zipArchive, "sha256.txt");
 
             foreach (var file in sent)
             {
