@@ -60,7 +60,6 @@ public sealed class UploadsController(
             filePath: filePath,
             data: Request.Body,
             size: Request.Headers.ContentLength.Value,
-            contentType: Request.Headers.ContentType,
             cancellationToken: cancellationToken);
 
         return TypedResults.Ok(Models.Responses.File.FromFileMetadata(result));

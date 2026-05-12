@@ -85,7 +85,6 @@ internal sealed class BagContext
                 storagePath,
                 stream,
                 stream.Length,
-                "text/plain",
                 cancellationToken);
 
             return bytes;
@@ -107,17 +106,15 @@ internal sealed class BagContext
             .ListAsync(ToStoragePath(pathInBag), recursive, cancellationToken)
             .Select(file => file with { Path = FromStoragePath(file.Path) });
 
-    public Task<StorageFileBaseMetadata> StoreFileAsync(
+    public Task StoreFileAsync(
         string path,
         Stream data,
         long size,
-        string? contentType,
         CancellationToken cancellationToken) =>
         _storageProvider.StoreAsync(
             ToStoragePath(path),
             data,
             size,
-            contentType,
             cancellationToken);
 
     public Task DeleteFileAsync(

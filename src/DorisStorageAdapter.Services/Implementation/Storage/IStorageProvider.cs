@@ -7,11 +7,10 @@ namespace DorisStorageAdapter.Services.Implementation.Storage;
 
 internal interface IStorageProvider
 {
-    Task<StorageFileBaseMetadata> StoreAsync(
+    Task StoreAsync(
         string filePath, 
         Stream data, 
-        long size, 
-        string? contentType, 
+        long size,
         CancellationToken cancellationToken);
 
     Task DeleteAsync(

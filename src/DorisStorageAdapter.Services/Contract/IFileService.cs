@@ -13,7 +13,6 @@ public interface IFileService
         string filePath,
         Stream data,
         long size,
-        string? contentType,
         CancellationToken cancellationToken);
 
     Task DeleteAsync(

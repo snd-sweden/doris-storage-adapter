@@ -34,11 +34,10 @@ internal sealed class FileSystemStorageProvider(
     private readonly string _basePath = configuration.Value.BasePath;
     private readonly string _tempFilePath = configuration.Value.TempFilePath;
 
-    public async Task<StorageFileBaseMetadata> StoreAsync(
+    public async Task StoreAsync(
         string filePath,
         Stream data,
         long size,
-        string? contentType,
         CancellationToken cancellationToken)
     {
         filePath = GetFullPathOrThrow(filePath);
@@ -96,24 +95,6 @@ internal sealed class FileSystemStorageProvider(
 
             throw;
         }
-
-        DateTime? dateModified = null;
-        try
-        {
-            dateModified = File.GetLastWriteTimeUtc(filePath);
-        }
-#pragma warning disable CA1031 // Do not catch general exception types
-        catch
-        {
-            // Ignore errors here since file has been successfully stored and
-            // returning the correct modified date is not crucial.
-        }
-#pragma warning restore CA1031
-
-        return new(
-            ContentType: null,
-            DateCreated: null,
-            DateModified: dateModified ?? DateTime.UtcNow);
     }
 
     public async Task DeleteAsync(
@@ -214,7 +195,6 @@ internal sealed class FileSystemStorageProvider(
             }
 
             return Task.FromResult<StorageFileData?>(new(
-                ContentType: null,
                 Size: length,
                 Stream: stream,
                 StreamLength: stream.Length));
@@ -317,7 +297,6 @@ internal sealed class FileSystemStorageProvider(
 
     private StorageFileMetadata ToStorageFileMetadata(FileInfo file) =>
         new(
-            ContentType: null,
             DateCreated: null,
             DateModified: file.LastWriteTimeUtc,
             Path: NormalizePath(Path.GetRelativePath(_basePath, file.FullName)),

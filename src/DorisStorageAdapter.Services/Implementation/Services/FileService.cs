@@ -44,7 +44,6 @@ internal sealed class FileService(
         string filePath,
         Stream data,
         long size,
-        string? contentType,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
@@ -75,11 +74,9 @@ internal sealed class FileService(
                 path: markerFileName,
                 data: markerFileContent,
                 size: markerFileContent.Length,
-                contentType: "text/plain",
                 cancellationToken: cancellationToken);
         }
 
-        StorageFileBaseMetadata result;
         byte[] checksum;
         long bytesRead;
 
@@ -87,11 +84,10 @@ internal sealed class FileService(
         {
             await using var hashStream = new CountedHashStream(data);
 
-            result = await bagContext.StoreFileAsync(
+            await bagContext.StoreFileAsync(
                 path: pathInBag,
                 data: hashStream,
                 size: size,
-                contentType: contentType,
                 cancellationToken: cancellationToken);
 
             checksum = hashStream.GetHash();
@@ -127,9 +123,9 @@ internal sealed class FileService(
         await bagContext.DeleteFileAsync(markerFileName, CancellationToken.None);
 
         return new(
-            ContentType: result.ContentType ?? MimeTypes.GetMimeType(filePath),
-            DateCreated: result.DateCreated,
-            DateModified: result.DateModified,
+            ContentType: GetMimeType(filePath),
+            DateCreated: null,
+            DateModified: null,
             Path: filePath,
             Sha256: checksum,
             Size: bytesRead);
@@ -260,15 +256,14 @@ internal sealed class FileService(
         var fetch = await bagContext.LoadBagItElementAsync<BagItFetch>(cancellationToken);
         (bagContext, pathInBag) = ResolvePath(bagContext, fetch, pathInBag);
 
-        FileData? result = null;
         if (isHeadRequest)
         {
             var metadata = await bagContext.GetFileMetadataAsync(pathInBag, cancellationToken);
 
             if (metadata != null)
             {
-                result = new(
-                    ContentType: metadata.ContentType,
+                return new(
+                    ContentType: GetMimeType(filePath),
                     Size: metadata.Size,
                     Stream: Stream.Null,
                     StreamLength: 0);
@@ -280,20 +275,15 @@ internal sealed class FileService(
 
             if (data != null)
             {
-                result = new(
-                    ContentType: data.ContentType,
+                return new(
+                    ContentType: GetMimeType(filePath),
                     Size: data.Size,
                     Stream: data.Stream,
                     StreamLength: data.StreamLength);
             }
         }
 
-        if (result != null && result.ContentType == null)
-        {
-            result = result with { ContentType = MimeTypes.GetMimeType(filePath) };
-        }
-
-        return result;
+        return null;
     }
 
     public async IAsyncEnumerable<FileMetadata> ListAsync(
@@ -337,7 +327,7 @@ internal sealed class FileService(
         foreach (var file in result.OrderBy(f => f.Path, StringComparer.InvariantCulture))
         {
             yield return new(
-                ContentType: file.ContentType ?? MimeTypes.GetMimeType(file.Path),
+                ContentType: GetMimeType(file.Path),
                 DateCreated: file.DateCreated,
                 DateModified: file.DateModified,
                 Path: BagPathLayout.FromPathInBag(file.Path),
@@ -430,6 +420,9 @@ internal sealed class FileService(
             }
         }
     }
+
+    private static string GetMimeType(string filePath) =>
+        MimeTypes.GetMimeType(filePath);
 
     private static void ThrowIfInvalidFilePath(
         string filePath,

@@ -21,11 +21,10 @@ internal sealed class S3StorageProvider(
     private readonly IAmazonS3 _client = client;
     private readonly S3StorageConfiguration _configuration = configuration.Value;
 
-    public async Task<StorageFileBaseMetadata> StoreAsync(
+    public async Task StoreAsync(
         string filePath,
         Stream data,
         long size,
-        string? contentType,
         CancellationToken cancellationToken)
     {
         using var utility = new TransferUtility(_client, new()
@@ -62,14 +61,6 @@ internal sealed class S3StorageProvider(
         };
 
         await utility.UploadAsync(request, cancellationToken);
-
-        return new(
-            ContentType: null,
-            DateCreated: null,
-            // DateTime.UtcNow is an approximation.
-            // Must call GetObjectMetadataAsync to get the actual LastModified value,
-            // which is arguably unnecessary overhead.
-            DateModified: DateTime.UtcNow);
     }
 
     public async Task DeleteAsync(
@@ -98,7 +89,6 @@ internal sealed class S3StorageProvider(
             cancellationToken);
 
             return new(
-                ContentType: null,
                 DateCreated: null,
                 DateModified: response.LastModified?.ToUniversalTime(),
                 Path: filePath,
@@ -136,7 +126,6 @@ internal sealed class S3StorageProvider(
             var response = await _client.GetObjectAsync(request, cancellationToken);
 
             return new(
-                ContentType: null,
                 Size:
                     response.HttpStatusCode == HttpStatusCode.PartialContent
                         ? ContentRangeHeaderValue.TryParse(response.ContentRange, out var contentRange)
@@ -182,7 +171,6 @@ internal sealed class S3StorageProvider(
                 // Return an empty stream to indicate that the
                 // requested range was not satisfiable.
                 return new(
-                    ContentType: null,
                     Size: response.ContentLength,
                     Stream: Stream.Null,
                     StreamLength: 0);
@@ -207,7 +195,6 @@ internal sealed class S3StorageProvider(
         await foreach (var file in paginator.S3Objects.WithCancellation(cancellationToken))
         {
             yield return new(
-                ContentType: null,
                 DateCreated: null,
                 DateModified: file.LastModified?.ToUniversalTime(),
                 Path: file.Key,

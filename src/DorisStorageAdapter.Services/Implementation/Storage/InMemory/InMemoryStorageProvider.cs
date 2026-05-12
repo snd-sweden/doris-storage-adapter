@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -10,20 +11,18 @@ internal sealed class InMemoryStorageProvider(InMemoryStorage storage) : IStorag
 {
     private readonly InMemoryStorage _storage = storage;
 
-    public async Task<StorageFileBaseMetadata> StoreAsync(
+    public async Task StoreAsync(
         string filePath,
         Stream data,
         long size,
-        string? contentType,
         CancellationToken cancellationToken)
     {
-        using var memoryStream = new MemoryStream();
-        await data.CopyToAsync(memoryStream, cancellationToken);
-        var byteArray = memoryStream.ToArray();
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(size, int.MaxValue);
 
-        return _storage
-            .AddOrUpdate(filePath, byteArray, contentType)
-            .Metadata;
+        var buffer = GC.AllocateUninitializedArray<byte>((int)size);
+        await data.ReadExactlyAsync(buffer, cancellationToken);
+
+        _storage.AddOrUpdate(filePath, buffer);
     }
 
     public Task DeleteAsync(
@@ -67,7 +66,6 @@ internal sealed class InMemoryStorageProvider(InMemoryStorage storage) : IStorag
             }
 
             return Task.FromResult<StorageFileData?>(new(
-                ContentType: file.Metadata.ContentType,
                 Size: file.Data.LongLength,
                 Stream: stream,
                 StreamLength: stream.Length));

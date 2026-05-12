@@ -50,11 +50,10 @@ internal sealed class NextCloudStorageProvider : IStorageProvider
         _chunkedUploadBaseUri = GetUri(_configuration.BaseUrl, $"remote.php/dav/uploads/{_configuration.User}/");
     }
 
-    public async Task<StorageFileBaseMetadata> StoreAsync(
+    public async Task StoreAsync(
         string filePath,
         Stream data,
         long size,
-        string? contentType,
         CancellationToken cancellationToken)
     {
         long GetNow() => DateTimeOffset.UtcNow.ToUnixTimeSeconds();
@@ -62,7 +61,7 @@ internal sealed class NextCloudStorageProvider : IStorageProvider
         var fileUri = GetWebDavFileUri(filePath);
         var directoryUri = GetParentUri(fileUri);
 
-        async Task<long> DoUploadAsync()
+        async Task DoUploadAsync()
         {
             var tempFileUri = new Uri(_tmpFileBaseUri, Guid.NewGuid().ToString());
             var now = GetNow();
@@ -102,11 +101,9 @@ internal sealed class NextCloudStorageProvider : IStorageProvider
 
                 throw;
             }
-
-            return now;
         }
 
-        async Task<long> DoChunkedUploadAsync()
+        async Task DoChunkedUploadAsync()
         {
             var uri = new Uri(_chunkedUploadBaseUri, "doris-storage-adapter-" + Guid.NewGuid().ToString() + '/');
             // Add Destination header to all calls to ensure the v2 version of NextCloud's chunked upload API is used.
@@ -174,21 +171,17 @@ internal sealed class NextCloudStorageProvider : IStorageProvider
 
                 throw;
             }
-
-            return now;
         }
-
-        long now;
 
         try
         {
             if (size > _configuration.ChunkedUploadThreshold)
             {
-                now = await DoChunkedUploadAsync();
+                await DoChunkedUploadAsync();
             }
             else
             {
-                now = await DoUploadAsync();
+                await DoUploadAsync();
             }
         }
         catch
@@ -204,11 +197,6 @@ internal sealed class NextCloudStorageProvider : IStorageProvider
 
             throw;
         }
-
-        return new(
-            ContentType: null,
-            DateCreated: null,
-            DateModified: DateTimeOffset.FromUnixTimeSeconds(now).UtcDateTime);
     }
 
     public async Task DeleteAsync(
@@ -263,7 +251,6 @@ internal sealed class NextCloudStorageProvider : IStorageProvider
         var resource = response.Resources.First();
 
         return new(
-            ContentType: null,
             DateCreated: null,
             DateModified: resource.LastModifiedDate?.ToUniversalTime(),
             Path: filePath,
@@ -318,7 +305,6 @@ internal sealed class NextCloudStorageProvider : IStorageProvider
             EnsureSuccessStatusCode(propFindResponse);
 
             return new(
-                ContentType: null,
                 Size: propFindResponse.Resources.First().ContentLength!.Value,
                 Stream: Stream.Null,
                 StreamLength: 0);
@@ -329,7 +315,6 @@ internal sealed class NextCloudStorageProvider : IStorageProvider
         long contentLength = response.Content.Headers.ContentLength!.Value;
 
         return new(
-            ContentType: response.Content.Headers.ContentType?.MediaType,
             Size:
                 response.StatusCode == HttpStatusCode.PartialContent
                     ? response.Content.Headers.ContentRange?.Length.GetValueOrDefault() ?? 0
@@ -387,7 +372,6 @@ internal sealed class NextCloudStorageProvider : IStorageProvider
             if (filePath.StartsWith(path, StringComparison.Ordinal))
             {
                 yield return new(
-                    ContentType: null,
                     DateCreated: null,
                     DateModified: file.LastModifiedDate?.ToUniversalTime(),
                     Path: filePath,

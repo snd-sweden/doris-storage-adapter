@@ -10,10 +10,9 @@ internal sealed class InMemoryStorage
 {
     private readonly ConcurrentDictionary<string, InMemoryFile> _files = new(StringComparer.Ordinal);
 
-    public InMemoryFile AddOrUpdate(string filePath, byte[] data, string? contentType) =>
+    public InMemoryFile AddOrUpdate(string filePath, byte[] data) =>
         _files.AddOrUpdate(filePath,
             new InMemoryFile(new(
-                ContentType: contentType,
                 DateCreated: DateTime.UtcNow,
                 DateModified: DateTime.UtcNow,
                 Size: data.Length,
@@ -22,7 +21,6 @@ internal sealed class InMemoryStorage
             (_, oldValue) =>
                 new(oldValue.Metadata with
                 {
-                    ContentType = contentType,
                     DateModified = DateTime.UtcNow,
                     Size = data.LongLength
                 },
