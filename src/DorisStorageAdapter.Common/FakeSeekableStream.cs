@@ -12,11 +12,20 @@ namespace DorisStorageAdapter.Common;
 /// </summary>
 /// <param name="underlyingStream">The underlying stream to wrap.</param>
 /// <param name="length">The length of the underlying stream.</param>
-public sealed class FakeSeekableStream(Stream underlyingStream, long length) : Stream
+public sealed class FakeSeekableStream : Stream
 {
-    private readonly Stream _underlyingStream = underlyingStream;
-    private readonly long _length = length;
+    private readonly Stream _underlyingStream;
+    private readonly long _length;
     private long _position;
+
+    public FakeSeekableStream(Stream underlyingStream, long length)
+    {
+        ArgumentNullException.ThrowIfNull(underlyingStream);
+        ArgumentOutOfRangeException.ThrowIfNegative(length);
+
+        _underlyingStream = underlyingStream;
+        _length = length;
+    }
 
     public override bool CanRead => true;
     public override bool CanSeek => true;
@@ -42,18 +51,6 @@ public sealed class FakeSeekableStream(Stream underlyingStream, long length) : S
     {
         get => _underlyingStream.ReadTimeout;
         set => _underlyingStream.ReadTimeout = value;
-    }
-
-    public override void Close()
-    {
-        try
-        {
-            _underlyingStream.Close();
-        }
-        finally
-        {
-            base.Close();
-        }
     }
 
     protected override void Dispose(bool disposing)
@@ -83,42 +80,65 @@ public sealed class FakeSeekableStream(Stream underlyingStream, long length) : S
         }
     }
 
-    public override void Flush() => throw new NotSupportedException();
+    public override void Flush() => 
+        throw new NotSupportedException();
 
     public override int Read(Span<byte> buffer)
     {
-        int bytesRead = _underlyingStream.Read(buffer);
-        _position += bytesRead;
-        return bytesRead;
-    }
-
-    public override int Read(byte[] buffer, int offset, int count)
-    {
-        int bytesRead = _underlyingStream.Read(buffer, offset, count);
-        _position += bytesRead;
-        return bytesRead;
-    }
-
-    public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken)
-    {
-        if (buffer.IsEmpty || Position >= Length)
+        if (_position >= _length)
         {
             return 0;
         }
 
-        int bytesRead = await _underlyingStream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+        int max = (int)Math.Min(buffer.Length, _length - _position);
+
+        int bytesRead = _underlyingStream.Read(buffer[..max]);
         _position += bytesRead;
+
         return bytesRead;
     }
 
-    public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
-        ReadAsync(buffer.AsMemory().Slice(offset, count), cancellationToken).AsTask();
+    public override int Read(byte[] buffer, int offset, int count) =>
+        Read(buffer.AsSpan(offset, count));
+
+    public override async ValueTask<int> ReadAsync(
+        Memory<byte> buffer, CancellationToken cancellationToken)
+    {
+        if (_position >= _length)
+        {
+            return 0;
+        }
+
+        int max = (int)Math.Min(buffer.Length, _length - _position);
+
+        int bytesRead = await _underlyingStream
+            .ReadAsync(buffer[..max], cancellationToken)
+            .ConfigureAwait(false);
+
+        _position += bytesRead;
+
+        return bytesRead;
+    }
+
+    public override Task<int> ReadAsync(
+        byte[] buffer, 
+        int offset, 
+        int count, 
+        CancellationToken cancellationToken) =>
+        ReadAsync(
+            buffer.AsMemory(offset, count), 
+            cancellationToken).AsTask();
 
     public override int ReadByte()
     {
+        if (_position >= _length)
+        {
+            return -1;
+        }
+
         var result = _underlyingStream.ReadByte();
 
-        if (result > 0)
+        if (result >= 0)
         {
             _position++;
         }
@@ -130,12 +150,14 @@ public sealed class FakeSeekableStream(Stream underlyingStream, long length) : S
          Position = origin switch
          {
              SeekOrigin.Begin => offset,
-             SeekOrigin.Current => Position + offset,
+             SeekOrigin.Current => _position + offset,
              SeekOrigin.End => _length + offset,
              _ => throw new NotSupportedException()
          };
 
-    public override void SetLength(long value) => throw new NotSupportedException();
+    public override void SetLength(long value) => 
+        throw new NotSupportedException();
 
-    public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    public override void Write(byte[] buffer, int offset, int count) => 
+        throw new NotSupportedException();
 }
