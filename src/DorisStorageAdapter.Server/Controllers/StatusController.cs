@@ -48,6 +48,7 @@ public sealed class StatusController(IStatusService statusService) : BaseControl
             accessRight: request.AccessRight,
             canonicalDoi: request.CanonicalDoi,
             doi: request.Doi,
+            publishedDate: request.PublishedDate,
             cancellationToken: cancellationToken);
 
         return TypedResults.Ok();

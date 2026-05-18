@@ -4,11 +4,14 @@ using DorisStorageAdapter.Server.Controllers;
 using DorisStorageAdapter.Server.Controllers.Attributes;
 using DorisStorageAdapter.Services;
 using Invio.Extensions.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.Net.Http.Headers;
 using Microsoft.OpenApi;
 using NetDevPack.Security.Jwt.Core.Jwa;
@@ -16,6 +19,7 @@ using NetDevPack.Security.JwtExtensions;
 using Scalar.AspNetCore;
 using System;
 using System.Collections.Generic;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
@@ -113,11 +117,30 @@ builder.Services
         }
 
         // SetJwkOptions sets ValidIssuer and ValidAudience
-        options.SetJwksOptions(
+        /*options.SetJwksOptions(
             new(
                 jwksUri: securityConfiguration.JwksUri.AbsoluteUri,
                 audience: generalConfiguration.PublicUrl.AbsoluteUri
-            ));
+            ));*/
+
+        // Use hard coded public key for migration
+        var ecdsa = ECDsa.Create();
+        ecdsa.ImportFromPem(System.IO.File.ReadAllText(securityConfiguration.PublicKeyPath));
+        var key = new ECDsaSecurityKey(ecdsa);
+
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = "doris-storage-adapter-transfer-script",
+
+            ValidateAudience = true,
+            ValidAudience = "doris-storage-adapter-transfer-adapter",
+
+            ValidateLifetime = true,   
+
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = key
+        };
 
         // Limiting the valid algorithms to only the one used by Doris hardens security by
         // making algorithm confusion attacks impossible, but also means that it's harder
