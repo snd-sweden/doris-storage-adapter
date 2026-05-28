@@ -16,14 +16,14 @@ flowchart TD
     SAS@{ shape: lin-cyl, label: "Storage" }
     RD[researchdata.se]
 
-    Re<-->|1\. Request write token|D
-    Re-->|2\. Send file and token|SA
-    SA-->|3\. Store file and checksum|SAS
-    Re-->|4\. Submit for publishing|Rv
-    Rv-->|5\. Publish|D
-    D-->|6\. Publish|SA
-    SA-->|7\. Mark as published|SAS
-    D-->|8\. Publish metadata|RD
+    Re<-->|"1. Request write token"|D
+    Re-->|"2. Send file and token"|SA
+    SA-->|"3. Store file and checksum"|SAS
+    Re-->|"4. Submit for publishing"|Rv
+    Rv-->|"5. Publish"|D
+    D-->|"6. Publish"|SA
+    SA-->|"7. Mark as published"|SAS
+    D-->|"8. Publish metadata"|RD
 ```
 ```mermaid
 ---
@@ -35,12 +35,12 @@ flowchart TD
     SAS@{ shape: lin-cyl, label: "Storage" }
     RD[researchdata.se]
 
-    RDUser-->|1\. Request file|RD
-    RD-->|2\. Redirect|SA
-    SA-->|3\. Check if file is published and public|SAS
-    SA-->|4\. Yes, request file|SAS
-    SAS-->|5\. Send file|SA
-    SA-->|6\. Send file|RDUser
+    RDUser-->|"1. Request file"|RD
+    RD-->|"2. Redirect"|SA
+    SA-->|"3. Check if file is published and public"|SAS
+    SA-->|"4. Yes, request file"|SAS
+    SAS-->|"5. Send file"|SA
+    SA-->|"6. Send file"|RDUser
 ```
 ```mermaid
 ---
