@@ -2,5 +2,5 @@
 
 public sealed record SystemInformation(
     DatasetAccessMode DatasetAccessMode,
-    string StorageProvider);
-    
+    string StorageProvider,
+    bool TenancyEnabled);

@@ -1,6 +1,6 @@
-﻿using DorisStorageAdapter.Server.Configuration;
+﻿using DorisStorageAdapter.Server.Authorization;
+using DorisStorageAdapter.Server.Configuration;
 using DorisStorageAdapter.Server.Controllers.Attributes;
-using DorisStorageAdapter.Server.Controllers.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.JsonWebTokens;
@@ -21,12 +21,17 @@ public sealed class TokenController(IJwtService jwtService, IConfiguration confi
     private readonly IConfiguration _configuration = configuration;
 
     [HttpPost("dev/token/{identifier}/{version}")]
-    public Task<string> CreateDataAccessTokenAsync(string identifier, string version, [FromQuery] string role)
+    public Task<string> CreateDataAccessTokenAsync(
+        string identifier, 
+        string version, 
+        [FromQuery] string role,
+        [FromQuery] string? tenantId)
     {
-        return CreateTokenAsync(identifier, version, role);
+        return CreateTokenAsync(identifier, version, role, tenantId);
     }
 
-    private async Task<string> CreateTokenAsync(string identifier, string version, string role)
+    private async Task<string> CreateTokenAsync(
+        string identifier, string version, string role, string? tenantId)
     {
         var key = await _jwtService.GetCurrentSigningCredentials();
         var publicUrl = _configuration.Get<GeneralConfiguration>()!.PublicUrl;
@@ -36,7 +41,7 @@ public sealed class TokenController(IJwtService jwtService, IConfiguration confi
             .JwksUri;
 
         var tokenHandler = new JsonWebTokenHandler();
-        return tokenHandler.CreateToken(new SecurityTokenDescriptor
+        var tokenDescriptor = new SecurityTokenDescriptor
         {
             Issuer = jwksUri.Scheme + "://" + jwksUri.Authority,
             Audience = publicUrl.AbsoluteUri,
@@ -47,6 +52,13 @@ public sealed class TokenController(IJwtService jwtService, IConfiguration confi
                  ]),
             Expires = DateTime.UtcNow.AddHours(1),
             SigningCredentials = key
-        });
+        };
+
+        if (tenantId != null)
+        {
+            tokenDescriptor.Subject.AddClaim(new(Claims.TenantId, tenantId));
+        }
+
+        return tokenHandler.CreateToken(tokenDescriptor);
     }
 }

@@ -1,4 +1,4 @@
-﻿namespace DorisStorageAdapter.Server.Controllers.Authorization;
+﻿namespace DorisStorageAdapter.Server.Authorization;
 
 internal static class Roles
 {

@@ -22,15 +22,17 @@ using System.Threading.Tasks;
 namespace DorisStorageAdapter.Services.Implementation.Services;
 
 internal sealed class StatusService(
+    DatasetVersionValidator datasetVersionValidator,
     DatasetVersionLocks datasetVersionLocks,
     BagContextFactory bagContextFactory,
     IOptions<SystemConfiguration> systemConfiguration) : IStatusService
 {
+    private readonly DatasetVersionValidator _datasetVersionValidator = datasetVersionValidator;
     private readonly DatasetVersionLocks _datasetVersionLocks = datasetVersionLocks;
     private readonly BagContextFactory _bagContextFactory = bagContextFactory;
     private readonly SystemConfiguration _systemConfiguration = systemConfiguration.Value;
 
-    private static readonly Checksum _bagItSha256 = 
+    private static readonly Checksum _bagItSha256 =
         new(SHA256.HashData(BagItDeclaration.CreateEmpty().Serialize()));
 
     public async Task PublishAsync(
@@ -43,7 +45,7 @@ internal sealed class StatusService(
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
         ArgumentException.ThrowIfNullOrEmpty(doi);
-        DatasetVersionValidator.ThrowIfInvalid(datasetVersion);
+        _datasetVersionValidator.ThrowIfInvalid(datasetVersion);
 
         if (accessRight == AccessRight.Public &&
             _systemConfiguration.DatasetAccessMode != DatasetAccessMode.Open ||
@@ -143,7 +145,7 @@ internal sealed class StatusService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
-        DatasetVersionValidator.ThrowIfInvalid(datasetVersion);
+        _datasetVersionValidator.ThrowIfInvalid(datasetVersion);
 
         await using var datasetVersionLock = await _datasetVersionLocks
             .AcquireExclusiveLockOrThrowAsync(datasetVersion, cancellationToken);

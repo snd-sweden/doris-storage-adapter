@@ -28,12 +28,14 @@ namespace DorisStorageAdapter.Services.Implementation.Services;
 
 internal sealed class FileService(
     ILockProvider lockProvider,
+    DatasetVersionValidator datasetVersionValidator,
     DatasetVersionLocks datasetVersionLocks,
     BagContextFactory bagContextFactory,
     IOptions<SystemConfiguration> systemConfiguration) : IFileService
 {
     private readonly ILockProvider _lockProvider = lockProvider;
     private readonly DatasetVersionLocks _datasetVersionLocks = datasetVersionLocks;
+    private readonly DatasetVersionValidator _datasetVersionValidator = datasetVersionValidator;
     private readonly BagContextFactory _bagContextFactory = bagContextFactory;
     private readonly SystemConfiguration _systemConfiguration = systemConfiguration.Value;
 
@@ -50,7 +52,7 @@ internal sealed class FileService(
         ArgumentException.ThrowIfNullOrEmpty(filePath);
         ArgumentNullException.ThrowIfNull(data);
         ArgumentOutOfRangeException.ThrowIfNegative(size);
-        DatasetVersionValidator.ThrowIfInvalid(datasetVersion);
+        _datasetVersionValidator.ThrowIfInvalid(datasetVersion);
         ThrowIfInvalidFilePath(filePath);
 
         await using var datasetVersionLock = await _datasetVersionLocks
@@ -138,7 +140,7 @@ internal sealed class FileService(
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
         ArgumentException.ThrowIfNullOrEmpty(filePath);
-        DatasetVersionValidator.ThrowIfInvalid(datasetVersion);
+        _datasetVersionValidator.ThrowIfInvalid(datasetVersion);
         ThrowIfInvalidFilePath(filePath);
 
         await using var datasetVersionLock = await _datasetVersionLocks
@@ -176,10 +178,11 @@ internal sealed class FileService(
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
         ArgumentException.ThrowIfNullOrEmpty(fromVersion);
-        DatasetVersionValidator.ThrowIfInvalid(datasetVersion);
+        _datasetVersionValidator.ThrowIfInvalid(datasetVersion);
 
-        var fromDatasetVersion = new DatasetVersion(datasetVersion.Identifier, fromVersion);
-        DatasetVersionValidator.ThrowIfInvalid(fromDatasetVersion);
+        var fromDatasetVersion = new DatasetVersion(
+            datasetVersion.Identifier, fromVersion, datasetVersion.TenantId);
+        _datasetVersionValidator.ThrowIfInvalid(fromDatasetVersion);
 
         if (datasetVersion == fromDatasetVersion)
         {
@@ -237,8 +240,16 @@ internal sealed class FileService(
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
         ArgumentException.ThrowIfNullOrEmpty(filePath);
-        DatasetVersionValidator.ThrowIfInvalid(datasetVersion);
-        ThrowIfInvalidFilePath(filePath);
+
+        if (!IsValidFilePath(filePath))
+        {
+            return null;
+        }
+
+        if (!_datasetVersionValidator.IsValid(datasetVersion))
+        {
+            return null;
+        }
 
         var bagContext = _bagContextFactory.Create(datasetVersion);
 
@@ -278,7 +289,7 @@ internal sealed class FileService(
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
         ArgumentException.ThrowIfNullOrEmpty(filePath);
-        DatasetVersionValidator.ThrowIfInvalid(datasetVersion);
+        _datasetVersionValidator.ThrowIfInvalid(datasetVersion);
         ThrowIfInvalidFilePath(filePath);
 
         var bagContext = _bagContextFactory.Create(datasetVersion);
@@ -317,7 +328,7 @@ internal sealed class FileService(
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
-        DatasetVersionValidator.ThrowIfInvalid(datasetVersion);
+        _datasetVersionValidator.ThrowIfInvalid(datasetVersion);
 
         var bagContext = _bagContextFactory.Create(datasetVersion);
 
@@ -372,7 +383,11 @@ internal sealed class FileService(
         ArgumentNullException.ThrowIfNull(datasetVersion);
         ArgumentNullException.ThrowIfNull(paths);
         ArgumentNullException.ThrowIfNull(stream);
-        DatasetVersionValidator.ThrowIfInvalid(datasetVersion);
+
+        if (!_datasetVersionValidator.IsValid(datasetVersion))
+        {
+            return false;
+        }
 
         var bagContext = _bagContextFactory.Create(datasetVersion);
 
@@ -451,6 +466,9 @@ internal sealed class FileService(
         return true;
     }
 
+    private static bool IsValidFilePath(string filePath) =>
+        PathValidation.HasOnlyValidComponents(filePath);
+
     private static string GetMimeType(string filePath) =>
         MimeTypes.GetMimeType(filePath);
 
@@ -458,7 +476,7 @@ internal sealed class FileService(
         string filePath,
         [CallerArgumentExpression(nameof(filePath))] string? paramName = null)
     {
-        if (!PathValidation.HasOnlyValidComponents(filePath))
+        if (!IsValidFilePath(filePath))
         {
             throw new ValidationException([new(
                 Target: paramName,

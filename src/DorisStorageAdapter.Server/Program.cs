@@ -2,10 +2,12 @@ using DorisStorageAdapter.Server;
 using DorisStorageAdapter.Server.Configuration;
 using DorisStorageAdapter.Server.Controllers;
 using DorisStorageAdapter.Server.Controllers.Attributes;
+using DorisStorageAdapter.Server.Tenancy;
 using DorisStorageAdapter.Services;
 using Invio.Extensions.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.HostFiltering;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -58,6 +60,8 @@ builder.Services.AddProblemDetails(o =>
 });
 // Map ServiceExceptions to problem details response
 builder.Services.AddExceptionHandler<ServiceExceptionHandler>();
+
+builder.Services.AddSingleton<ITenantResolver, SubdomainTenantResolver>();
 
 builder.Services.AddOpenApi(options =>
 {
@@ -196,6 +200,18 @@ builder.Services.AddCors(options =>
             .WithMethods(HttpMethods.Get)
             .WithExposedHeaders(HeaderNames.ContentDisposition);
     });
+});
+
+// Set allowed values for Host header based on configured public URL.
+builder.Services.Configure<HostFilteringOptions>(options =>
+{
+    options.AllowedHosts =
+    [
+        generalConfiguration.PublicUrl.Host,
+        $"*.{generalConfiguration.PublicUrl.Host}"
+    ];
+
+    options.AllowEmptyHosts = false;
 });
 
 var app = builder.Build();

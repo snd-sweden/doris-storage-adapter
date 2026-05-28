@@ -6,4 +6,5 @@ public sealed record SystemInformation(
     bool AllowReadDraftFiles,
     DatasetAccessMode DatasetAccessMode,
     string StorageProvider,
+    bool TenancyEnabled,
     string Version);
