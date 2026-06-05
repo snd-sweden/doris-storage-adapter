@@ -13,26 +13,29 @@ namespace DorisStorageAdapter.Services.Implementation.Storage.FileSystem;
 /// Storage provider for storing files on a file system.
 /// 
 /// This storage provider is only fully supported on Linux/Unix.
-/// On Windows it will return an error if StoreAsync is called
+/// On Windows it can return an error if StoreAsync is called
 /// for a file that is currently being read.
 /// 
-/// The file system must be case sensitive, and the file path 
-/// for temporary files must be on the same partition as the 
-/// base path to ensure atomic file moves.
+/// The file system must be case sensitive.
 /// </summary>
 /// <param name="configuration">FileSystemStorageConfiguration configuration.</param>
-/// <param name="lockProvider">IStorageLockProvider used when creating/deleting directories.</param>
 internal sealed class FileSystemStorageProvider(
-    IOptions<FileSystemStorageConfiguration> configuration,
-    IStorageLockProvider lockProvider) : IStorageProvider
+    IOptions<FileSystemStorageConfiguration> configuration) : IStorageProvider
 {
     // This is only need for supporting Windows; Linux supports all characters except '/'.
     private static readonly HashSet<char> _invalidFileNameChars = [.. Path.GetInvalidFileNameChars()];
 
-    private readonly IStorageLockProvider _lockProvider = lockProvider;
-
     private readonly string _basePath = configuration.Value.BasePath;
-    private readonly string _tempFilePath = configuration.Value.TempFilePath;
+
+    private static readonly TimeSpan[] RetryDelays =
+    [
+        TimeSpan.FromMilliseconds(10),
+        TimeSpan.FromMilliseconds(25),
+        TimeSpan.FromMilliseconds(50),
+        TimeSpan.FromMilliseconds(100),
+        TimeSpan.FromMilliseconds(250),
+        TimeSpan.FromMilliseconds(500),
+    ];
 
     public async Task StoreAsync(
         string filePath,
@@ -41,53 +44,112 @@ internal sealed class FileSystemStorageProvider(
         CancellationToken cancellationToken)
     {
         filePath = GetFullPathOrThrow(filePath);
-
-        string tempFile = Path.Combine(_tempFilePath, Guid.NewGuid().ToString());
         string directoryPath = Path.GetDirectoryName(filePath)!;
+        string fileName = Path.GetFileName(filePath)!;
+        string? tempFilePath = null;
+
+        FileStream OpenTempFileStream()
+        {
+            const int MaxAttempts = 5;
+ 
+            for (int i = 0; ; i++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                try
+                {
+                    Directory.CreateDirectory(directoryPath);
+
+                    tempFilePath = Path.Combine(
+                        directoryPath,
+                        $".{fileName}_{Path.GetRandomFileName()}.tmp");
+
+                    return new FileStream(tempFilePath, new FileStreamOptions
+                    {
+                        Access = FileAccess.Write,
+
+                        // We must use CreateNew here to ensure that the temp file
+                        // does not already exist.
+                        Mode = FileMode.CreateNew,
+
+                        // FileOptions.Asynchronous only has real effect on Windows.
+                        // It is ignored on Linux where file I/O is always executed
+                        // synchronously on a background thread (as of 2024-09-11).
+                        Options = FileOptions.Asynchronous,
+
+                        PreallocationSize = size,
+
+                        // The value of Share does not really matter much since writing is done to a
+                        // temporary file that will not be accessed by anyone else.
+                        Share = FileShare.None
+                    });
+                }
+                catch (Exception e) when (
+                    i < MaxAttempts - 1 &&
+                    e is IOException or UnauthorizedAccessException)
+                {
+                    // Probably caused by directory not found or
+                    // temp file already exists, retry.
+
+                    // If directory is not found it could be
+                    // because another thread removed it in
+                    // a call to DeleteEmptyDirectories().
+                }
+            }
+        }
 
         try
         {
-            await using (var stream = new FileStream(tempFile, new FileStreamOptions
-            {
-                Access = FileAccess.Write,
-                Mode = FileMode.Create,
-
-                // FileOptions.Asynchronous only has real effect on Windows.
-                // It is ignored on Linux where file I/O is always executed
-                // synchronously on a background thread (as of 2024-09-11).
-                Options = FileOptions.Asynchronous,
-
-                PreallocationSize = size,
-
-                // The value of Share does not really matter since writing is done to a
-                // temporary file that will not be accessed by anyone else.
-                Share = FileShare.Read
-            }))
+            await using (var stream = OpenTempFileStream())
             {
                 await data.CopyToAsync(stream, cancellationToken);
+
+#pragma warning disable CA1849 //  Call async methods when in an async method
+
+                // Flush FileStream buffers and force data to disk (fsync/fdatasync on Linux)
+                // so the file contents are durable before move.
+                stream.Flush(true);
+
+#pragma warning restore CA1849
             }
 
-            await using (await AcquireDirectoryLockAsync(directoryPath, cancellationToken))
+            for (int i = 0; ; i++)
             {
-                Directory.CreateDirectory(directoryPath);
-                File.Move(tempFile, filePath, true);
+                // If file move fails, retry a few times with increasing delay.
+                // This is mostly for making move more robust on Windows, where
+                // another process reading filePath can prevent the move
+                // (e.g. anti virus software).
+                try
+                {
+                    File.Move(tempFilePath!, filePath, true);
+                    return;
+                }
+                catch (Exception e) when (
+                    i < RetryDelays.Length &&
+                    e is IOException or UnauthorizedAccessException)
+                {
+                    await Task.Delay(RetryDelays[i], cancellationToken);
+                }
             }
         }
         catch
         {
             // Cancelled or failed, try to clean up
 
-            try
+            if (tempFilePath is not null)
             {
-                File.Delete(tempFile);
-            }
+                try
+                {
+                    File.Delete(tempFilePath);
+                }
 #pragma warning disable CA1031 // Do not catch general exception types
-            catch { }
+                catch { }
 #pragma warning restore CA1031
+            }
 
             try
             {
-                await DeleteEmptyDirectoriesAsync(directoryPath, CancellationToken.None);
+                DeleteEmptyDirectories(directoryPath);
             }
 #pragma warning disable CA1031 // Do not catch general exception types
             catch { }
@@ -98,26 +160,40 @@ internal sealed class FileSystemStorageProvider(
     }
 
     public async Task DeleteAsync(
-        string filePath, 
+        string filePath,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         filePath = GetFullPathOrThrow(filePath);
 
-        try
+        for (int i = 0; ; i++)
         {
-            File.Delete(filePath);
-        }
-        catch (DirectoryNotFoundException)
-        {
-            return;
+            // If file delete fails, retry a few times with increasing delay.
+            // This is mostly for making delete more robust on Windows, where
+            // another process reading filePath can prevent the delete
+            // (e.g. anti virus software).
+            try
+            {
+                File.Delete(filePath);
+                break;
+            }
+            catch (DirectoryNotFoundException)
+            {
+                return;
+            }
+            catch (Exception e) when (
+                i < RetryDelays.Length &&
+                e is IOException or UnauthorizedAccessException)
+            {
+                await Task.Delay(RetryDelays[i], cancellationToken);
+            }
         }
 
         try
         {
             // Delete any empty subdirectories that result from deleting the file.
-            await DeleteEmptyDirectoriesAsync(Path.GetDirectoryName(filePath)!, CancellationToken.None);
+            DeleteEmptyDirectories(Path.GetDirectoryName(filePath)!);
         }
 #pragma warning disable CA1031 // Do not catch general exception types
         catch
@@ -129,7 +205,7 @@ internal sealed class FileSystemStorageProvider(
     }
 
     public Task<StorageFileMetadata?> GetMetadataAsync(
-        string filePath, 
+        string filePath,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -146,8 +222,8 @@ internal sealed class FileSystemStorageProvider(
     }
 
     public Task<StorageFileData?> GetDataAsync(
-        string filePath, 
-        StorageByteRange? byteRange, 
+        string filePath,
+        StorageByteRange? byteRange,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -216,7 +292,7 @@ internal sealed class FileSystemStorageProvider(
         {
             foreach (var entry in directory.EnumerateFileSystemInfos())
             {
-                if (!string.IsNullOrEmpty(path) && 
+                if (!string.IsNullOrEmpty(path) &&
                     !entry.FullName.StartsWith(path, StringComparison.Ordinal))
                 {
                     continue;
@@ -302,40 +378,8 @@ internal sealed class FileSystemStorageProvider(
             Path: NormalizePath(Path.GetRelativePath(_basePath, file.FullName)),
             Size: file.Length);
 
-    /// <summary>
-    /// Returns the root directory of the given directory path
-    /// to be used as lock name when creating/deleting directories.
-    /// </summary>
-    /// <param name="directoryPath">The directory path to get lock name for.</param>
-    /// <returns>The lock name (the root directory).</returns>
-    private string GetDirectoryLockName(string directoryPath)
+    private void DeleteEmptyDirectories(string directoryPath)
     {
-        string relativePath = NormalizePath(Path.GetRelativePath(_basePath, directoryPath));
-
-        if (relativePath == ".")
-        {
-            return "/";
-        }
-
-        int slashIndex = relativePath.IndexOf('/', StringComparison.Ordinal);
-
-        if (slashIndex >= 0)
-        {
-            return "/" + relativePath[..slashIndex];
-        }
-
-        return "/" + relativePath;
-    }
-
-    private ValueTask<IAsyncDisposable> AcquireDirectoryLockAsync(
-        string directoryPath, CancellationToken cancellationToken) =>
-        _lockProvider.AcquireAsync(GetDirectoryLockName(directoryPath), cancellationToken);
-
-    private async Task DeleteEmptyDirectoriesAsync(
-        string directoryPath, CancellationToken cancellationToken)
-    {
-        await using var _ = await AcquireDirectoryLockAsync(directoryPath, cancellationToken);
-
         if (!IsUnderBasePath(directoryPath))
         {
             throw new InvalidOperationException("The directory is outside the storage base path.");
@@ -347,14 +391,29 @@ internal sealed class FileSystemStorageProvider(
         {
             try
             {
-                if (Directory.EnumerateFileSystemEntries(directoryPath).Any())
+                // Fast path: avoid exception by checking explicitly if directory is empty.
+                using var e = Directory.EnumerateFileSystemEntries(directoryPath).GetEnumerator();
+                if (e.MoveNext())
                 {
-                    return;
+                    break;
                 }
 
                 Directory.Delete(directoryPath);
             }
-            catch (DirectoryNotFoundException) { }
+            catch (DirectoryNotFoundException)
+            {
+                // Already gone → fine, continue upward.
+            }
+            catch (IOException)
+            {
+                // Not empty → stop.
+                break;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Not empty / in use → stop.
+                break;
+            }
 
             directoryPath = Path.GetDirectoryName(directoryPath)!;
         }

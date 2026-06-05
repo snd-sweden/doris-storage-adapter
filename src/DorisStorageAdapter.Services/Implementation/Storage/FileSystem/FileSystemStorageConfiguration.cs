@@ -9,16 +9,8 @@ internal sealed record FileSystemStorageConfiguration
     public required string BasePath 
     { 
         get;
-        init => field = GetFullPath(value);
+        init => 
+            field = Path.TrimEndingDirectorySeparator(Path.GetFullPath(value)) +
+                    Path.DirectorySeparatorChar;
     }
-
-    public string TempFilePath 
-    { 
-        get; 
-        init => field = GetFullPath(value);
-    } = Path.GetTempPath();
-
-    private static string GetFullPath(string value) =>
-        Path.TrimEndingDirectorySeparator(Path.GetFullPath(value)) +
-        Path.DirectorySeparatorChar;
 }
