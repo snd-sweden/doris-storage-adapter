@@ -82,7 +82,14 @@ internal sealed class StatusService(
             octetCount += file.Size;
         }
 
-        foreach (var item in fetch?.BagItElement?.Items ?? [])
+        if (payloadFilePaths.Count == 0 &&
+            fetch?.BagItElement.HasValues() != true)
+        {
+            // No payload files found, nothing to publish.
+            return;
+        }
+
+        foreach (var item in fetch?.BagItElement.Items ?? [])
         {
             if (item.Length != null)
             {
