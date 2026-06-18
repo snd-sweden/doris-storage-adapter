@@ -514,34 +514,22 @@ internal sealed class FileService(
     private async Task<bool> IsReadAccessToFilesAllowedAsync(
         BagContext bagContext, FileAccessScope scope, CancellationToken cancellationToken)
     {
-        if (scope == FileAccessScope.Public)
+        switch (scope)
         {
-            if (_systemConfiguration.DatasetAccessMode != DatasetAccessMode.Open)
-            {
-                return false;
-            }
-
-            if (await bagContext.HasBeenPublishedAsync(cancellationToken))
-            {
-                var bagInfo = await bagContext.LoadBagItElementAsync<BagItInfo>(cancellationToken);
-
-                if (bagInfo.GetAccessRight() != AccessRight.Public ||
-                    bagInfo.GetDatasetVersionStatus() != DatasetVersionStatus.Published)
+            case FileAccessScope.Public:
+                if (_systemConfiguration.DatasetAccessMode == DatasetAccessMode.Open &&
+                    await bagContext.HasBeenPublishedAsync(cancellationToken))
                 {
-                    return false;
+                    var bagInfo = await bagContext.LoadBagItElementAsync<BagItInfo>(cancellationToken);
+
+                    return bagInfo.GetAccessRight() == AccessRight.Public &&
+                           bagInfo.GetDatasetVersionStatus() == DatasetVersionStatus.Published;
                 }
 
-                return true;
-            }
-        }
-        else if (scope == FileAccessScope.Draft)
-        {
-            if (await bagContext.HasBeenPublishedAsync(cancellationToken))
-            {
-                return false;
-            }
+                break;
 
-            return true;
+            case FileAccessScope.Draft:
+                return !await bagContext.HasBeenPublishedAsync(cancellationToken);
         }
 
         return false;
