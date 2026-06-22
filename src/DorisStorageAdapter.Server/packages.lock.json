@@ -13,9 +13,9 @@
       },
       "Microsoft.AspNetCore.OpenApi": {
         "type": "Direct",
-        "requested": "[10.0.8, )",
-        "resolved": "10.0.8",
-        "contentHash": "cw24xHE2QaWwyEG9GQwFbjboyabub6Vd80DIItUGENzcQOa/BEnTrXsg2GADqWTmY/3ycqk9ToLGjgvF/VRlGA==",
+        "requested": "[10.0.9, )",
+        "resolved": "10.0.9",
+        "contentHash": "1ihb8FO9cGgEK1/m3CTtT/SfnynwmiZib0W2pcDVj3KSWk/Sca4VOXEtaptKQc582zpFrzTFiwkGRCglt6H+WQ==",
         "dependencies": {
           "Microsoft.OpenApi": "2.0.0"
         }
@@ -28,12 +28,12 @@
       },
       "NetDevPack.Security.Jwt.AspNetCore": {
         "type": "Direct",
-        "requested": "[9.0.4, )",
-        "resolved": "9.0.4",
-        "contentHash": "Mc1D1oMITaK8r+BR8ULvZyQHvYqY1we1QDCEa6QKmioQYkRzSWgiMbOyaMT4bsz3EoqQh7uxLemwhc/nMaSeIw==",
+        "requested": "[9.1.0, )",
+        "resolved": "9.1.0",
+        "contentHash": "cbMYWznw8+8vMyPkOHAfZ9rle10T2WmbFIGUqtvqs52+8DMsUXStAnEQatTAHMWZh+1/8UltXaUr3GdDWRO2oQ==",
         "dependencies": {
           "Microsoft.AspNetCore.Authentication.JwtBearer": "10.0.2",
-          "NetDevPack.Security.Jwt": "9.0.4"
+          "NetDevPack.Security.Jwt": "9.1.0"
         }
       },
       "NetDevPack.Security.JwtExtensions": {
@@ -48,14 +48,14 @@
       },
       "Scalar.AspNetCore": {
         "type": "Direct",
-        "requested": "[2.14.14, )",
-        "resolved": "2.14.14",
-        "contentHash": "xNa3MadDudKk7y+0gQPBQihVL+JxGP3KNZHB4Zl2W42ATFIffHHHBjsuyKJ4YPUnnA7NUiHR/diqV/FTZC9dkg=="
+        "requested": "[2.16.4, )",
+        "resolved": "2.16.4",
+        "contentHash": "ZDD3CHXn1OR4yHQ55NcXsU+aRzSIc1kwkpgPVM9LaK0XKuEzRqZWZ/4WS9tLI3dur6OMlcpXjGIDk/Pe3fniXQ=="
       },
       "AWSSDK.Core": {
         "type": "Transitive",
-        "resolved": "4.0.8",
-        "contentHash": "JFq4sdtnlLePkISe5M0j1a5ushTrvwCGO1CNOGZaoBv33dscHls14m5dsPzyrN54xn924MtAP+s5xTdfNGNTUQ=="
+        "resolved": "4.0.9.6",
+        "contentHash": "Lzi5hMHNB+ApeMbQxNDCUNa+Lta00ozr1okKUGqUyNXUC/OG136k8M6jXgNrbwsRxDmVdHHY6UdD4aoUaGVzkQ=="
       },
       "Microsoft.AspNetCore.Authentication.JwtBearer": {
         "type": "Transitive",
@@ -131,8 +131,8 @@
       },
       "NetDevPack.Security.Jwt": {
         "type": "Transitive",
-        "resolved": "9.0.4",
-        "contentHash": "VF4IcBFfeuWl1ihnzILv4IxwnCdcHPHL7AEbqnyHZtlZL5to8IcTIQYNmjUmf0ASEhECNzA8AXGUrCv+7xy6Ww==",
+        "resolved": "9.1.0",
+        "contentHash": "R/UcrVsqsOpfHy9u7LAFocTkKEByroNLR9MbolnCC7s3JzdBuwG6b2MYcn6wdpV7sIr5pRSp2fMt+zdhnpeiYA==",
         "dependencies": {
           "System.IdentityModel.Tokens.Jwt": "8.15.0",
           "System.Security.Cryptography.Pkcs": "10.0.2"
@@ -179,7 +179,7 @@
       "dorisstorageadapter.services": {
         "type": "Project",
         "dependencies": {
-          "AWSSDK.S3": "[4.0.24.1, )",
+          "AWSSDK.S3": "[4.0.25.2, )",
           "AsyncKeyedLock": "[8.0.2, )",
           "ByteSize": "[2.1.2, )",
           "DorisStorageAdapter.BagIt": "[1.0.0, )",
@@ -197,11 +197,11 @@
       },
       "AWSSDK.S3": {
         "type": "CentralTransitive",
-        "requested": "[4.0.24.1, )",
-        "resolved": "4.0.24.1",
-        "contentHash": "SM1h5MobQMs/Xvl3L3G0wbPpOZtcaemoS4AD35qfz/QRndZQyk+ryZ6kowBc5dhIEiy1g9Le9WFaIksvIpq0dw==",
+        "requested": "[4.0.25.2, )",
+        "resolved": "4.0.25.2",
+        "contentHash": "RZ71S6Ra8rw0jS813PM6FNzFx5gaAL4/gO8ZQoO2dcHCPMwCepCwvb/kJdOCknLnZaqdHIGJcmjCvW3622O9jw==",
         "dependencies": {
-          "AWSSDK.Core": "[4.0.8, 5.0.0)"
+          "AWSSDK.Core": "[4.0.9.6, 5.0.0)"
         }
       },
       "ByteSize": {

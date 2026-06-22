@@ -5,7 +5,7 @@ using System;
 
 namespace DorisStorageAdapter.Server.Tenancy;
 
-internal class SubdomainTenantResolver(
+internal sealed class SubdomainTenantResolver(
     IOptions<GeneralConfiguration> generalConfiguration) : ITenantResolver
 {
     private readonly GeneralConfiguration _generalConfiguration = generalConfiguration.Value;

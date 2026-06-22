@@ -67,7 +67,7 @@ internal sealed class StatusService(
 
         if (await bagContext.HasBeenPublishedAsync(cancellationToken))
         {
-            // Already published, return success.
+            // Already published, nothing to do.
             return;
         }
 
@@ -85,7 +85,7 @@ internal sealed class StatusService(
         if (payloadFilePaths.Count == 0 &&
             fetch?.BagItElement.HasValues() != true)
         {
-            // No payload files found, nothing to publish.
+            // No payload files found, nothing to do.
             return;
         }
 
@@ -161,18 +161,20 @@ internal sealed class StatusService(
 
         if (!await bagContext.HasBeenPublishedAsync(cancellationToken))
         {
-            throw new DatasetStatusException();
-        }
-
-        var bagInfo = await bagContext.LoadBagItElementAsync<BagItInfo>(cancellationToken);
-
-        if (!bagInfo.HasValues())
-        {
-            // Throw exception here?
+            // Not published, nothing to do.
             return;
         }
 
-        if (bagInfo.GetDatasetVersionStatus() == status)
+        var bagInfo = await bagContext.LoadBagItElementAsync<BagItInfo>(cancellationToken);
+        var currentStatus = bagInfo.GetDatasetVersionStatus();
+
+        if (currentStatus is null)
+        {
+            // No status in bag, abort.
+            return;
+        }
+
+        if (currentStatus == status)
         {
             // Status is already correct, nothing to do.
             return;
