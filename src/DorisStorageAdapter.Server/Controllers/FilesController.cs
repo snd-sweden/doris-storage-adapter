@@ -21,6 +21,37 @@ public sealed class FilesController(
 {
     private readonly IFileService _fileService = fileService;
 
+    [HttpPut("datasets/{identifier}/versions/{version}/files/deduplicate")]
+    [Authorize(Roles = Roles.Service)]
+    [ProducesResponseType<ErrorProblemDetails>(StatusCodes.Status400BadRequest, MediaTypeNames.Application.ProblemJson)]
+    [ProducesResponseType(typeof(void), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(void), StatusCodes.Status403Forbidden)]
+    public async Task<Results<Ok, BadRequest, ForbidHttpResult>> DeduplicateAsync(
+       string identifier,
+       string version,
+       [FromBody] DeduplicateFilesRequest request,
+       CancellationToken cancellationToken)
+    {
+        if (request == null)
+        {
+            return TypedResults.BadRequest();
+        }
+
+        var datasetVersion = CreateDatasetVersion(identifier, version);
+
+        if (!CheckClaims(datasetVersion))
+        {
+            return TypedResults.Forbid();
+        }
+
+        await _fileService.DeduplicateAsync(
+            datasetVersion,
+            request.PreviousVersion,
+            cancellationToken);
+
+        return TypedResults.Ok();
+    }
+
     [HttpPut("datasets/{identifier}/versions/{version}/files/import")]
     [Authorize(Roles = Roles.Service)]
     [Consumes("application/json")]

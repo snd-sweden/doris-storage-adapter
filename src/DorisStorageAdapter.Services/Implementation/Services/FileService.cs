@@ -474,6 +474,96 @@ internal sealed class FileService(
         return true;
     }
 
+    public async Task DeduplicateAsync(
+        DatasetVersion datasetVersion,
+        string previousVersion,
+        CancellationToken cancellationToken)
+    {
+        // This method currently assumes that there are no fetch.txt references
+        // to this version, and that this version is not published.
+        // It also only performs a simple deduplication against previous version
+        // and only for matching checksum and file path to mimic doing import files + upload changes.
+
+        // To make it general we need to take into account any references
+        // to the file being deduplicated and rewrite those references.
+        // Thus need to list all fetch.txt under this dataset, find references,
+        // lock the corresponding dataset versions exclusively and rewrite their
+        // fetch.txt.
+
+        // Also have to consider whether we should deduplicate across all previous
+        // versions, allow deduplicating across file paths etc.
+
+        ArgumentNullException.ThrowIfNull(datasetVersion);
+        ArgumentException.ThrowIfNullOrEmpty(previousVersion);
+        _datasetVersionValidator.ThrowIfInvalid(datasetVersion);
+
+        var previousDatasetVersion = new DatasetVersion(
+            datasetVersion.Identifier, previousVersion, datasetVersion.TenantId);
+        _datasetVersionValidator.ThrowIfInvalid(previousDatasetVersion);
+
+        if (datasetVersion == previousDatasetVersion)
+        {
+            // Deduplicating against same version, do nothing.
+            return;
+        }
+
+        await using var datasetVersionLock = await _datasetVersionLocks
+            .AcquireExclusiveLockOrThrowAsync(datasetVersion, cancellationToken);
+
+        var bagContext = _bagContextFactory.Create(datasetVersion);
+
+        if (await bagContext.HasBeenPublishedAsync(cancellationToken))
+        {
+            // Currently (for migration) only allow for unpublished.
+            return;
+        }
+
+        var previousBagContext = _bagContextFactory.Create(previousDatasetVersion);
+
+        var fetch = await bagContext.LoadBagItElementAsync<BagItFetch>(cancellationToken);
+        var manifest = await bagContext.LoadBagItElementAsync<BagItPayloadManifest>(cancellationToken);
+        var previousFetch = await previousBagContext.LoadBagItElementAsync<BagItFetch>(cancellationToken);
+        var previousManifest = await previousBagContext.LoadBagItElementAsync<BagItPayloadManifest>(cancellationToken);
+        var newFetchItems = new List<BagItFetchItem>();
+
+        await foreach (var file in bagContext.ListPayloadFilesAsync(cancellationToken))
+        {
+            if (manifest.TryGetItem(file.Path, out var manifestItem) &&
+                // Currently only deduplicating against files with the same path and only
+                // against previous version.
+                previousManifest.TryGetItem(file.Path, out var previousManifestItem) &&
+                manifestItem.Checksum == previousManifestItem.Checksum)
+            {
+                if (previousFetch.TryGetItem(file.Path, out var previousFetchItem))
+                {
+                    newFetchItems.Add(previousFetchItem);
+                }
+                else
+                {
+                    newFetchItems.Add(new(
+                        file.Path,
+                        file.Size,
+                        bagContext.CreateFetchUrl(previousBagContext, file.Path)));
+                }
+            }
+        }
+
+        if (newFetchItems.Count > 0)
+        {
+            foreach (var item in newFetchItems)
+            {
+                fetch.AddOrUpdateItem(item);
+            }
+
+            await bagContext.StoreBagItElementAsync(fetch, cancellationToken);
+
+            foreach (var item in newFetchItems)
+            {
+                await bagContext.DeleteFileAsync(item.FilePath, CancellationToken.None);
+            }
+        }
+    }
+
     private static bool IsValidFilePath(string filePath) =>
         PathValidation.HasOnlyValidComponents(filePath);
 

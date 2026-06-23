@@ -32,7 +32,6 @@ public static class ServiceCollectionExtensions
         services.AddTransient<BagContextFactory>();
         services.AddSingleton<DatasetVersionLocks>();
         services.AddSingleton<DatasetVersionValidator>();
-        services.AddTransient<IDeduplicationService, DeduplicationService>();
         services.AddSingleton<IStorageLockProvider, StorageLockProvider>();
         services.AddTransient<ICheckService, CheckService>();
         services.AddTransient<IFileService, FileService>();

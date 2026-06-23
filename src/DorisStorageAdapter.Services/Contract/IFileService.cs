@@ -48,4 +48,9 @@ public interface IFileService
         Stream stream,
         FileAccessScope scope,
         CancellationToken cancellationToken);
+
+    Task DeduplicateAsync(
+        DatasetVersion datasetVersion,
+        string previousVersion,
+        CancellationToken cancellationToken);
 }
