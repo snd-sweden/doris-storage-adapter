@@ -167,7 +167,7 @@ internal sealed class StatusService(
         var bagInfo = await bagContext.LoadBagItElementAsync<BagItInfo>(cancellationToken);
         var currentStatus = bagInfo.GetDatasetVersionStatus();
 
-        if (currentStatus is null)
+        if (currentStatus == null)
         {
             // No status in bag, abort.
             return;

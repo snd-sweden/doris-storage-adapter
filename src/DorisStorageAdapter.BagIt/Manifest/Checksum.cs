@@ -47,7 +47,7 @@ public sealed class Checksum : IEquatable<Checksum>
 
     public bool Equals(Checksum? other)
     {
-        if (other is null)
+        if (other == null)
         {
             return false;
         }

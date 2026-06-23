@@ -20,7 +20,7 @@ internal static class Claims
         {
             if (claim.Type == DatasetIdentifier)
             {
-                if (identifier is not null && identifier != claim.Value)
+                if (identifier != null && identifier != claim.Value)
                 {
                     return false;
                 }
@@ -29,7 +29,7 @@ internal static class Claims
             }
             else if (claim.Type == DatasetVersion)
             {
-                if (version is not null && version != claim.Value)
+                if (version != null && version != claim.Value)
                 {
                     return false;
                 }
@@ -38,7 +38,7 @@ internal static class Claims
             }
             else if (claim.Type == TenantId)
             {
-                if (tenant is not null && tenant != claim.Value)
+                if (tenant != null && tenant != claim.Value)
                 {
                     return false;
                 }
@@ -57,7 +57,7 @@ internal static class Claims
             return false;
         }
 
-        if (datasetVersion.TenantId is not null &&
+        if (datasetVersion.TenantId != null &&
             tenant != datasetVersion.TenantId)
         {
             return false;

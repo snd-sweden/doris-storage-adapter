@@ -392,7 +392,7 @@ public sealed class BagItInfo : IBagItElement<BagItInfo>
                 ThrowParseException(lineNumber, "Lines containing only whitespace are not allowed.");
             }
 
-            if (firstEmptyLineNumber is not null)
+            if (firstEmptyLineNumber != null)
             {
                 ThrowParseException(
                     firstEmptyLineNumber.Value,
@@ -401,7 +401,7 @@ public sealed class BagItInfo : IBagItElement<BagItInfo>
 
             if (line[0] is ' ' or '\t')
             {
-                if (label is null)
+                if (label == null)
                 {
                     ThrowParseException(lineNumber, "Continuation line without a preceding field.");
                 }
