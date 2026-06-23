@@ -38,7 +38,7 @@ internal sealed class CheckService(
         var payloadFilePaths = await bagContext
             .ListPayloadFilesAsync(cancellationToken)
             .Select(f => f.Path)
-            .ToHashSetAsync(cancellationToken: cancellationToken);
+            .ToHashSetAsync(StringComparer.Ordinal, cancellationToken);
 
         BagItFetch fetch;
         try

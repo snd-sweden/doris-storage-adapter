@@ -11,34 +11,36 @@ namespace DorisStorageAdapter.BagIt.Info;
 
 public sealed class BagItInfo : IBagItElement<BagItInfo>
 {
-    private readonly SortedDictionary<string, List<BagItInfoItem>> _items = [];
+    private readonly SortedDictionary<string, List<BagItInfoItem>> _items = new(StringComparer.OrdinalIgnoreCase);
 
     private static readonly HashSet<string> _reservedLabels = new(
     [
-        BaggingDateLabel.ToUpperInvariant(),
-        BagCountLabel.ToUpperInvariant(),
-        BagGroupIdentifierLabel.ToUpperInvariant(),
-        BagSizeLabel.ToUpperInvariant(),
-        ContactEmailLabel.ToUpperInvariant(),
-        ContactNameLabel.ToUpperInvariant(),
-        ContactPhoneLabel.ToUpperInvariant(),
-        ExternalDescriptionLabel.ToUpperInvariant(),
-        ExternalIdentifierLabel.ToUpperInvariant(),
-        InternalSenderIdentifierLabel.ToUpperInvariant(),
-        InternalSenderDescriptionLabel.ToUpperInvariant(),
-        OrganizationAddressLabel.ToUpperInvariant(),
-        SourceOrganizationLabel.ToUpperInvariant(),
-        PayloadOxumLabel.ToUpperInvariant()
-    ]);
+        BaggingDateLabel,
+        BagCountLabel,
+        BagGroupIdentifierLabel,
+        BagSizeLabel,
+        ContactEmailLabel,
+        ContactNameLabel,
+        ContactPhoneLabel,
+        ExternalDescriptionLabel,
+        ExternalIdentifierLabel,
+        InternalSenderIdentifierLabel,
+        InternalSenderDescriptionLabel,
+        OrganizationAddressLabel,
+        SourceOrganizationLabel,
+        PayloadOxumLabel
+    ],
+    StringComparer.OrdinalIgnoreCase);
 
     private static readonly HashSet<string> _nonRepeatableLabels = new(
     [
-        BaggingDateLabel.ToUpperInvariant(),
-        BagCountLabel.ToUpperInvariant(),
-        BagGroupIdentifierLabel.ToUpperInvariant(),
-        BagSizeLabel.ToUpperInvariant(),
-        PayloadOxumLabel.ToUpperInvariant()
-    ]);
+        BaggingDateLabel,
+        BagCountLabel,
+        BagGroupIdentifierLabel,
+        BagSizeLabel,
+        PayloadOxumLabel
+    ],
+    StringComparer.OrdinalIgnoreCase);
 
     private const string BaggingDateLabel = "Bagging-Date";
     private const string BagCountLabel = "Bag-Count";
@@ -198,15 +200,13 @@ public sealed class BagItInfo : IBagItElement<BagItInfo>
 
     private IEnumerable<string> GetValues(string label, bool excludeReserved)
     {
-        string key = label.ToUpperInvariant();
-
         if (excludeReserved &&
-            _reservedLabels.Contains(key))
+            _reservedLabels.Contains(label))
         {
             return [];
         }
 
-        if (_items.TryGetValue(key, out var value))
+        if (_items.TryGetValue(label, out var value))
         {
             return value.Select(i => i.Value);
         }
@@ -224,10 +224,8 @@ public sealed class BagItInfo : IBagItElement<BagItInfo>
 
     private void SetValues(string label, IEnumerable<string> values, bool excludeReserved)
     {
-        string key = label.ToUpperInvariant();
-
         if (excludeReserved &&
-            _reservedLabels.Contains(key))
+            _reservedLabels.Contains(label))
         {
             return;
         }
@@ -238,11 +236,11 @@ public sealed class BagItInfo : IBagItElement<BagItInfo>
 
         if (valuesToStore.Count == 0)
         {
-            _items.Remove(key);
+            _items.Remove(label);
         }
         else
         {
-            _items[key] = valuesToStore;
+            _items[label] = valuesToStore;
         }
     }
 
@@ -256,7 +254,7 @@ public sealed class BagItInfo : IBagItElement<BagItInfo>
     {
         var result = new BagItInfo();
 
-        using var reader = new StreamReader(stream, Encoding.UTF8, leaveOpen: true);
+        using var reader = BagItParsing.CreateReader(stream);
 
         string? line;
         string? label = null;
@@ -280,10 +278,8 @@ public sealed class BagItInfo : IBagItElement<BagItInfo>
                 ThrowParseException(labelLineNumber, $"Value for '{label}' is empty.");
             }
 
-            string key = label.ToUpperInvariant();
-
-            if (_nonRepeatableLabels.Contains(key) &&
-                result._items.ContainsKey(key))
+            if (_nonRepeatableLabels.Contains(label) &&
+                result._items.ContainsKey(label))
             {
                 ThrowParseException(labelLineNumber, $"'{label}' is not repeatable.");
             }
@@ -292,13 +288,13 @@ public sealed class BagItInfo : IBagItElement<BagItInfo>
             {
                 var item = new BagItInfoItem(label, value);
 
-                if (result._items.TryGetValue(key, out var existing))
+                if (result._items.TryGetValue(label, out var existing))
                 {
                     existing.Add(item);
                 }
                 else
                 {
-                    result._items[key] = [item];
+                    result._items[label] = [item];
                 }
             }
 
@@ -378,7 +374,10 @@ public sealed class BagItInfo : IBagItElement<BagItInfo>
             return true;
         }
 
-        while ((line = await reader.ReadLineAsync(cancellationToken)) is not null)
+        while ((line = await BagItParsing.ReadLineOrThrowAsync(
+            reader,
+            lineNumber + 1,
+            cancellationToken)) != null)
         {
             lineNumber++;
 
@@ -393,7 +392,7 @@ public sealed class BagItInfo : IBagItElement<BagItInfo>
                 ThrowParseException(lineNumber, "Lines containing only whitespace are not allowed.");
             }
 
-            if (firstEmptyLineNumber is not null)
+            if (firstEmptyLineNumber != null)
             {
                 ThrowParseException(
                     firstEmptyLineNumber.Value,
@@ -402,7 +401,7 @@ public sealed class BagItInfo : IBagItElement<BagItInfo>
 
             if (line[0] is ' ' or '\t')
             {
-                if (label is null)
+                if (label == null)
                 {
                     ThrowParseException(lineNumber, "Continuation line without a preceding field.");
                 }
@@ -453,10 +452,11 @@ public sealed class BagItInfo : IBagItElement<BagItInfo>
         {
             foreach (var item in list)
             {
-                builder.Append(item.Label);
-                builder.Append(": ");
-                builder.Append(item.Value);
-                builder.Append('\n');
+                builder
+                    .Append(item.Label)
+                    .Append(": ")
+                    .Append(item.Value)
+                    .Append('\n');
             }
         }
 

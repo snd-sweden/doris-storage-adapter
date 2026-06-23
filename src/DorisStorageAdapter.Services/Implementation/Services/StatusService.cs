@@ -73,7 +73,7 @@ internal sealed class StatusService(
 
         var fetch = await bagContext.LoadBagItElementWithChecksumAsync<BagItFetch>(cancellationToken);
 
-        var payloadFilePaths = new HashSet<string>();
+        var payloadFilePaths = new HashSet<string>(StringComparer.Ordinal);
         long octetCount = 0;
 
         await foreach (var file in bagContext.ListPayloadFilesAsync(cancellationToken))
@@ -168,7 +168,7 @@ internal sealed class StatusService(
         var bagInfo = await bagContext.LoadBagItElementAsync<BagItInfo>(cancellationToken);
         var currentStatus = bagInfo.GetDatasetVersionStatus();
 
-        if (currentStatus is null)
+        if (currentStatus == null)
         {
             // No status in bag, abort.
             return;

@@ -19,7 +19,7 @@ internal static class LockKeys
     public static string Storage(string name) => $"storage:{name}";
 
     private static string DatasetVersionKey(DatasetVersion datasetVersion) =>
-        (datasetVersion.TenantId is null 
+        (datasetVersion.TenantId == null 
             ? "" : 
             datasetVersion.TenantId + ':'
         ) +

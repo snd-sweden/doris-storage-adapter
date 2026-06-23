@@ -136,7 +136,7 @@ internal sealed class FileSystemStorageProvider(
         {
             // Cancelled or failed, try to clean up
 
-            if (tempFilePath is not null)
+            if (tempFilePath != null)
             {
                 try
                 {

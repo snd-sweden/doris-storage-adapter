@@ -41,6 +41,6 @@ internal sealed class DatasetVersionValidator(
                 PathValidation.IsValidComponent(tenantId);
         }
 
-        return tenantId is null;
+        return tenantId == null;
     }
 }

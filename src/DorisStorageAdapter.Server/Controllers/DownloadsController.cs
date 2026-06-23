@@ -193,7 +193,7 @@ public sealed class DownloadsController(
                 scope: scope,
                 cancellationToken: cancellationToken);
 
-            if (metadata is null)
+            if (metadata == null)
             {
                 return null;
             }

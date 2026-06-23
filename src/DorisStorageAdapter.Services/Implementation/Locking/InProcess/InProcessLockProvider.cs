@@ -26,7 +26,7 @@ internal sealed class InProcessLockProvider : ILockProvider, IDisposable
         cancellationToken.ThrowIfCancellationRequested();
 
         var releaser = await _locker.LockOrNullAsync(name, TimeSpan.Zero, cancellationToken).ConfigureAwait(false);
-        return releaser is null ? null : new DisposableAsAsyncDisposable(releaser);
+        return releaser == null ? null : new DisposableAsAsyncDisposable(releaser);
     }
 
     public void Dispose()

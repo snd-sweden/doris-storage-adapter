@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
-using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,7 +10,7 @@ namespace DorisStorageAdapter.BagIt.Manifest;
 
 public abstract class BagItManifest<T> where T : BagItManifest<T>, IBagItElement<T>
 {
-    private readonly SortedDictionary<string, BagItManifestItem> _items = [];
+    private readonly SortedDictionary<string, BagItManifestItem> _items = new(StringComparer.Ordinal);
     private readonly Dictionary<Checksum, Dictionary<string, BagItManifestItem>> _checksumToItems = [];
 
     public IEnumerable<BagItManifestItem> Items => _items.Values;
@@ -38,9 +37,9 @@ public abstract class BagItManifest<T> where T : BagItManifest<T>, IBagItElement
         }
         else
         {
-            _checksumToItems[item.Checksum] = new() 
-            { 
-                [item.FilePath] = item 
+            _checksumToItems[item.Checksum] = new(StringComparer.Ordinal)
+            {
+                [item.FilePath] = item
             };
         }
 
@@ -72,10 +71,10 @@ public abstract class BagItManifest<T> where T : BagItManifest<T>, IBagItElement
         return false;
     }
 
-    public bool TryGetItem(string filePath, [NotNullWhen(true)] out BagItManifestItem? item) => 
+    public bool TryGetItem(string filePath, [NotNullWhen(true)] out BagItManifestItem? item) =>
         _items.TryGetValue(filePath, out item);
 
-    public bool HasValues() => Items.Any();
+    public bool HasValues() => _items.Count > 0;
 
     protected static async Task<T> ParseCoreAsync(Stream stream, CancellationToken cancellationToken)
     {
@@ -110,9 +109,12 @@ public abstract class BagItManifest<T> where T : BagItManifest<T>, IBagItElement
             return (line[..first], line[secondStart..]);
         }
 
-        using var reader = new StreamReader(stream, Encoding.UTF8, leaveOpen: true);
+        using var reader = BagItParsing.CreateReader(stream);
 
-        while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
+        while ((line = await BagItParsing.ReadLineOrThrowAsync(
+            reader,
+            lineNumber + 1,
+            cancellationToken)) != null)
         {
             lineNumber++;
 
@@ -124,7 +126,7 @@ public abstract class BagItManifest<T> where T : BagItManifest<T>, IBagItElement
 
             if (firstEmptyLineNumber != null)
             {
-                ThrowParseException(firstEmptyLineNumber.Value, 
+                ThrowParseException(firstEmptyLineNumber.Value,
                     "Empty lines are only allowed at the end of the file.");
             }
 
@@ -172,10 +174,11 @@ public abstract class BagItManifest<T> where T : BagItManifest<T>, IBagItElement
 
         foreach (var item in Items)
         {
-            builder.Append(item.Checksum.HexString);
-            builder.Append(' ');
-            builder.Append(BagItPathCodec.EncodeFilePath(item.FilePath));
-            builder.Append('\n');
+            builder
+                .Append(item.Checksum.HexString)
+                .Append(' ')
+                .Append(BagItPathCodec.EncodeFilePath(item.FilePath))
+                .Append('\n');
         }
 
         return Encoding.UTF8.GetBytes(builder.ToString());
