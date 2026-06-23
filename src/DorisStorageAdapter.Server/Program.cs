@@ -214,18 +214,6 @@ builder.Services.Configure<HostFilteringOptions>(options =>
     options.AllowEmptyHosts = false;
 });
 
-// Set allowed values for Host header based on configured public URL.
-builder.Services.Configure<HostFilteringOptions>(options =>
-{
-    options.AllowedHosts =
-    [
-        generalConfiguration.PublicUrl.Host,
-        $"*.{generalConfiguration.PublicUrl.Host}"
-    ];
-
-    options.AllowEmptyHosts = false;
-});
-
 var app = builder.Build();
 
 app.UseExceptionHandler();
