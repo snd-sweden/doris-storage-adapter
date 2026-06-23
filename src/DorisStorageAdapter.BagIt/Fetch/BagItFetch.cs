@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
-using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,7 +11,7 @@ namespace DorisStorageAdapter.BagIt.Fetch;
 
 public sealed class BagItFetch : IBagItElement<BagItFetch>
 {
-    private readonly SortedDictionary<string, BagItFetchItem> _items = [];
+    private readonly SortedDictionary<string, BagItFetchItem> _items = new(StringComparer.Ordinal);
 
     public IEnumerable<BagItFetchItem> Items => _items.Values;
 
@@ -42,7 +41,7 @@ public sealed class BagItFetch : IBagItElement<BagItFetch>
 
     public static string FileName => "fetch.txt";
 
-    public bool HasValues() => Items.Any();
+    public bool HasValues() => _items.Count > 0;
 
     public static async Task<BagItFetch> ParseAsync(Stream stream, CancellationToken cancellationToken)
     {
@@ -89,9 +88,12 @@ public sealed class BagItFetch : IBagItElement<BagItFetch>
             return (line[..first], line[secondStart..second], line[thirdStart..]);
         }
 
-        using var reader = new StreamReader(stream, Encoding.UTF8, leaveOpen: true);
+        using var reader = BagItParsing.CreateReader(stream);
 
-        while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
+        while ((line = await BagItParsing.ReadLineOrThrowAsync(
+            reader,
+            lineNumber + 1,
+            cancellationToken)) != null)
         {
             lineNumber++;
 
@@ -149,12 +151,13 @@ public sealed class BagItFetch : IBagItElement<BagItFetch>
 
         foreach (var item in Items)
         {
-            builder.Append(item.Url);
-            builder.Append(' ');
-            builder.Append(item.Length?.ToString(CultureInfo.InvariantCulture) ?? "-");
-            builder.Append(' ');
-            builder.Append(BagItPathCodec.EncodeFilePath(item.FilePath));
-            builder.Append('\n');
+            builder
+                .Append(item.Url)
+                .Append(' ')
+                .Append(item.Length?.ToString(CultureInfo.InvariantCulture) ?? "-")
+                .Append(' ')
+                .Append(BagItPathCodec.EncodeFilePath(item.FilePath))
+                .Append('\n');
         }
 
         return Encoding.UTF8.GetBytes(builder.ToString());
