@@ -519,13 +519,20 @@ internal sealed class FileService(
         }
 
         var previousBagContext = _bagContextFactory.Create(previousDatasetVersion);
+        var previousManifest = await previousBagContext
+            .LoadBagItElementAsync<BagItPayloadManifest>(cancellationToken);
+
+        if (!previousManifest.HasValues())
+        {
+            // Nothing to deduplicate against.
+            return;
+        }
 
         var fetch = await bagContext.LoadBagItElementAsync<BagItFetch>(cancellationToken);
         var manifest = await bagContext.LoadBagItElementAsync<BagItPayloadManifest>(cancellationToken);
         var previousFetch = await previousBagContext.LoadBagItElementAsync<BagItFetch>(cancellationToken);
-        var previousManifest = await previousBagContext.LoadBagItElementAsync<BagItPayloadManifest>(cancellationToken);
         var newFetchItems = new List<BagItFetchItem>();
-
+      
         await foreach (var file in bagContext.ListPayloadFilesAsync(cancellationToken))
         {
             if (manifest.TryGetItem(file.Path, out var manifestItem) &&
@@ -534,17 +541,18 @@ internal sealed class FileService(
                 previousManifest.TryGetItem(file.Path, out var previousManifestItem) &&
                 manifestItem.Checksum == previousManifestItem.Checksum)
             {
-                if (previousFetch.TryGetItem(file.Path, out var previousFetchItem))
+                string url;
+
+                if (previousFetch.TryGetItem(previousManifestItem.FilePath, out var previousFetchItem))
                 {
-                    newFetchItems.Add(previousFetchItem);
+                    url = previousFetchItem.Url;
                 }
                 else
                 {
-                    newFetchItems.Add(new(
-                        file.Path,
-                        file.Size,
-                        bagContext.CreateFetchUrl(previousBagContext, file.Path)));
+                    url = bagContext.CreateFetchUrl(previousBagContext, previousManifestItem.FilePath);
                 }
+
+                newFetchItems.Add(new(file.Path, file.Size, url));
             }
         }
 
