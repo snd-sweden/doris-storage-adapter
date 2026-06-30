@@ -129,7 +129,7 @@ builder.Services
 
         // Use hard coded public key for migration
         var ecdsa = ECDsa.Create();
-        ecdsa.ImportFromPem(System.IO.File.ReadAllText(securityConfiguration.PublicKeyPath));
+        ecdsa.ImportFromPem(securityConfiguration.PublicKeyPem);
         var key = new ECDsaSecurityKey(ecdsa);
 
         options.TokenValidationParameters = new TokenValidationParameters

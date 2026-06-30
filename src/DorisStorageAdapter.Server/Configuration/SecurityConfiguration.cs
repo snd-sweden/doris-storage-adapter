@@ -18,5 +18,5 @@ public sealed record SecurityConfiguration
     public required Uri JwksUri { get; init; }
 
     [Required]
-    public required string PublicKeyPath { get; init; }
+    public required string PublicKeyPem { get; init; }
 }
