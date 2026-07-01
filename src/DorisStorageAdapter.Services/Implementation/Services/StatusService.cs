@@ -161,7 +161,14 @@ internal sealed class StatusService(
 
         if (!await bagContext.HasBeenPublishedAsync(cancellationToken))
         {
-            // Not published, nothing to do.
+            if (await bagContext.ListFilesAsync("", true, cancellationToken)
+                .AnyAsync(cancellationToken))
+            {
+                // Files are present in bag but version is not published.
+                throw new DatasetStatusException();
+            }
+
+            // No files in bag, nothing to do.
             return;
         }
 
