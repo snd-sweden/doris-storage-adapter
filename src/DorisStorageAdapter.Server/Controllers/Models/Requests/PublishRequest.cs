@@ -7,4 +7,4 @@ public sealed record PublishRequest(
     AccessRight AccessRight,
     string CanonicalDoi,
     string Doi,
-    DateTime PublishedDate);
+    DateOnly PublicationDate);

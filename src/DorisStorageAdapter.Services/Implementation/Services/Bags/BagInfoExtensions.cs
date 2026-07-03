@@ -1,5 +1,7 @@
 ﻿using DorisStorageAdapter.BagIt.Info;
 using DorisStorageAdapter.Services.Contract.Models;
+using System;
+using System.Globalization;
 using System.Linq;
 
 namespace DorisStorageAdapter.Services.Implementation.Services.Bags;
@@ -8,6 +10,7 @@ internal static class BagInfoExtensions
 {
     private const string AccessRightLabel = "Access-Right";
     private const string DatasetStatusLabel = "Dataset-Status";
+    private const string PublicationDateLabel = "Publication-Date";
     private const string VersionLabel = "Version";
 
     private const string PublicAccessRightValue = "http://publications.europa.eu/resource/authority/access-right/PUBLIC";
@@ -49,9 +52,35 @@ internal static class BagInfoExtensions
             _ => []
         });
 
+    public static DateOnly? GetPublicationDate(this BagItInfo bagItInfo)
+    {
+        string? value = bagItInfo.GetCustomValues(PublicationDateLabel).FirstOrDefault();
+
+        if (DateOnly.TryParseExact(
+                value,
+                "yyyy-MM-dd",
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out var date))
+        {
+            return date;
+        }
+
+        return null;
+    }
+
+    public static void SetPublicationDate(this BagItInfo bagItInfo, DateOnly? publishedDate) =>
+        bagItInfo.SetCustomValues(PublicationDateLabel, 
+            publishedDate == null 
+                ? [] 
+                : [publishedDate.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)]);
+
     public static string? GetVersion(this BagItInfo bagItInfo) =>
         bagItInfo.GetCustomValues(VersionLabel).FirstOrDefault();
 
     public static void SetVersion(this BagItInfo bagItInfo, string? version) =>
-       bagItInfo.SetCustomValues(VersionLabel, version == null ? [] : [version]);
+       bagItInfo.SetCustomValues(VersionLabel, 
+           version == null 
+            ? [] 
+            : [version]);
 }

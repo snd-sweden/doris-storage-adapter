@@ -51,7 +51,7 @@ public sealed class StatusController(
             accessRight: request.AccessRight,
             canonicalDoi: request.CanonicalDoi,
             doi: request.Doi,
-            publishedDate: request.PublishedDate,
+            publicationDate: request.PublicationDate,
             cancellationToken: cancellationToken);
 
         return TypedResults.Ok();

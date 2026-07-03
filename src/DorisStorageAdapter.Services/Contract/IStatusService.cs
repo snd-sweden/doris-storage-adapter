@@ -12,7 +12,7 @@ public interface IStatusService
         AccessRight accessRight, 
         string canonicalDoi, 
         string doi,
-        DateTime publishedDate,
+        DateOnly publicationDate,
         CancellationToken cancellationToken);
 
     Task SetStatusAsync(

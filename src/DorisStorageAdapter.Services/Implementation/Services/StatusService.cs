@@ -40,7 +40,7 @@ internal sealed class StatusService(
         AccessRight accessRight,
         string canonicalDoi,
         string doi,
-        DateTime publishedDate,
+        DateOnly publicationDate,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
@@ -115,7 +115,7 @@ internal sealed class StatusService(
 
         var bagInfo = new BagItInfo
         {
-            BaggingDate = DateOnly.FromDateTime(publishedDate),
+            BaggingDate = DateOnly.FromDateTime(DateTime.UtcNow),
             BagGroupIdentifier = canonicalDoi,
             BagSize = ByteSize.FromBytes(octetCount).ToBinaryString(CultureInfo.InvariantCulture),
             ExternalIdentifier = [doi],
@@ -125,6 +125,7 @@ internal sealed class StatusService(
 
         bagInfo.SetAccessRight(accessRight);
         bagInfo.SetDatasetVersionStatus(DatasetVersionStatus.Published);
+        bagInfo.SetPublicationDate(publicationDate);
         bagInfo.SetVersion(datasetVersion.Version);
 
         byte[] bagInfoContents = await bagContext.StoreBagItElementAsync(bagInfo, cancellationToken);
