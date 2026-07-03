@@ -1,4 +1,5 @@
 ﻿using DorisStorageAdapter.Services.Contract.Models;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -11,6 +12,7 @@ public interface IStatusService
         AccessRight accessRight, 
         string canonicalDoi, 
         string doi,
+        DateOnly publicationDate,
         CancellationToken cancellationToken);
 
     Task SetStatusAsync(
