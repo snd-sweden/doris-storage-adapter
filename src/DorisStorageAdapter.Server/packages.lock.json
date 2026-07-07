@@ -20,6 +20,12 @@
           "Microsoft.OpenApi": "2.0.0"
         }
       },
+      "Microsoft.OpenApi": {
+        "type": "Direct",
+        "requested": "[2.10.0, )",
+        "resolved": "2.10.0",
+        "contentHash": "tD7ve8JrWfJ+aRfW7J9yDj8t6pbMOzdr8nSc5BlIZaIRxqZZ67RJ8J69//Tx6HHSNFsqomBbipkPP20opnqvMg=="
+      },
       "MinVer": {
         "type": "Direct",
         "requested": "[7.0.0, )",
@@ -48,14 +54,14 @@
       },
       "Scalar.AspNetCore": {
         "type": "Direct",
-        "requested": "[2.16.4, )",
-        "resolved": "2.16.4",
-        "contentHash": "ZDD3CHXn1OR4yHQ55NcXsU+aRzSIc1kwkpgPVM9LaK0XKuEzRqZWZ/4WS9tLI3dur6OMlcpXjGIDk/Pe3fniXQ=="
+        "requested": "[2.16.10, )",
+        "resolved": "2.16.10",
+        "contentHash": "dJsam1uxJ+h6YzaqDGjja1y3miyBd4VDumMwwow03yJapiRp3OtV5lMaOUvp8w5b16gAflYyvfj7HDL+0X2Rqw=="
       },
       "AWSSDK.Core": {
         "type": "Transitive",
-        "resolved": "4.0.9.6",
-        "contentHash": "Lzi5hMHNB+ApeMbQxNDCUNa+Lta00ozr1okKUGqUyNXUC/OG136k8M6jXgNrbwsRxDmVdHHY6UdD4aoUaGVzkQ=="
+        "resolved": "4.0.100.2",
+        "contentHash": "1hz6lB2Meymkv9rdOy30p5pIbGpYLK0H4O8XUMGwEMmXUB4FJhyTNk69dLWIFdDUrY66h0NyKy9maHKXMRTwJA=="
       },
       "Microsoft.AspNetCore.Authentication.JwtBearer": {
         "type": "Transitive",
@@ -110,11 +116,6 @@
         "dependencies": {
           "Microsoft.IdentityModel.Logging": "8.15.0"
         }
-      },
-      "Microsoft.OpenApi": {
-        "type": "Transitive",
-        "resolved": "2.0.0",
-        "contentHash": "GGYLfzV/G/ct80OZ45JxnWP7NvMX1BCugn/lX7TH5o0lcVaviavsLMTxmFV2AybXWjbi3h6FF1vgZiTK6PXndw=="
       },
       "Microsoft.VisualStudio.Threading.Only": {
         "type": "Transitive",
@@ -179,7 +180,7 @@
       "dorisstorageadapter.services": {
         "type": "Project",
         "dependencies": {
-          "AWSSDK.S3": "[4.0.25.2, )",
+          "AWSSDK.S3": "[4.0.100.2, )",
           "AsyncKeyedLock": "[8.0.2, )",
           "ByteSize": "[2.1.2, )",
           "DorisStorageAdapter.BagIt": "[1.0.0, )",
@@ -197,11 +198,11 @@
       },
       "AWSSDK.S3": {
         "type": "CentralTransitive",
-        "requested": "[4.0.25.2, )",
-        "resolved": "4.0.25.2",
-        "contentHash": "RZ71S6Ra8rw0jS813PM6FNzFx5gaAL4/gO8ZQoO2dcHCPMwCepCwvb/kJdOCknLnZaqdHIGJcmjCvW3622O9jw==",
+        "requested": "[4.0.100.2, )",
+        "resolved": "4.0.100.2",
+        "contentHash": "t7kVd4ckiEVE79yu4fnjt9X4Rq+M4Kxg0ghGogzP0rGzgtBQY3es9wD6vJXFjEvYy/b3ef31NbKqL7wvHTN5Pg==",
         "dependencies": {
-          "AWSSDK.Core": "[4.0.9.6, 5.0.0)"
+          "AWSSDK.Core": "[4.0.100.2, 5.0.0)"
         }
       },
       "ByteSize": {
