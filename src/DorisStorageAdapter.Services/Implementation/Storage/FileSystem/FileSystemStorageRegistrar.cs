@@ -14,6 +14,6 @@ internal sealed class FileSystemStorageRegistrar : IStorageProviderRegistrar
            .Bind(providerConfiguration)
            .ValidateDataAnnotations();
 
-        services.AddTransient<IStorageProvider, FileSystemStorageProvider>();
+        services.AddSingleton<IStorageProvider, FileSystemStorageProvider>();
     }
 }

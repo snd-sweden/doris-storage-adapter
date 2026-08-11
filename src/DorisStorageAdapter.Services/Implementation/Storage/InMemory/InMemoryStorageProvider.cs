@@ -58,7 +58,12 @@ internal sealed class InMemoryStorageProvider(InMemoryStorage storage) : IStorag
 
         if (_storage.TryGet(filePath, out var file))
         {
-            Stream stream = new MemoryStream(file.Data);
+            Stream stream = new MemoryStream(
+                file.Data,
+                0,
+                file.Data.Length,
+                writable: false,
+                publiclyVisible: false);
 
             if (byteRange != null)
             {
