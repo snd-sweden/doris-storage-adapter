@@ -3,6 +3,7 @@ using Amazon.S3;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using System;
 
 namespace DorisStorageAdapter.Services.Implementation.Storage.S3;
 
@@ -10,44 +11,56 @@ internal sealed class S3StorageRegistrar : IStorageProviderRegistrar
 {
     public static string ProviderKey => "S3";
 
+    private const long MinMultipartPartSize = 5L * 1024 * 1024;
+
     public static void AddProvider(
         IServiceCollection services, IConfiguration providerConfiguration)
     {
         services.AddOptionsWithValidateOnStart<S3StorageConfiguration>()
-           .Bind(providerConfiguration)
-           .ValidateDataAnnotations()
-           .Validate(c =>
-                c.MultiPartUploadThreshold < c.MultiPartUploadChunkSize * 10_000,
-                nameof(S3StorageConfiguration.MultiPartUploadChunkSize) +
-                " is too small to allow uploading larger objects than the value of " +
-                nameof(S3StorageConfiguration.MultiPartUploadThreshold) +
-                " (max number of parts per upload is 10 000)");
+            .Bind(providerConfiguration)
+            .ValidateDataAnnotations()
+            .Validate(c =>
+                c.Multipart.MaxSupportedPartSize >= MinMultipartPartSize,
+                "S3 multipart maximum supported part size must be at least 5 MiB.")
+            .Validate(
+                o => o.Multipart.MaxSupportedPartCount > 0,
+                "S3 multipart maximum supported part count must be greater than zero.");
 
-        services.AddSingleton<IAmazonS3>(
-            sp =>
-            {
-                var s3Config = sp.GetRequiredService<IOptions<S3StorageConfiguration>>().Value;
+        services.AddKeyedSingleton<IAmazonS3>(S3ClientKind.Regular, CreateClient);
+        services.AddKeyedSingleton<IAmazonS3>(S3ClientKind.RetriesDisabled, CreateClient);
 
-                return new AmazonS3Client(s3Config.AccessKey, s3Config.SecretKey, new AmazonS3Config
-                {
-                    // Disable retries to avoid seeking in the input stream
-                    // when uploading objects, see S3StorageProvider.StoreAsync().
-                    MaxErrorRetry = 0,
-                    ServiceURL = s3Config.ServiceUrl,
-                    ForcePathStyle = s3Config.ForcePathStyle,
+        services.AddSingleton<IStorageProvider, S3StorageProvider>();
+    }
 
-                    RequestChecksumCalculation =
-                        s3Config.RequestChecksumCalculationEnabled
-                            ? RequestChecksumCalculation.WHEN_SUPPORTED
-                            : RequestChecksumCalculation.WHEN_REQUIRED,
+    private static AmazonS3Client CreateClient(IServiceProvider sp, object? key)
+    {
+        var config = sp
+            .GetRequiredService<IOptions<S3StorageConfiguration>>()
+            .Value;
 
-                    ResponseChecksumValidation =
-                        s3Config.ResponseChecksumCalculationEnabled
-                            ? ResponseChecksumValidation.WHEN_SUPPORTED
-                            : ResponseChecksumValidation.WHEN_REQUIRED
-                });
-            });
+        var s3ClientConfig = new AmazonS3Config
+        {
+            ForcePathStyle = config.ForcePathStyle,
+            ServiceURL = config.ServiceUrl,
 
-        services.AddTransient<IStorageProvider, S3StorageProvider>();
+            RequestChecksumCalculation =
+                   config.RequestChecksumCalculationEnabled
+                       ? RequestChecksumCalculation.WHEN_SUPPORTED
+                       : RequestChecksumCalculation.WHEN_REQUIRED,
+
+            ResponseChecksumValidation =
+                   config.ResponseChecksumCalculationEnabled
+                       ? ResponseChecksumValidation.WHEN_SUPPORTED
+                       : ResponseChecksumValidation.WHEN_REQUIRED
+        };
+
+        if (key is S3ClientKind.RetriesDisabled)
+        {
+            s3ClientConfig.MaxErrorRetry = 0;
+            s3ClientConfig.MaxStaleConnectionRetries = 0;
+        }
+
+        return new AmazonS3Client(
+            config.AccessKey, config.SecretKey, s3ClientConfig);
     }
 }

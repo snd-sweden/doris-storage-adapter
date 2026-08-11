@@ -14,16 +14,18 @@ namespace DorisStorageAdapter.Services.Implementation.IO;
 internal sealed class CountedHashStream : Stream
 {
     private readonly Stream _underlyingStream;
+    private readonly bool _leaveOpen;
     private long _bytesRead;
     private readonly IncrementalHash _sha256hasher = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
     private byte[] _hashValue = [];
     private bool _isDisposed;
 
-    public CountedHashStream(Stream underlyingStream)
+    public CountedHashStream(Stream underlyingStream, bool leaveOpen = false)
     {
         ArgumentNullException.ThrowIfNull(underlyingStream);
 
         _underlyingStream = underlyingStream;
+        _leaveOpen = leaveOpen;
     }
 
     public long BytesRead => _bytesRead;
@@ -71,7 +73,10 @@ internal sealed class CountedHashStream : Stream
                 DisposeSha256Hasher();
                 _isDisposed = true;
 
-                _underlyingStream.Dispose();
+                if (!_leaveOpen)
+                {
+                    _underlyingStream.Dispose();
+                }
             }
         }
         finally
@@ -89,8 +94,11 @@ internal sealed class CountedHashStream : Stream
                 DisposeSha256Hasher();
                 _isDisposed = true;
 
-                await _underlyingStream.DisposeAsync()
-                    .ConfigureAwait(false);
+                if (!_leaveOpen)
+                {
+                    await _underlyingStream.DisposeAsync()
+                        .ConfigureAwait(false);
+                }
             }
         }
         finally

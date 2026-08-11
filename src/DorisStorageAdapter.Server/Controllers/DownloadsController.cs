@@ -223,15 +223,16 @@ public sealed class DownloadsController(
                 data.Size);
         }
 
-        // Use a fake seekable stream here in order for TypedResults.Stream()
+        // Use a virtual seekable stream here in order for TypedResults.Stream()
         // to work as intended when using byte ranges.
         // fileData.Stream as returned from fileService.GetFileDataAsync() is already sliced
         // according to the given byte range, but the internal logic in TypedResults.Stream()
-        // will try to seek according to the byte range. Using a FakeSeekableStream fixes
+        // will try to seek according to the byte range. Using a VirtualSeekableStream fixes
         // that by making seeking a no-op.
         response = response with
         {
-            Stream = new FakeSeekableStream(response.Stream, response.Size)
+            Stream = new VirtualSeekableStream(
+                response.Stream, response.Size, VirtualSeekableStreamMode.AllowVirtualSeek)
         };
 
         return TypedResults.Stream(
