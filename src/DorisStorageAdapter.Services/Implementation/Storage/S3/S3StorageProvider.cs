@@ -231,9 +231,8 @@ internal sealed class S3StorageProvider(
 
             if (e.StatusCode == HttpStatusCode.RequestedRangeNotSatisfiable)
             {
-                // For some (stupid) reason, the respone HTTP headers can not be accessed here,
-                // which means that the Content-Range header can not be used to get the
-                // TotalLength value. Resort to issuing a new request to S3 to get the length.
+                // AmazonS3Exception unfortunately does not expose the response Content-Range header.
+                // Resort to issuing a metadata request to retrieve the object's length.
 
                 GetObjectMetadataResponse response;
                 try
