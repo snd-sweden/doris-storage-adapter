@@ -11,6 +11,6 @@ internal sealed class InMemoryStorageRegistrar : IStorageProviderRegistrar
         IServiceCollection services, IConfiguration providerConfiguration)
     {
         services.AddSingleton<InMemoryStorage>();
-        services.AddTransient<IStorageProvider, InMemoryStorageProvider>();
+        services.AddSingleton<IStorageProvider, InMemoryStorageProvider>();
     }
 }

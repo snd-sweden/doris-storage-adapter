@@ -15,8 +15,13 @@ internal sealed record S3StorageConfiguration
     public required string SecretKey { get; init; }
 
     public bool ForcePathStyle { get; init; } = true;
-    public long MultiPartUploadThreshold { get; init; } = 100 * 1024 * 1024;
-    public long MultiPartUploadChunkSize { get; init; } = 10 * 1024 * 1024;
+    public MultipartConfiguration Multipart { get; init; } = new();
     public bool RequestChecksumCalculationEnabled { get; init; } = true;
     public bool ResponseChecksumCalculationEnabled { get; init; } = true;
+
+    public sealed record MultipartConfiguration
+    {
+        public int MaxSupportedPartCount { get; init; } = 10_000;
+        public long MaxSupportedPartSize { get; init; } = 5L * 1024 * 1024 * 1024;
+    }
 }

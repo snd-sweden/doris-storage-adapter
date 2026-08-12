@@ -2,6 +2,7 @@
 using Amazon.S3.Model;
 using Amazon.S3.Transfer;
 using DorisStorageAdapter.Common;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
@@ -15,11 +16,16 @@ using System.Threading.Tasks;
 namespace DorisStorageAdapter.Services.Implementation.Storage.S3;
 
 internal sealed class S3StorageProvider(
-    IAmazonS3 client,
+    [FromKeyedServices(S3ClientKind.Regular)] IAmazonS3 client,
+    [FromKeyedServices(S3ClientKind.RetriesDisabled)] IAmazonS3 retriesDisabledClient,
     IOptions<S3StorageConfiguration> configuration) : IStorageProvider
 {
     private readonly IAmazonS3 _client = client;
+    private readonly IAmazonS3 _retriesDisabledClient = retriesDisabledClient;
     private readonly S3StorageConfiguration _configuration = configuration.Value;
+
+    private const int MultipartThreshold = 128 * 1024 * 1024;
+    private const int PreferredPartSize = 64 * 1024 * 1024;
 
     public async Task StoreAsync(
         string filePath,
@@ -27,9 +33,53 @@ internal sealed class S3StorageProvider(
         long size,
         CancellationToken cancellationToken)
     {
-        using var utility = new TransferUtility(_client, new()
+        if (size < MultipartThreshold)
         {
-            MinSizeBeforePartUpload = _configuration.MultiPartUploadThreshold
+            await PutObjectAsync(
+                filePath,
+                data,
+                size,
+                cancellationToken);
+        }
+        else
+        {
+            await MultipartUploadAsync(
+                filePath,
+                data,
+                size,
+                cancellationToken);
+        }
+    }
+
+    private Task<PutObjectResponse> PutObjectAsync(
+        string filePath,
+        Stream data,
+        long size,
+        CancellationToken cancellationToken)
+    {
+        var request = new PutObjectRequest
+        {
+            AutoCloseStream = false,
+            AutoResetStreamPosition = false,
+            BucketName = _configuration.BucketName,
+            InputStream = size == 0 ? Stream.Null : data,
+            Key = filePath
+        };
+
+        request.Headers.ContentLength = size;
+
+        return _client.PutObjectAsync(request, cancellationToken);
+    }
+
+    private Task MultipartUploadAsync(
+        string filePath,
+        Stream data,
+        long size,
+        CancellationToken cancellationToken)
+    {
+        using var utility = new TransferUtility(_retriesDisabledClient, new()
+        {
+            MinSizeBeforePartUpload = MultipartThreshold
         });
 
         var request = new TransferUtilityUploadRequest
@@ -42,29 +92,66 @@ internal sealed class S3StorageProvider(
             InputStream = size == 0
                 // Using Stream.Null when size is 0 is a workaround to make sure
                 // that TransferUtility does not read synchronously from data, which
-                // (for some reason) happens if the stream is empty. Trying to read synchrounously
-                // triggers an ASP.NET core error unless AllowSynchronousIO is set to true.
+                // (for some reason) happens if the stream is empty.
                 ? Stream.Null
 
-                /// In order for TransferUtility to support multipart uploading
-                /// without buffering each part in memory, InputStream must report Length
-                /// and be seekable. Buffering should be avoided since it means that
-                /// the value of configuration.MultiPartUploadChunkSize directly affects
-                /// memory usage.
-                /// 
-                /// To make data.Stream seem seekable it is wrapped in a FakeSeekableStream. 
-                /// Seeking is only actually used by TransferUtility when retrying a failed upload,
-                /// so retries are disabled in S3StorageProviderConfigurer to avoid seeking here.
-                : new FakeSeekableStream(data, size),
+                // In order for TransferUtility to support multipart uploading
+                // without buffering each part in memory, InputStream must report Length
+                // and be seekable. Buffering is avoided since it means that the calculated
+                // part size affects memory usage.
+                // 
+                // To make data.Stream seem seekable it is wrapped in a VirtualSeekableStream. 
+                // Seeking is only actually used by TransferUtility when retrying,
+                // so the _retriesDisabledClient is used which has retries disabled.
+                // Should TransferUtility try to seek anyway (e.g. because of changes in
+                // the SDK implementation) an exception is thrown so that operation
+                // fails fast and no data corruption can occur.
+                : new VirtualSeekableStream(
+                    data, size, VirtualSeekableStreamMode.ThrowOnSeek, leaveOpen: true),
 
-            PartSize = _configuration.MultiPartUploadChunkSize
+            PartSize = CalculatePartSize(size)
         };
 
-        await utility.UploadAsync(request, cancellationToken);
+        return utility.UploadAsync(request, cancellationToken);
+    }
+
+    private long CalculatePartSize(long size)
+    {
+        int maxPartCount = _configuration.Multipart.MaxSupportedPartCount;
+        long maxPartSize = _configuration.Multipart.MaxSupportedPartSize;
+
+        // Smallest part size that can represent the object without exceeding maxPartCount.
+        long requiredPartSize = 
+            size / maxPartCount + 
+            (size % maxPartCount == 0 ? 0 : 1);
+
+        if (requiredPartSize > maxPartSize)
+        {
+            throw new InvalidOperationException(
+                $"Object of {size} bytes cannot be multipart uploaded with " +
+                $"a maximum part size of {maxPartSize} bytes and {maxPartCount} parts.");
+        }
+
+        // Start from a preferred part size and double it only when necessary to stay within
+        // the part-count limit. Clamp to the backend's configured maximum part size.
+        long partSize = Math.Min(PreferredPartSize, maxPartSize);
+
+        while (partSize < requiredPartSize)
+        {
+            if (partSize > maxPartSize / 2)
+            {
+                partSize = maxPartSize;
+                break;
+            }
+
+            partSize *= 2;
+        }
+
+        return partSize;
     }
 
     public async Task DeleteAsync(
-        string filePath, 
+        string filePath,
         CancellationToken cancellationToken)
     {
         await _client.DeleteObjectAsync(new()
@@ -76,7 +163,7 @@ internal sealed class S3StorageProvider(
     }
 
     public async Task<StorageFileMetadata?> GetMetadataAsync(
-        string filePath, 
+        string filePath,
         CancellationToken cancellationToken)
     {
         try
@@ -106,8 +193,8 @@ internal sealed class S3StorageProvider(
     }
 
     public async Task<StorageFileData?> GetDataAsync(
-        string filePath, 
-        StorageByteRange? byteRange, 
+        string filePath,
+        StorageByteRange? byteRange,
         CancellationToken cancellationToken)
     {
         try

@@ -84,7 +84,7 @@ internal sealed class FileService(
 
         try
         {
-            await using var hashStream = new CountedHashStream(data);
+            await using var hashStream = new CountedHashStream(data, leaveOpen: true);
 
             await bagContext.StoreFileAsync(
                 path: pathInBag,
