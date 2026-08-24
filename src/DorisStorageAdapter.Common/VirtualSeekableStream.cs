@@ -116,6 +116,11 @@ public sealed class VirtualSeekableStream : Stream
 
     public override int Read(Span<byte> buffer)
     {
+        if (buffer.Length == 0)
+        {
+            return 0;
+        }
+
         if (_position >= _length)
         {
             return 0;
@@ -137,6 +142,11 @@ public sealed class VirtualSeekableStream : Stream
         Memory<byte> buffer,
         CancellationToken cancellationToken)
     {
+        if (buffer.Length == 0)
+        {
+            return 0;
+        }
+
         if (_position >= _length)
         {
             return 0;
