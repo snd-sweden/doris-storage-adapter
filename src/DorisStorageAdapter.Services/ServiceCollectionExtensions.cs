@@ -3,12 +3,14 @@ using DorisStorageAdapter.Services.Implementation.Configuration;
 using DorisStorageAdapter.Services.Implementation.Locking;
 using DorisStorageAdapter.Services.Implementation.Locking.InProcess;
 using DorisStorageAdapter.Services.Implementation.Services;
+using DorisStorageAdapter.Services.Implementation.Services.Audit;
 using DorisStorageAdapter.Services.Implementation.Services.Bags;
 using DorisStorageAdapter.Services.Implementation.Services.Locking;
 using DorisStorageAdapter.Services.Implementation.Services.Validation;
 using DorisStorageAdapter.Services.Implementation.Storage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using System;
 
 namespace DorisStorageAdapter.Services;
@@ -22,9 +24,15 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
 
+        services.AddOptionsWithValidateOnStart<AuditConfiguration>()
+           .Bind(configuration.GetSection(AuditConfiguration.ConfigurationSection))
+           .ValidateDataAnnotations();
+
         services.AddOptionsWithValidateOnStart<SystemConfiguration>()
             .Bind(configuration.GetSection(SystemConfiguration.ConfigurationSection))
             .ValidateDataAnnotations();
+
+        services.TryAddSingleton(TimeProvider.System);
 
         services.AddSingleton<ILockProvider, InProcessLockProvider>();
         services.AddSingleton<ISharedExclusiveLockProvider, InProcessSharedExclusiveLockProvider>();
@@ -37,6 +45,9 @@ public static class ServiceCollectionExtensions
         services.AddTransient<IFileService, FileService>();
         services.AddTransient<IStatusService, StatusService>();
         services.AddSingleton<ISystemService, SystemService>();
+
+        services.TryAddSingleton<IAuditSink, LoggerAuditSink>();
+        services.AddSingleton<AuditedOperationRunner>();
 
         services.AddStorageProvider(configuration);
 

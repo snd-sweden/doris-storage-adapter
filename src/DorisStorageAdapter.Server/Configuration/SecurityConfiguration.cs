@@ -8,8 +8,7 @@ public sealed record SecurityConfiguration
 {
     public const string ConfigurationSection = "Security";
 
-    [Required]
-    public required bool AllowReadDraftFiles { get; init; }
+    public bool AllowReadDraftFiles { get; init; }
 
     [Required]
     public required IEnumerable<string> CorsAllowedOrigins { get; init; }

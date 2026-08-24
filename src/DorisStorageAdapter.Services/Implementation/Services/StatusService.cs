@@ -7,6 +7,7 @@ using DorisStorageAdapter.Services.Contract;
 using DorisStorageAdapter.Services.Contract.Exceptions;
 using DorisStorageAdapter.Services.Contract.Models;
 using DorisStorageAdapter.Services.Implementation.Configuration;
+using DorisStorageAdapter.Services.Implementation.Services.Audit;
 using DorisStorageAdapter.Services.Implementation.Services.Bags;
 using DorisStorageAdapter.Services.Implementation.Services.Locking;
 using DorisStorageAdapter.Services.Implementation.Services.Validation;
@@ -25,17 +26,52 @@ internal sealed class StatusService(
     DatasetVersionValidator datasetVersionValidator,
     DatasetVersionLocks datasetVersionLocks,
     BagContextFactory bagContextFactory,
-    IOptions<SystemConfiguration> systemConfiguration) : IStatusService
+    IOptions<SystemConfiguration> systemConfiguration,
+    AuditedOperationRunner audit,
+    TimeProvider timeProvider) : IStatusService
 {
     private readonly DatasetVersionValidator _datasetVersionValidator = datasetVersionValidator;
     private readonly DatasetVersionLocks _datasetVersionLocks = datasetVersionLocks;
     private readonly BagContextFactory _bagContextFactory = bagContextFactory;
     private readonly SystemConfiguration _systemConfiguration = systemConfiguration.Value;
+    private readonly AuditedOperationRunner _audit = audit;
+    private readonly TimeProvider _timeProvider = timeProvider;
 
     private static readonly Checksum _bagItSha256 =
         new(SHA256.HashData(BagItDeclaration.CreateEmpty().Serialize()));
 
-    public async Task PublishAsync(
+    public Task PublishAsync(
+        DatasetVersion datasetVersion,
+        AccessRight accessRight,
+        string canonicalDoi,
+        string doi,
+        DateOnly publicationDate,
+        CancellationToken cancellationToken) =>
+        _audit.RunAsync(
+            new AuditOperation
+            {
+                Action = "PublishDatasetVersion",
+                DatasetVersion = datasetVersion,
+
+                Details = new Dictionary<string, object>
+                {
+                    ["AccessRight"] = accessRight,
+                    ["CanonicalDoi"] = canonicalDoi,
+                    ["Doi"] = doi,
+                    ["PublicationDate"] = publicationDate
+                }
+            },
+            (_, ct) =>
+                PublishCoreAsync(
+                    datasetVersion,
+                    accessRight,
+                    canonicalDoi,
+                    doi,
+                    publicationDate,
+                    ct),
+           cancellationToken);
+
+    public async Task PublishCoreAsync(
         DatasetVersion datasetVersion,
         AccessRight accessRight,
         string canonicalDoi,
@@ -115,7 +151,7 @@ internal sealed class StatusService(
 
         var bagInfo = new BagItInfo
         {
-            BaggingDate = DateOnly.FromDateTime(DateTime.UtcNow),
+            BaggingDate = DateOnly.FromDateTime(_timeProvider.GetUtcNow().UtcDateTime),
             BagGroupIdentifier = canonicalDoi,
             BagSize = ByteSize.FromBytes(octetCount).ToBinaryString(CultureInfo.InvariantCulture),
             ExternalIdentifier = [doi],
@@ -147,7 +183,29 @@ internal sealed class StatusService(
         await bagContext.StoreBagItElementAsync(BagItDeclaration.CreateEmpty(), CancellationToken.None);
     }
 
-    public async Task SetStatusAsync(
+    public Task SetStatusAsync(
+        DatasetVersion datasetVersion,
+        DatasetVersionStatus status,
+        CancellationToken cancellationToken) =>
+        _audit.RunAsync(
+            new AuditOperation
+            {
+                Action = "SetDatasetVersionStatus",
+                DatasetVersion = datasetVersion,
+
+                Details = new Dictionary<string, object>
+                {
+                    ["Status"] = status
+                }
+            },
+            (_, ct) =>
+                SetStatusCoreAsync(
+                    datasetVersion,
+                    status,
+                    ct),
+           cancellationToken);
+
+    public async Task SetStatusCoreAsync(
         DatasetVersion datasetVersion,
         DatasetVersionStatus status,
         CancellationToken cancellationToken)
