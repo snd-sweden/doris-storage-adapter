@@ -20,6 +20,7 @@ internal sealed class NextCloudStorageProvider : IStorageProvider
     private readonly IStorageLockProvider _lockProvider;
     private readonly IWebDavClient _webDavClient;
     private readonly NextCloudStorageConfiguration _configuration;
+    private readonly TimeProvider _timeProvider;
 
     private readonly Uri _storageBaseUri;
     private readonly Uri _chunkedUploadBaseUri;
@@ -33,11 +34,13 @@ internal sealed class NextCloudStorageProvider : IStorageProvider
     public NextCloudStorageProvider(
         IWebDavClient webDavClient,
         IOptions<NextCloudStorageConfiguration> configuration,
-        IStorageLockProvider pathLock)
+        IStorageLockProvider pathLock,
+        TimeProvider timeProvider)
     {
         _webDavClient = webDavClient;
         _configuration = configuration.Value;
         _lockProvider = pathLock;
+        _timeProvider = timeProvider;
 
         var filesBaseUri = GetUri(_configuration.BaseUrl, $"remote.php/dav/files/{_configuration.User}/");
 
@@ -56,7 +59,7 @@ internal sealed class NextCloudStorageProvider : IStorageProvider
         long size,
         CancellationToken cancellationToken)
     {
-        long GetNow() => DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        long GetNow() => _timeProvider.GetUtcNow().ToUnixTimeSeconds();
 
         var fileUri = GetWebDavFileUri(filePath);
         var directoryUri = GetParentUri(fileUri);

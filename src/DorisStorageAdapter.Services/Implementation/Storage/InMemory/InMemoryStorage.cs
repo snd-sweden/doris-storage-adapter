@@ -6,25 +6,31 @@ using System.Linq;
 
 namespace DorisStorageAdapter.Services.Implementation.Storage.InMemory;
 
-internal sealed class InMemoryStorage
+internal sealed class InMemoryStorage(
+    TimeProvider timeProvider)
 {
+    private readonly TimeProvider _timeProvider = timeProvider;
     private readonly ConcurrentDictionary<string, InMemoryFile> _files = new(StringComparer.Ordinal);
 
-    public InMemoryFile AddOrUpdate(string filePath, byte[] data) =>
-        _files.AddOrUpdate(filePath,
+    public InMemoryFile AddOrUpdate(string filePath, byte[] data)
+    {
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
+
+        return _files.AddOrUpdate(filePath,
             new InMemoryFile(new(
-                DateCreated: DateTime.UtcNow,
-                DateModified: DateTime.UtcNow,
+                DateCreated: now,
+                DateModified: now,
                 Size: data.Length,
                 Path: filePath),
                 data),
             (_, oldValue) =>
                 new(oldValue.Metadata with
                 {
-                    DateModified = DateTime.UtcNow,
+                    DateModified = now,
                     Size = data.LongLength
                 },
                 data));
+    }
 
 
     public void Remove(string filePath) => _files.TryRemove(filePath, out var _);

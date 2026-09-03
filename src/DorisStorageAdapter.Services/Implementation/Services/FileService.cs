@@ -8,6 +8,7 @@ using DorisStorageAdapter.Services.Contract.Models;
 using DorisStorageAdapter.Services.Implementation.Configuration;
 using DorisStorageAdapter.Services.Implementation.IO;
 using DorisStorageAdapter.Services.Implementation.Locking;
+using DorisStorageAdapter.Services.Implementation.Services.Audit;
 using DorisStorageAdapter.Services.Implementation.Services.Bags;
 using DorisStorageAdapter.Services.Implementation.Services.Locking;
 using DorisStorageAdapter.Services.Implementation.Services.Validation;
@@ -31,17 +32,56 @@ internal sealed class FileService(
     DatasetVersionValidator datasetVersionValidator,
     DatasetVersionLocks datasetVersionLocks,
     BagContextFactory bagContextFactory,
-    IOptions<SystemConfiguration> systemConfiguration) : IFileService
+    IOptions<SystemConfiguration> systemConfiguration,
+    AuditedOperationRunner audit) : IFileService
 {
     private readonly ILockProvider _lockProvider = lockProvider;
     private readonly DatasetVersionLocks _datasetVersionLocks = datasetVersionLocks;
     private readonly DatasetVersionValidator _datasetVersionValidator = datasetVersionValidator;
     private readonly BagContextFactory _bagContextFactory = bagContextFactory;
     private readonly SystemConfiguration _systemConfiguration = systemConfiguration.Value;
+    private readonly AuditedOperationRunner _audit = audit;
 
     public const string UploadMarkerFilePrefix = "_upload-";
 
-    public async Task<FileMetadata> StoreAsync(
+    public Task<FileMetadata> StoreAsync(
+        DatasetVersion datasetVersion,
+        string filePath,
+        Stream data,
+        long size,
+        CancellationToken cancellationToken) =>
+        _audit.RunAsync(
+            new AuditOperation
+            {
+                Action = "UploadFile",
+                DatasetVersion = datasetVersion,
+                Target = filePath,
+
+                Details = new Dictionary<string, object>
+                {
+                    ["Size"] = size
+                }
+            },
+            async (state, ct) =>
+            {
+                var result = await StoreCoreAsync(
+                    datasetVersion,
+                    filePath,
+                    data,
+                    size,
+                    ct);
+
+                if (result.Sha256 != null)
+                {
+                    state.Details["Sha256"] = 
+                        Convert.ToHexStringLower(result.Sha256);
+                }
+
+                return result;
+            },
+            cancellationToken);
+
+    public async Task<FileMetadata> StoreCoreAsync(
         DatasetVersion datasetVersion,
         string filePath,
         Stream data,
@@ -133,7 +173,25 @@ internal sealed class FileService(
             Size: bytesRead);
     }
 
-    public async Task DeleteAsync(
+    public Task DeleteAsync(
+        DatasetVersion datasetVersion,
+        string filePath,
+        CancellationToken cancellationToken) =>
+        _audit.RunAsync(
+            new AuditOperation
+            {
+                Action = "DeleteFile",
+                DatasetVersion = datasetVersion,
+                Target = filePath
+            },
+            (_, ct) =>
+                DeleteCoreAsync(
+                    datasetVersion,
+                    filePath,
+                    ct),
+            cancellationToken);
+
+    public async Task DeleteCoreAsync(
         DatasetVersion datasetVersion,
         string filePath,
         CancellationToken cancellationToken)
@@ -171,7 +229,29 @@ internal sealed class FileService(
         await bagContext.DeleteFileAsync(GetUploadMarkerFileName(pathInBag), CancellationToken.None);
     }
 
-    public async Task ImportAsync(
+    public Task ImportAsync(
+        DatasetVersion datasetVersion,
+        string fromVersion,
+        CancellationToken cancellationToken) =>
+        _audit.RunAsync(
+            new AuditOperation
+            {
+                Action = "ImportFiles",
+                DatasetVersion = datasetVersion,
+
+                Details = new Dictionary<string, object>
+                {
+                    ["FromVersion"] = fromVersion
+                }
+            },
+            (_, ct) =>
+                ImportCoreAsync(
+                    datasetVersion,
+                    fromVersion,
+                    ct),
+           cancellationToken);
+
+    public async Task ImportCoreAsync(
        DatasetVersion datasetVersion,
        string fromVersion,
        CancellationToken cancellationToken)
@@ -232,6 +312,71 @@ internal sealed class FileService(
     }
 
     public async Task<FileData?> GetDataAsync(
+        DatasetVersion datasetVersion,
+        string filePath,
+        FileAccessScope scope,
+        ByteRange? byteRange,
+        CancellationToken cancellationToken)
+    {
+        if (scope == FileAccessScope.Public)
+        {
+            // Do not audit public downloads.
+
+            return await GetDataCoreAsync(
+                datasetVersion,
+                filePath,
+                scope,
+                byteRange,
+                cancellationToken);
+        }
+
+        var details = new Dictionary<string, object>
+        {
+            ["AccessScope"] = scope
+        };
+
+        if (byteRange != null)
+        {
+            details["ByteRange"] = $"{byteRange.From}-{byteRange.To}";
+        }
+
+        return await _audit.StartAsync(
+            new AuditOperation
+            {
+                Action = "DownloadFile",
+                DatasetVersion = datasetVersion,
+                Target = filePath,
+                Details = details
+            },
+            async (auditHandle, ct) =>
+            {
+                var fileData = await GetDataCoreAsync(
+                    datasetVersion,
+                    filePath,
+                    scope,
+                    byteRange,
+                    ct);
+
+                if (fileData == null)
+                {
+                    return null;
+                }
+
+                auditHandle.State.Details["TotalSize"] = fileData.Size;
+                auditHandle.State.Details["ReturnedSize"] = fileData.StreamLength;
+
+                return fileData with
+                { 
+                    Stream = new AuditedReadStream(
+                        fileData.Stream, 
+                        auditHandle,
+                        fileData.StreamLength)
+                };
+            },
+            cancellationToken);
+    }
+
+    public async Task<FileData?> GetDataCoreAsync(
         DatasetVersion datasetVersion,
         string filePath,
         FileAccessScope scope,
@@ -381,11 +526,71 @@ internal sealed class FileService(
         }
     }
 
-    public async Task<bool> TryWriteDataAsZipAsync(
+    public Task<bool> TryWriteDataAsZipAsync(
         DatasetVersion datasetVersion,
         string[] paths,
         Stream stream,
         FileAccessScope scope,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(paths);
+
+        if (scope == FileAccessScope.Public)
+        {
+            // Do not audit public downloads.
+
+            return TryWriteDataAsZipCoreAsync(
+                datasetVersion,
+                paths,
+                stream,
+                scope,
+                new(),
+                cancellationToken);
+        }
+
+        var details = new Dictionary<string, object>()
+        {
+            ["AccessScope"] = scope,
+        };
+
+        for (int i = 0; i < paths.Length; i++)
+        {
+            details[$"PathPrefix.{i}"] = paths[i];
+        }
+
+        return _audit.StartAsync(
+            new AuditOperation
+            {
+                Action = "DownloadZip",
+                DatasetVersion = datasetVersion,
+                Details = details
+            },
+            async (auditHandle, ct) =>
+            {
+                bool written = await TryWriteDataAsZipCoreAsync(
+                    datasetVersion,
+                    paths,
+                    stream,
+                    scope,
+                    auditHandle.State,
+                    cancellationToken);
+
+                if (written)
+                {
+                    await auditHandle.CompleteAsync(AuditOutcome.Success);
+                }
+
+                return written;
+            },
+           cancellationToken);
+    }
+
+    public async Task<bool> TryWriteDataAsZipCoreAsync(
+        DatasetVersion datasetVersion,
+        string[] paths,
+        Stream stream,
+        FileAccessScope scope,
+        AuditExecutionState auditState, 
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
@@ -407,31 +612,47 @@ internal sealed class FileService(
             return false;
         }
 
+        var sent = new List<BagItManifestItem>();
+        long totalBytesRead = 0;
+
+        void UpdateAuditCounts()
+        {
+            auditState.Details["CompletedFileCount"] = sent.Count;
+            auditState.Details["BytesRead"] = totalBytesRead;
+        }
+
+        UpdateAuditCounts();
+
+        var payloadManifest = await bagContext
+            .LoadBagItElementAsync<BagItPayloadManifest>(cancellationToken);
+
+        string versionPath = datasetVersion.Identifier + '-' + datasetVersion.Version;
+        var toSend = new List<(BagItManifestItem ManifestItem, string ZipFilePath)>();
+
+        foreach (var manifestItem in payloadManifest.Items)
+        {
+            string filePath = BagPathLayout.FromPathInBag(manifestItem.FilePath);
+
+            if (paths.Length == 0 ||
+                paths.Any(p => filePath.StartsWith(p, StringComparison.Ordinal)))
+            {
+                toSend.Add((manifestItem, versionPath + '/' + filePath));
+            }
+        }
+
+        auditState.Details["SelectedFileCount"] = toSend.Count;
+
         static Stream CreateZipEntryStream(ZipArchive zipArchive, string path)
         {
             var entry = zipArchive.CreateEntry(path, CompressionLevel.NoCompression);
             return entry.Open();
         }
 
-        var payloadManifest = await bagContext.LoadBagItElementAsync<BagItPayloadManifest>(cancellationToken);
         var fetch = await bagContext.LoadBagItElementAsync<BagItFetch>(cancellationToken);
-        string versionPath = datasetVersion.Identifier + '-' + datasetVersion.Version;
-
         using var zipArchive = new ZipArchive(stream, ZipArchiveMode.Create, false);
-        var sent = new List<BagItManifestItem>();
-
-        foreach (var manifestItem in payloadManifest.Items)
+        
+        foreach (var (manifestItem, zipFilePath) in toSend)
         {
-            string filePath = BagPathLayout.FromPathInBag(manifestItem.FilePath);
-
-            if (paths.Length > 0 &&
-                !paths.Any(p => filePath.StartsWith(p, StringComparison.Ordinal)))
-            {
-                continue;
-            }
-
-            string zipFilePath = versionPath + '/' + filePath;
-
             (var fromBagContext, string pathInBag) = ResolvePath(bagContext, fetch, manifestItem.FilePath);
             var fileData = await fromBagContext.GetFileDataAsync(pathInBag, null, cancellationToken);
 
@@ -442,6 +663,9 @@ internal sealed class FileService(
                 await fileStream.CopyToAsync(entryStream, cancellationToken);
 
                 sent.Add(new(zipFilePath, manifestItem.Checksum));
+                totalBytesRead += fileData.Size;
+
+                UpdateAuditCounts();
             }
         }
 

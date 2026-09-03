@@ -4,6 +4,7 @@ using DorisStorageAdapter.Server.Controllers;
 using DorisStorageAdapter.Server.Controllers.Attributes;
 using DorisStorageAdapter.Server.Tenancy;
 using DorisStorageAdapter.Services;
+using DorisStorageAdapter.Services.Contract.Audit;
 using Invio.Extensions.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -20,6 +21,7 @@ using NetDevPack.Security.Jwt.Core.Jwa;
 using NetDevPack.Security.JwtExtensions;
 using Scalar.AspNetCore;
 using System;
+using System.Net;
 using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -60,6 +62,9 @@ builder.Services.AddProblemDetails(o =>
 });
 // Map ServiceExceptions to problem details response
 builder.Services.AddExceptionHandler<ServiceExceptionHandler>();
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<IAuditContextAccessor, AuditContextAccessor>();
 
 builder.Services.AddSingleton<ITenantResolver, SubdomainTenantResolver>();
 
@@ -214,7 +219,35 @@ builder.Services.Configure<HostFilteringOptions>(options =>
     options.AllowEmptyHosts = false;
 });
 
+// Set up forwarded headers
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    var reverseProxyConfiguration = builder.Configuration
+        .GetSection(ReverseProxyConfiguration.ConfigurationSection)
+        .Get<ReverseProxyConfiguration>()
+        ?? new();
+
+    options.ForwardedHeaders =
+        Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor |
+        Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto;
+
+    options.ForwardLimit =
+        reverseProxyConfiguration.ForwardLimit;
+
+    foreach (string proxy in reverseProxyConfiguration.KnownAddresses)
+    {
+        options.KnownProxies.Add(IPAddress.Parse(proxy));
+    }
+
+    foreach (string network in reverseProxyConfiguration.KnownNetworks)
+    {
+        options.KnownIPNetworks.Add(IPNetwork.Parse(network));
+    }
+});
+
 var app = builder.Build();
+
+app.UseForwardedHeaders();
 
 app.UseExceptionHandler();
 

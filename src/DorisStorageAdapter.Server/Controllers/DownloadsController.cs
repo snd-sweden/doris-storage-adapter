@@ -256,14 +256,14 @@ public sealed class DownloadsController(
         Response.Headers.ContentType = MediaTypeNames.Application.Zip;
         Response.StatusCode = StatusCodes.Status200OK;
 
-        bool success = await _fileService.TryWriteDataAsZipAsync(
+        bool written = await _fileService.TryWriteDataAsZipAsync(
             datasetVersion: datasetVersion,
             paths: paths,
             stream: Response.BodyWriter.AsStream(),
             scope: scope,
             cancellationToken: cancellationToken);
 
-        if (!success)
+        if (!written)
         {
             if (!Response.HasStarted)
             {
