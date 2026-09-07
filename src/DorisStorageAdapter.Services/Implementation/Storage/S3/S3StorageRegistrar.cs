@@ -40,6 +40,9 @@ internal sealed class S3StorageRegistrar : IStorageProviderRegistrar
 
         var s3ClientConfig = new AmazonS3Config
         {
+            EndpointProvider =
+                new NonStandardBucketNameEndpointProvider(),
+
             ForcePathStyle = config.ForcePathStyle,
             ServiceURL = config.ServiceUrl,
 
