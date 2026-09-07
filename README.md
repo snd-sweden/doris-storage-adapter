@@ -37,7 +37,7 @@ flowchart TD
 
     RDUser-->|"1. Request file"|RD
     RD-->|"2. Redirect"|SA
-    SA-->|"3. Check if file is published and public"|SAS
+    SA-->|"3. Check if dataset version is published and public"|SAS
     SA-->|"4. Yes, request file"|SAS
     SAS-->|"5. Send file"|SA
     SA-->|"6. Send file"|RDUser
@@ -52,7 +52,7 @@ sequenceDiagram
     participant SA as Storage adapter
     participant S as Storage (e.g. S3)
     R->>D: Request write token<br/>for dataset version
-    break not authorized
+    break not authorized or dataset version is published
         D-->>R: Denied
     end
     D-->>R: Return signed token
@@ -83,13 +83,13 @@ sequenceDiagram
     break Invalid token
         SA-->>D: Denied
     end
-    SA->>S: Store metadata<br/>(published, open or restricted)
+    SA->>S: Store metadata
     SA-->>-D: Return success
     D-->>-R: Return success
 ```
 ```mermaid
 ---
-title: Authorization flow for reading restricted or not yet published file
+title: Authorization flow for reading not yet published file
 ---
 sequenceDiagram
     actor R as Researcher
@@ -97,7 +97,7 @@ sequenceDiagram
     participant SA as Storage adapter
     participant S as Storage (e.g. S3)
     R->>+D: Request read token<br/>for dataset version
-    break Not authorized
+    break Not authorized or dataset version is published
         D-->>R: Denied
     end
     D-->>-R: Return signed token
