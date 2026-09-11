@@ -13,18 +13,18 @@
       },
       "Microsoft.AspNetCore.OpenApi": {
         "type": "Direct",
-        "requested": "[10.0.11, )",
-        "resolved": "10.0.11",
-        "contentHash": "R/1EATnPLU+gRfB6lwVkMcymmyAY5ppBBdRN/5lhNEiT3xP1sWccuSFkU/f1lQvN/WgRq5Vn8AhCdE3fqgsL/w==",
+        "requested": "[10.0.12, )",
+        "resolved": "10.0.12",
+        "contentHash": "7RnQ/UKn+kK3JDLmTpW+vVqNErWthGPAVAy1aIiBzv4ucQ6g9NFvOJUuT0PHcpvcJxGVxctMxj6t+NESWMrgHQ==",
         "dependencies": {
-          "Microsoft.OpenApi": "[2.7.5, 3.0.0)"
+          "Microsoft.OpenApi": "[2.12.0, 3.0.0)"
         }
       },
       "MinVer": {
         "type": "Direct",
-        "requested": "[7.0.0, )",
-        "resolved": "7.0.0",
-        "contentHash": "2lMTCQl5bGP4iv0JNkockPnyllC6eHLz+CoK2ICvalvHod+exXSxueu9hq+zNkU7bZBJf8wMfeRC/Edn8AGmEg=="
+        "requested": "[8.0.0, )",
+        "resolved": "8.0.0",
+        "contentHash": "AJy/KVjXgUbgjf6HiI8wAk4DSSq0SCmvXQF8aU6IB+pnIQq+YJvofvMczug2hqO8yEvnQY557ryew66KPpyCsA=="
       },
       "NetDevPack.Security.Jwt.AspNetCore": {
         "type": "Direct",
@@ -48,14 +48,14 @@
       },
       "Scalar.AspNetCore": {
         "type": "Direct",
-        "requested": "[2.17.2, )",
-        "resolved": "2.17.2",
-        "contentHash": "ciW2HuRWJgNEecophHN9DvoRlTs/+8TNPhB6tQW1gmJWh/eoAIO0ys8XIxx7irUpIu3KRHZyxyuHstqqrTn1Tw=="
+        "requested": "[2.17.3, )",
+        "resolved": "2.17.3",
+        "contentHash": "TwAf1zy/MH2famozcDqk9+/jD37VAbonRXfnjAso0Q2YKeWtA0kH59WxhuevvAxWDL3jUU3TDpNmUFS2gF9bHw=="
       },
       "AWSSDK.Core": {
         "type": "Transitive",
-        "resolved": "4.0.102.1",
-        "contentHash": "vsf+/o+S/euH/wG7bO1cha+OWaHvjgvpDeGFO6l3Vcdio9GlSfXkZDD2BogMuAJ+/jDyqqSgqmYVolPKV9ie/A=="
+        "resolved": "4.0.102.4",
+        "contentHash": "cFMZnb05RV290HDdybtgR5b/ypkLekeaoHde4tiQHLmgegGLMmcEKsvThnLm1PJOeWSNFcBxzC5fomOvWiW24A=="
       },
       "Microsoft.AspNetCore.Authentication.JwtBearer": {
         "type": "Transitive",
@@ -67,8 +67,8 @@
       },
       "Microsoft.Extensions.Compliance.Abstractions": {
         "type": "Transitive",
-        "resolved": "10.9.0",
-        "contentHash": "tuSqNuiJxlln43sZ8c1EDA4WXit1eX4foGadylXso3DnMVc+DtKfaNEwvHuiFXfPsEUZ6Z3GnF0Bfk9vvOsE4Q=="
+        "resolved": "10.10.0",
+        "contentHash": "Sh3ujDRJpCMNY4x+43ljCROt4qBOoWfsL8l816RPYZS1S+Tw277r5002rbB15Sh6hFcCT8mGYBO7NtpfSYrQ0Q=="
       },
       "Microsoft.IdentityModel.Abstractions": {
         "type": "Transitive",
@@ -118,21 +118,21 @@
       },
       "Microsoft.OpenApi": {
         "type": "Transitive",
-        "resolved": "2.7.5",
-        "contentHash": "0FA67RSnRM4tcBKqiqVu/HPdZ9+QOKbmeRjxRUGTCjPU4C0bmUhd97Dso7Yild5P7nOV6GxJ2xrK0Kv/O9xp0w=="
+        "resolved": "2.12.0",
+        "contentHash": "0xB/be+f6qYOhvQPUrVsLrau+fkowYv6gt9RIkajMhwT7sZnqtcA797yW3bS5kgSje+AQW4xZgyLnW641YFioQ=="
       },
       "Microsoft.VisualStudio.Threading.Only": {
         "type": "Transitive",
-        "resolved": "17.13.61",
-        "contentHash": "vl5a2URJYCO5m+aZZtNlAXAMz28e2pUotRuoHD7RnCWOCeoyd8hWp5ZBaLNYq4iEj2oeJx5ZxiSboAjVmB20Qg==",
+        "resolved": "18.7.23",
+        "contentHash": "iOaVAQLPt1KxFyYqZqKxqNu8BgQUiPLNeT8XhX+549eWaGw49e1MxjlkjTIBwvlfrU4lPp+Nm99oRpmsgN7RJw==",
         "dependencies": {
-          "Microsoft.VisualStudio.Validation": "17.8.8"
+          "Microsoft.VisualStudio.Validation": "17.13.22"
         }
       },
       "Microsoft.VisualStudio.Validation": {
         "type": "Transitive",
-        "resolved": "17.8.8",
-        "contentHash": "rWXThIpyQd4YIXghNkiv2+VLvzS+MCMKVRDR0GAMlflsdo+YcAN2g2r5U1Ah98OFjQMRexTFtXQQ2LkajxZi3g=="
+        "resolved": "17.13.22",
+        "contentHash": "fC20ITOxlUpGQ0ltAxITQbeFxwuB6OjLT3lByC4+/Gm46o/Mwv9hlIVrBhiUhnqdQzUUvr4EHkdiYe7WOSMLmw=="
       },
       "NetDevPack.Security.Jwt": {
         "type": "Transitive",
@@ -184,13 +184,13 @@
       "dorisstorageadapter.services": {
         "type": "Project",
         "dependencies": {
-          "AWSSDK.S3": "[4.0.102.4, )",
+          "AWSSDK.S3": "[4.0.103.1, )",
           "AsyncKeyedLock": "[8.0.2, )",
           "ByteSize": "[2.1.2, )",
           "DorisStorageAdapter.BagIt": "[1.0.0, )",
           "DorisStorageAdapter.Common": "[1.0.0, )",
-          "Microsoft.Extensions.Telemetry.Abstractions": "[10.9.0, )",
-          "Nerdbank.Streams": "[2.13.31, )",
+          "Microsoft.Extensions.Telemetry.Abstractions": "[10.10.0, )",
+          "Nerdbank.Streams": "[2.14.354, )",
           "Nito.AsyncEx.Coordination": "[5.1.2, )",
           "WebDav.Client": "[2.9.0, )"
         }
@@ -203,11 +203,11 @@
       },
       "AWSSDK.S3": {
         "type": "CentralTransitive",
-        "requested": "[4.0.102.4, )",
-        "resolved": "4.0.102.4",
-        "contentHash": "rfUhmzlQifO7Uk3AErPweV1FbwZYI+OuogPjfS/7mbVKVWCYYCLkkLozh2mS/qaHPNGPGFeSFAR1NbWnQyd2pQ==",
+        "requested": "[4.0.103.1, )",
+        "resolved": "4.0.103.1",
+        "contentHash": "U7a3gnj6/z5l2bzgASv0PrfXFwLwNKWgQSJjuhV+lcofP52LcQVXVsEwMh9Lv28W+ORmRrYFgJnIV1tqmeRj+w==",
         "dependencies": {
-          "AWSSDK.Core": "[4.0.102.1, 5.0.0)"
+          "AWSSDK.Core": "[4.0.102.4, 5.0.0)"
         }
       },
       "ByteSize": {
@@ -218,21 +218,21 @@
       },
       "Microsoft.Extensions.Telemetry.Abstractions": {
         "type": "CentralTransitive",
-        "requested": "[10.9.0, )",
-        "resolved": "10.9.0",
-        "contentHash": "rCyM64XvBNi2IY/5noMVsJjt22zVmnI+8tGrb6JnPRW/75Nyv9Hi+7gkxb7zQcR0+2mzS1sAqPXz2PsdHZCqHg==",
+        "requested": "[10.10.0, )",
+        "resolved": "10.10.0",
+        "contentHash": "I76SAZ95I5lYh4whVZvLpKhpvHI1o21FfGqiASU85GtIVA4ULv+TVIE5+swKhnC63+xI4XjCcIWa9LbyR3pFNw==",
         "dependencies": {
-          "Microsoft.Extensions.Compliance.Abstractions": "10.9.0"
+          "Microsoft.Extensions.Compliance.Abstractions": "10.10.0"
         }
       },
       "Nerdbank.Streams": {
         "type": "CentralTransitive",
-        "requested": "[2.13.31, )",
-        "resolved": "2.13.31",
-        "contentHash": "cJfllL5AuX2V5mHNXFuw0bMlfX3AoKZSuUBT9HyAk/UWyg8NJjqcRoaNwSC7jwRdC0dq/kXT/rAlpCRS6Nz7Jg==",
+        "requested": "[2.14.354, )",
+        "resolved": "2.14.354",
+        "contentHash": "qpx1mfy6jmPsV4SakbdR5CDyDaz43WwXqaPym1YXRZOm1t/AQyUlfEUKtnWPXRqdEQjp3GjQGxsHoebIOJBBDA==",
         "dependencies": {
-          "Microsoft.VisualStudio.Threading.Only": "17.13.61",
-          "Microsoft.VisualStudio.Validation": "17.8.8"
+          "Microsoft.VisualStudio.Threading.Only": "18.7.23",
+          "Microsoft.VisualStudio.Validation": "17.13.22"
         }
       },
       "Nito.AsyncEx.Coordination": {
