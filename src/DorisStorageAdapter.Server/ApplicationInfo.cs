@@ -1,11 +1,11 @@
-﻿using System.Diagnostics;
+﻿using System.Reflection;
 
 namespace DorisStorageAdapter.Server;
 
 internal static class ApplicationInfo
 {
-    public static string Version { get; } =  
-        FileVersionInfo
-            .GetVersionInfo(typeof(ApplicationInfo).Assembly.Location)
-            .ProductVersion ?? "";
+    public static string Version { get; } =
+        typeof(ApplicationInfo).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion ?? "";
 }
