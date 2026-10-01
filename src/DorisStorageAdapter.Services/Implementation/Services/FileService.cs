@@ -73,7 +73,7 @@ internal sealed class FileService(
 
                 if (result.Sha256 != null)
                 {
-                    state.Details["Sha256"] = 
+                    state.Details["Sha256"] =
                         Convert.ToHexStringLower(result.Sha256);
                 }
 
@@ -109,7 +109,9 @@ internal sealed class FileService(
         // Store marker file indicating upload is in progress.
         // Used to detect unfinished uploads.
         string markerFileName = GetUploadMarkerFileName(pathInBag);
-        bool markerFileAlreadyExists = await bagContext.GetFileMetadataAsync(markerFileName, cancellationToken) != null;
+        bool markerFileAlreadyExists = await bagContext
+            .GetFileMetadataAsync(markerFileName, cancellationToken) != null;
+
         using (var markerFileContent = new MemoryStream(Encoding.UTF8.GetBytes(pathInBag)))
         {
             await bagContext.StoreFileAsync(
@@ -119,7 +121,7 @@ internal sealed class FileService(
                 cancellationToken: cancellationToken);
         }
 
-        byte[] checksum;
+        byte[] checksumBytes;
         long bytesRead;
 
         try
@@ -132,7 +134,7 @@ internal sealed class FileService(
                 size: size,
                 cancellationToken: cancellationToken);
 
-            checksum = hashStream.GetHash();
+            checksumBytes = hashStream.GetHash();
             bytesRead = hashStream.BytesRead;
         }
         catch when (!markerFileAlreadyExists)
@@ -153,12 +155,57 @@ internal sealed class FileService(
         // Do not cancel the operation from this point on,
         // since the file has been successfully stored.
 
+        var checksum = new Checksum(checksumBytes);
+
+        async Task<bool> FetchTargetMatchesChecksumAsync(BagItFetchItem fetchItem)
+        {
+            (var referencedBagContext, string referencedPathInBag) =
+                ResolvePath(bagContext, fetchItem);
+
+            var referencedManifest = await referencedBagContext
+                .LoadBagItElementAsync<BagItPayloadManifest>(CancellationToken.None);
+
+            return
+                referencedManifest.TryGetItem(referencedPathInBag, out var item) &&
+                item.Checksum == checksum;
+        }
+
         await using (await AcquireBagStructureLockAsync(datasetVersion, CancellationToken.None))
         {
-            // Remove from fetch if present there.
-            await RemoveItemFromFetchAsync(bagContext, pathInBag, CancellationToken.None);
-            // Update payload manifest.
-            await AddOrUpdatePayloadManifestItemAsync(bagContext, new(pathInBag, new(checksum)), CancellationToken.None);
+            var fetch = await bagContext
+                .LoadBagItElementAsync<BagItFetch>(CancellationToken.None);
+
+            var manifest = await bagContext
+                .LoadBagItElementAsync<BagItPayloadManifest>(CancellationToken.None);
+
+            bool manifestUpdated = manifest.AddOrUpdateItem(new(pathInBag, checksum));
+
+            if (fetch.TryGetItem(pathInBag, out var fetchItem))
+            {
+                // File is present in fetch.
+               
+                if (!manifestUpdated &&
+                    await FetchTargetMatchesChecksumAsync(fetchItem))
+                {
+                    // Fetch item has the same checksum as the uploaded file,
+                    // and the item's checksum in the manifest of the version referenced
+                    // by the item also matches.
+                    // Keep the fetch item and delete the uploaded file.
+                    await bagContext.DeleteFileAsync(pathInBag, CancellationToken.None);
+                }
+                else
+                {
+                    // Fetch item has a different checksum than uploaded file,
+                    // remove from fetch.txt.
+                    fetch.RemoveItem(pathInBag);
+                    await bagContext.StoreBagItElementAsync(fetch, CancellationToken.None);
+                }
+            }
+
+            if (manifestUpdated)
+            {
+                await bagContext.StoreBagItElementAsync(manifest, CancellationToken.None);
+            }
         }
 
         // Delete file marking that upload is in progress.
@@ -169,7 +216,7 @@ internal sealed class FileService(
             DateCreated: null,
             DateModified: null,
             Path: filePath,
-            Sha256: checksum,
+            Sha256: checksumBytes,
             Size: bytesRead);
     }
 
@@ -219,10 +266,24 @@ internal sealed class FileService(
         // Do not cancel the operation from this point on,
         // since the file has been successfully deleted.
 
+        async Task LoadAndUpdateBagItElementAsync<T>(Func<T, bool> action)
+            where T : IBagItElement<T>
+        {
+            var element = await bagContext.LoadBagItElementAsync<T>(CancellationToken.None);
+
+            if (action(element))
+            {
+                await bagContext.StoreBagItElementAsync(element, CancellationToken.None);
+            }
+        }
+
         await using (await AcquireBagStructureLockAsync(datasetVersion, CancellationToken.None))
         {
-            await RemoveItemFromPayloadManifestAsync(bagContext, pathInBag, CancellationToken.None);
-            await RemoveItemFromFetchAsync(bagContext, pathInBag, CancellationToken.None);
+            await LoadAndUpdateBagItElementAsync<BagItPayloadManifest>(
+                manifest => manifest.RemoveItem(pathInBag));
+
+            await LoadAndUpdateBagItElementAsync<BagItFetch>(
+                fetch => fetch.RemoveItem(pathInBag));
         }
 
         // Delete file marking that upload is in progress.
@@ -366,9 +427,9 @@ internal sealed class FileService(
                 auditHandle.State.Details["ReturnedSize"] = fileData.StreamLength;
 
                 return fileData with
-                { 
+                {
                     Stream = new AuditedReadStream(
-                        fileData.Stream, 
+                        fileData.Stream,
                         auditHandle,
                         fileData.StreamLength)
                 };
@@ -590,7 +651,7 @@ internal sealed class FileService(
         string[] paths,
         Stream stream,
         FileAccessScope scope,
-        AuditExecutionState auditState, 
+        AuditExecutionState auditState,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
@@ -650,7 +711,7 @@ internal sealed class FileService(
 
         var fetch = await bagContext.LoadBagItElementAsync<BagItFetch>(cancellationToken);
         using var zipArchive = new ZipArchive(stream, ZipArchiveMode.Create, false);
-        
+
         foreach (var (manifestItem, zipFilePath) in toSend)
         {
             (var fromBagContext, string pathInBag) = ResolvePath(bagContext, fetch, manifestItem.FilePath);
@@ -716,12 +777,19 @@ internal sealed class FileService(
         }
     }
 
-    private (BagContext BagContext, string PathInBag) ResolvePath(BagContext bagContext, BagItFetch fetch, string pathInBag)
+    private (BagContext BagContext, string PathInBag) ResolvePath(
+        BagContext bagContext, BagItFetchItem item)
+    {
+        var reference = bagContext.ParseFetchReference(item);
+        return (_bagContextFactory.Create(reference.ReferencedBagStoragePath), reference.PathInBag);
+    }
+
+    private (BagContext BagContext, string PathInBag) ResolvePath(
+        BagContext bagContext, BagItFetch fetch, string pathInBag)
     {
         if (fetch.TryGetItem(pathInBag, out var item))
         {
-            var reference = bagContext.ParseFetchReference(item);
-            return (_bagContextFactory.Create(reference.ReferencedBagStoragePath), reference.PathInBag);
+            return ResolvePath(bagContext, item);
         }
 
         return (bagContext, pathInBag);
@@ -757,40 +825,6 @@ internal sealed class FileService(
         }
 
         return false;
-    }
-
-    private static Task AddOrUpdatePayloadManifestItemAsync(
-        BagContext bagContext,
-        BagItManifestItem item,
-        CancellationToken cancellationToken) =>
-        UpdateBagItElementAsync<BagItPayloadManifest>(
-            bagContext, manifest => manifest.AddOrUpdateItem(item), cancellationToken);
-
-    private static Task RemoveItemFromPayloadManifestAsync(
-        BagContext bagContext,
-        string pathInBag,
-        CancellationToken cancellationToken) =>
-        UpdateBagItElementAsync<BagItPayloadManifest>(
-            bagContext, manifest => manifest.RemoveItem(pathInBag), cancellationToken);
-
-    private static Task RemoveItemFromFetchAsync(
-        BagContext bagContext,
-        string pathInBag,
-        CancellationToken cancellationToken) =>
-        UpdateBagItElementAsync<BagItFetch>(bagContext, fetch => fetch.RemoveItem(pathInBag), cancellationToken);
-
-    private static async Task UpdateBagItElementAsync<T>(
-        BagContext bagContext,
-        Func<T, bool> action,
-        CancellationToken cancellationToken)
-        where T : IBagItElement<T>
-    {
-        var element = await bagContext.LoadBagItElementAsync<T>(cancellationToken);
-
-        if (action(element))
-        {
-            await bagContext.StoreBagItElementAsync(element, cancellationToken);
-        }
     }
 
     private async ValueTask<IAsyncDisposable> AcquireFileLockOrThrowAsync(
