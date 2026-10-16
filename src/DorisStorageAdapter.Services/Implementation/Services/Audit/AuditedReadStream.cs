@@ -19,6 +19,17 @@ internal sealed class AuditedReadStream : Stream
         AuditExecutionHandle auditHandle,
         long expectedLength)
     {
+        ArgumentNullException.ThrowIfNull(underlyingStream);
+        ArgumentNullException.ThrowIfNull(auditHandle);
+        ArgumentOutOfRangeException.ThrowIfNegative(expectedLength);
+
+        if (!underlyingStream.CanRead)
+        {
+            throw new ArgumentException(
+                "The underlying stream must be readable.",
+                nameof(underlyingStream));
+        }
+
         _underlyingStream = underlyingStream;
         _auditHandle = auditHandle;
         _expectedLength = expectedLength;
@@ -26,17 +37,21 @@ internal sealed class AuditedReadStream : Stream
         SetBytesRead();
     }
 
-    public override bool CanRead => _underlyingStream.CanRead;
-    public override bool CanSeek => _underlyingStream.CanSeek;
-    public override bool CanTimeout => _underlyingStream.CanTimeout;
+    public override bool CanRead =>
+        !_disposed && _underlyingStream.CanRead;
+
+    public override bool CanSeek => false;
     public override bool CanWrite => false;
 
-    public override long Length => _underlyingStream.Length;
+    public override bool CanTimeout => _underlyingStream.CanTimeout;
+
+    public override long Length =>
+        throw new NotSupportedException();
 
     public override long Position
     {
-        get => _underlyingStream.Position;
-        set => _underlyingStream.Position = value;
+        get => throw new NotSupportedException();
+        set => throw new NotSupportedException();
     }
 
     public override int ReadTimeout
@@ -48,25 +63,8 @@ internal sealed class AuditedReadStream : Stream
     public override int Read(
         byte[] buffer,
         int offset,
-        int count)
-    {
-        try
-        {
-            int bytesRead = _underlyingStream.Read(
-                buffer,
-                offset,
-                count);
-
-            AddBytesRead(bytesRead);
-
-            return bytesRead;
-        }
-        catch (Exception ex)
-        {
-            CompleteFromExceptionSynchronously(ex);
-            throw;
-        }
-    }
+        int count) =>
+        Read(buffer.AsSpan(offset, count));
 
     public override int Read(Span<byte> buffer)
     {
@@ -165,53 +163,63 @@ internal sealed class AuditedReadStream : Stream
 
     protected override void Dispose(bool disposing)
     {
-        if (!_disposed)
+        try
         {
-            if (disposing)
+            if (!_disposed)
             {
-                CompleteSynchronously(
-                    GetDisposeOutcome());
+                _disposed = true;
 
-                _underlyingStream.Dispose();
+                if (disposing)
+                {
+                    try
+                    {
+                        CompleteSynchronously(GetDisposeOutcome());
+                    }
+                    finally
+                    {
+                        _underlyingStream.Dispose();
+                    }
+                }
             }
-
-            _disposed = true;
         }
-
-        base.Dispose(disposing);
+        finally
+        {
+            base.Dispose(disposing);
+        }
     }
 
     public override async ValueTask DisposeAsync()
     {
-        if (!_disposed)
+        try
         {
-            await _auditHandle
-                .CompleteAsync(GetDisposeOutcome())
-                .ConfigureAwait(false);
+            if (!_disposed)
+            {
+                _disposed = true;
 
-            await _underlyingStream
-                .DisposeAsync()
-                .ConfigureAwait(false);
-
-            _disposed = true;
+                try
+                {
+                    await _auditHandle
+                        .CompleteAsync(GetDisposeOutcome())
+                        .ConfigureAwait(false);
+                }
+                finally
+                {
+                    await _underlyingStream
+                        .DisposeAsync()
+                        .ConfigureAwait(false);
+                }
+            }
         }
-
-        await base
-            .DisposeAsync()
-            .ConfigureAwait(false);
+        finally
+        {
+            await base.DisposeAsync().ConfigureAwait(false);
+        }
     }
 
-    public override void Flush() =>
-        _underlyingStream.Flush();
+    public override void Flush() { }
 
-    public override Task FlushAsync(
-        CancellationToken cancellationToken) =>
-        _underlyingStream.FlushAsync(cancellationToken);
-
-    public override long Seek(
-        long offset,
-        SeekOrigin origin) =>
-        _underlyingStream.Seek(offset, origin);
+    public override long Seek(long offset, SeekOrigin origin) =>
+        throw new NotSupportedException();
 
     public override void SetLength(long value) =>
         throw new NotSupportedException();
@@ -228,7 +236,7 @@ internal sealed class AuditedReadStream : Stream
 
     public override ValueTask WriteAsync(
         ReadOnlyMemory<byte> buffer,
-        CancellationToken cancellationToken = default) =>
+        CancellationToken cancellationToken) =>
         ValueTask.FromException(
             new NotSupportedException());
 }

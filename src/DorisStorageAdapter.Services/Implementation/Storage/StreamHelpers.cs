@@ -1,5 +1,4 @@
-﻿using Nerdbank.Streams;
-using System;
+﻿using System;
 using System.IO;
 
 namespace DorisStorageAdapter.Services.Implementation.Storage;
@@ -19,7 +18,8 @@ internal static class StreamHelpers
 
         if (byteRange.From == null)
         {
-            stream.Position = Math.Max(stream.Length - byteRange.To.GetValueOrDefault(), 0);
+            stream.Position = Math.Max(
+                stream.Length - byteRange.To.GetValueOrDefault(), 0);
         }
         else
         {
@@ -27,10 +27,13 @@ internal static class StreamHelpers
 
             if (byteRange.To != null)
             {
-                endPosition = Math.Min(byteRange.To.Value + 1, stream.Length);
+                // Avoid overflow when To == long.MaxValue.
+                endPosition = byteRange.To.Value >= stream.Length
+                    ? stream.Length
+                    : byteRange.To.Value + 1;
             }
         }
 
-        return stream.ReadSlice(endPosition - stream.Position);
+        return new ReadSliceStream(stream, endPosition - stream.Position);
     }
 }

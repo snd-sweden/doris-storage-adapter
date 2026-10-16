@@ -26,8 +26,9 @@ internal sealed class FileSystemStorageProvider(
     private static readonly HashSet<char> _invalidFileNameChars = [.. Path.GetInvalidFileNameChars()];
 
     private readonly string _basePath = configuration.Value.BasePath;
+    private readonly string _tempFilePath = configuration.Value.TempFilePath;
 
-    private static readonly TimeSpan[] RetryDelays =
+    private static readonly TimeSpan[] _retryDelays =
     [
         TimeSpan.FromMilliseconds(10),
         TimeSpan.FromMilliseconds(25),
@@ -45,63 +46,37 @@ internal sealed class FileSystemStorageProvider(
     {
         filePath = GetFullPathOrThrow(filePath);
         string directoryPath = Path.GetDirectoryName(filePath)!;
-        string fileName = Path.GetFileName(filePath)!;
-        string? tempFilePath = null;
-
-        FileStream OpenTempFileStream()
-        {
-            const int MaxAttempts = 5;
- 
-            for (int i = 0; ; i++)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                try
-                {
-                    Directory.CreateDirectory(directoryPath);
-
-                    tempFilePath = Path.Combine(
-                        directoryPath,
-                        $".{fileName}_{Path.GetRandomFileName()}.tmp");
-
-                    return new FileStream(tempFilePath, new FileStreamOptions
-                    {
-                        Access = FileAccess.Write,
-
-                        // We must use CreateNew here to ensure that the temp file
-                        // does not already exist.
-                        Mode = FileMode.CreateNew,
-
-                        // FileOptions.Asynchronous only has real effect on Windows.
-                        // It is ignored on Linux where file I/O is always executed
-                        // synchronously on a background thread (as of 2024-09-11).
-                        Options = FileOptions.Asynchronous,
-
-                        PreallocationSize = size,
-
-                        // The value of Share does not really matter much since writing is done to a
-                        // temporary file that will not be accessed by anyone else.
-                        Share = FileShare.None
-                    });
-                }
-                catch (Exception e) when (
-                    i < MaxAttempts - 1 &&
-                    e is IOException or UnauthorizedAccessException)
-                {
-                    // Probably caused by directory not found or
-                    // temp file already exists, retry.
-
-                    // If directory is not found it could be
-                    // because another thread removed it in
-                    // a call to DeleteEmptyDirectories().
-                }
-            }
-        }
+        string tempFilePath = Path.Combine(_tempFilePath, $"{Guid.NewGuid():N}.tmp");
+        bool tempFileCreated = false;
+        bool directoryPathCreationAttempted = false;
 
         try
         {
-            await using (var stream = OpenTempFileStream())
+            await using (var stream = new FileStream(
+                tempFilePath,
+                new FileStreamOptions
+                {
+                    Access = FileAccess.Write,
+
+                    // Use CreateNew here to ensure that the temp file
+                    // does not already exist. Highly unlikely, if it
+                    // happens we simply let the FileStream constructor throw.
+                    Mode = FileMode.CreateNew,
+
+                    // FileOptions.Asynchronous only has real effect on Windows.
+                    // It is ignored on Linux where file I/O is always executed
+                    // synchronously on a background thread (as of 2024-09-11).
+                    Options = FileOptions.Asynchronous,
+
+                    PreallocationSize = size,
+
+                    // The value of Share does not really matter much since writing is done to a
+                    // temporary file that will not be accessed by anyone else.
+                    Share = FileShare.None
+                }))
             {
+                tempFileCreated = true;
+
                 await data.CopyToAsync(stream, cancellationToken);
 
 #pragma warning disable CA1849 //  Call async methods when in an async method
@@ -115,20 +90,27 @@ internal sealed class FileSystemStorageProvider(
 
             for (int i = 0; ; i++)
             {
-                // If file move fails, retry a few times with increasing delay.
-                // This is mostly for making move more robust on Windows, where
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // If directory creation or file move fails, retry a few times
+                // with increasing delay.
+                // Handles races with DeleteEmptyDirectories(), which may
+                // remove the destination directory before the file is moved.
+                // It also makes it more robust on Windows, where
                 // another process reading filePath can prevent the move
                 // (e.g. anti virus software).
                 try
                 {
-                    File.Move(tempFilePath!, filePath, true);
+                    directoryPathCreationAttempted = true;
+                    Directory.CreateDirectory(directoryPath);
+                    File.Move(tempFilePath, filePath, true);
                     return;
                 }
                 catch (Exception e) when (
-                    i < RetryDelays.Length &&
+                    i < _retryDelays.Length &&
                     e is IOException or UnauthorizedAccessException)
                 {
-                    await Task.Delay(RetryDelays[i], cancellationToken);
+                    await Task.Delay(_retryDelays[i], cancellationToken);
                 }
             }
         }
@@ -136,7 +118,7 @@ internal sealed class FileSystemStorageProvider(
         {
             // Cancelled or failed, try to clean up
 
-            if (tempFilePath != null)
+            if (tempFileCreated)
             {
                 try
                 {
@@ -147,13 +129,16 @@ internal sealed class FileSystemStorageProvider(
 #pragma warning restore CA1031
             }
 
-            try
+            if (directoryPathCreationAttempted)
             {
-                DeleteEmptyDirectories(directoryPath);
-            }
+                try
+                {
+                    DeleteEmptyDirectories(directoryPath);
+                }
 #pragma warning disable CA1031 // Do not catch general exception types
-            catch { }
+                catch { }
 #pragma warning restore CA1031
+            }
 
             throw;
         }
@@ -183,10 +168,10 @@ internal sealed class FileSystemStorageProvider(
                 return;
             }
             catch (Exception e) when (
-                i < RetryDelays.Length &&
+                i < _retryDelays.Length &&
                 e is IOException or UnauthorizedAccessException)
             {
-                await Task.Delay(RetryDelays[i], cancellationToken);
+                await Task.Delay(_retryDelays[i], cancellationToken);
             }
         }
 
@@ -211,11 +196,23 @@ internal sealed class FileSystemStorageProvider(
         cancellationToken.ThrowIfCancellationRequested();
 
         filePath = GetFullPathOrThrow(filePath);
-        var file = new FileInfo(filePath);
 
-        if (file.Exists)
+        try
         {
-            return Task.FromResult<StorageFileMetadata?>(ToStorageFileMetadata(file));
+            var file = new FileInfo(filePath);
+
+            if (file.Exists)
+            {
+                return Task.FromResult<StorageFileMetadata?>(ToStorageFileMetadata(file));
+            }
+        }
+        catch (FileNotFoundException)
+        {
+            // File was deleted while retrieving metadata.
+        }
+        catch (DirectoryNotFoundException)
+        {
+            // Parent directory was deleted while retrieving metadata.
         }
 
         return Task.FromResult<StorageFileMetadata?>(null);
@@ -263,19 +260,40 @@ internal sealed class FileSystemStorageProvider(
                 Share = FileShare.Read | FileShare.Write | FileShare.Delete
             });
 
-            long length = stream.Length;
-
-            if (byteRange != null)
+            try
             {
-                stream = StreamHelpers.CreateByteRangeStream(stream, byteRange);
-            }
+                long length = stream.Length;
 
-            return Task.FromResult<StorageFileData?>(new(
-                Size: length,
-                Stream: stream,
-                StreamLength: stream.Length));
+                if (byteRange != null)
+                {
+                    stream = StreamHelpers.CreateByteRangeStream(stream, byteRange);
+                }
+
+                return Task.FromResult<StorageFileData?>(new(
+                    Size: length,
+                    Stream: stream,
+                    StreamLength: stream.Length));
+            }
+            catch
+            {
+                try
+                {
+#pragma warning disable CA1849 // Call async methods when in an async method
+                    stream.Dispose();
+#pragma warning restore CA1849
+                }
+#pragma warning disable CA1031 // Do not catch general exception types
+                catch { }
+#pragma warning restore CA1031
+
+                throw;
+            }
         }
         catch (FileNotFoundException)
+        {
+            return Task.FromResult<StorageFileData?>(null);
+        }
+        catch (DirectoryNotFoundException)
         {
             return Task.FromResult<StorageFileData?>(null);
         }
@@ -290,24 +308,55 @@ internal sealed class FileSystemStorageProvider(
         static IEnumerable<FileInfo> EnumerateFiles(
             DirectoryInfo directory, string path, bool recursive)
         {
-            foreach (var entry in directory.EnumerateFileSystemInfos())
-            {
-                if (!string.IsNullOrEmpty(path) &&
-                    !entry.FullName.StartsWith(path, StringComparison.Ordinal))
-                {
-                    continue;
-                }
+            IEnumerator<FileSystemInfo> enumerator;
 
-                if (entry is DirectoryInfo subDirectory && recursive)
+            try
+            {
+                enumerator = directory.EnumerateFileSystemInfos().GetEnumerator();
+            }
+            catch (DirectoryNotFoundException)
+            {
+                yield break;
+            }
+
+            using (enumerator)
+            {
+                while (true)
                 {
-                    foreach (var file in EnumerateFiles(subDirectory, "", recursive))
+                    FileSystemInfo entry;
+
+                    try
+                    {
+                        if (!enumerator.MoveNext())
+                        {
+                            yield break;
+                        }
+
+                        entry = enumerator.Current;
+                    }
+                    catch (DirectoryNotFoundException)
+                    {
+                        // Directory was removed during enumeration.
+                        yield break;
+                    }
+
+                    if (!string.IsNullOrEmpty(path) &&
+                        !entry.FullName.StartsWith(path, StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    if (entry is DirectoryInfo subDirectory && recursive)
+                    {
+                        foreach (var file in EnumerateFiles(subDirectory, "", recursive))
+                        {
+                            yield return file;
+                        }
+                    }
+                    else if (entry is FileInfo file)
                     {
                         yield return file;
                     }
-                }
-                else if (entry is FileInfo file)
-                {
-                    yield return file;
                 }
             }
         }
@@ -333,7 +382,24 @@ internal sealed class FileSystemStorageProvider(
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            yield return ToStorageFileMetadata(file);
+            StorageFileMetadata metadata;
+
+            try
+            {
+                metadata = ToStorageFileMetadata(file);
+            }
+            catch (FileNotFoundException)
+            {
+                // File was removed during enumeration.
+                continue;
+            }
+            catch (DirectoryNotFoundException)
+            {
+                // Parent directory was removed during enumeration.
+                continue;
+            }
+
+            yield return metadata;
         }
     }
 #pragma warning restore CS1998
@@ -390,12 +456,14 @@ internal sealed class FileSystemStorageProvider(
         while (directoryPath != rootPath)
         {
             try
-            {
+            {               
                 // Fast path: avoid exception by checking explicitly if directory is empty.
-                using var e = Directory.EnumerateFileSystemEntries(directoryPath).GetEnumerator();
-                if (e.MoveNext())
+                using (var e = Directory.EnumerateFileSystemEntries(directoryPath).GetEnumerator())
                 {
-                    break;
+                    if (e.MoveNext())
+                    {
+                        break;
+                    }
                 }
 
                 Directory.Delete(directoryPath);

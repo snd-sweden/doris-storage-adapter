@@ -7,22 +7,30 @@ using System.Threading.Tasks;
 namespace DorisStorageAdapter.Services.Implementation.IO;
 
 /// <summary>
-/// A stream that wraps another stream and calculates the number of bytes read,
-/// and the SHA256 hash, of the bytes read from the underlying stream.
+/// A forward-only, read-only stream that wraps another stream and calculates 
+/// the number of bytes read, and the SHA256 hash, of the bytes read from the 
+/// underlying stream.
 /// </summary>
 /// <param name="underlyingStream">The underlying stream to wrap.</param>
 internal sealed class CountedHashStream : Stream
 {
     private readonly Stream _underlyingStream;
-    private readonly bool _leaveOpen;
     private long _bytesRead;
     private readonly IncrementalHash _sha256hasher = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-    private byte[] _hashValue = [];
-    private bool _isDisposed;
+    private byte[]? _hashValue;
+    private bool _disposed;
+    private readonly bool _leaveOpen;
 
     public CountedHashStream(Stream underlyingStream, bool leaveOpen = false)
     {
         ArgumentNullException.ThrowIfNull(underlyingStream);
+
+        if (!underlyingStream.CanRead)
+        {
+            throw new ArgumentException(
+                "The underlying stream must be readable.",
+                nameof(underlyingStream));
+        }
 
         _underlyingStream = underlyingStream;
         _leaveOpen = leaveOpen;
@@ -30,20 +38,28 @@ internal sealed class CountedHashStream : Stream
 
     public long BytesRead => _bytesRead;
 
-    public byte[] GetHash() => _isDisposed 
-        ? [.. _hashValue]
+    public byte[] GetHash() => _disposed
+        ? _hashValue is { } hash
+            ? [.. hash]
+            : throw new InvalidOperationException(
+                "The SHA-256 hash could not be finalized.")
         : _sha256hasher.GetCurrentHash();
 
-    public override bool CanRead => _underlyingStream.CanRead;
-    public override bool CanSeek => _underlyingStream.CanSeek;
-    public override bool CanTimeout => _underlyingStream.CanTimeout;
-    public override bool CanWrite => _underlyingStream.CanWrite;
-    public override long Length => _underlyingStream.Length;
+    public override bool CanRead =>
+        !_disposed && _underlyingStream.CanRead;
+
+    public override bool CanSeek => false;
+    public override bool CanWrite => false;
+
+    public override bool CanTimeout =>
+        _underlyingStream.CanTimeout;
+
+    public override long Length => throw new NotSupportedException();
 
     public override long Position
     {
-        get => _underlyingStream.Position;
-        set => _underlyingStream.Position = value;
+        get => throw new NotSupportedException();
+        set => throw new NotSupportedException();
     }
 
     public override int ReadTimeout
@@ -52,66 +68,7 @@ internal sealed class CountedHashStream : Stream
         set => _underlyingStream.ReadTimeout = value;
     }
 
-    public override int WriteTimeout
-    {
-        get => _underlyingStream.WriteTimeout;
-        set => _underlyingStream.WriteTimeout = value;
-    }
-
-    private void DisposeSha256Hasher()
-    {
-        _hashValue = _sha256hasher.GetCurrentHash();
-        _sha256hasher.Dispose();
-    }
-
-    protected override void Dispose(bool disposing)
-    {
-        try
-        {
-            if (disposing && !_isDisposed)
-            {
-                DisposeSha256Hasher();
-                _isDisposed = true;
-
-                if (!_leaveOpen)
-                {
-                    _underlyingStream.Dispose();
-                }
-            }
-        }
-        finally
-        {
-            base.Dispose(disposing);
-        }
-    }
-
-    public async override ValueTask DisposeAsync()
-    {
-        try
-        {
-            if (!_isDisposed)
-            {
-                DisposeSha256Hasher();
-                _isDisposed = true;
-
-                if (!_leaveOpen)
-                {
-                    await _underlyingStream.DisposeAsync()
-                        .ConfigureAwait(false);
-                }
-            }
-        }
-        finally
-        {
-            await base.DisposeAsync().ConfigureAwait(false);
-        }
-    }
-
-    public override void Flush() => 
-        _underlyingStream.Flush();
-
-    public override Task FlushAsync(CancellationToken cancellation) => 
-        _underlyingStream.FlushAsync(cancellation);
+    public override void Flush() { }
 
     public override int Read(Span<byte> buffer)
     {
@@ -139,12 +96,12 @@ internal sealed class CountedHashStream : Stream
     }
 
     public override Task<int> ReadAsync(
-        byte[] buffer, 
-        int offset, 
-        int count, 
+        byte[] buffer,
+        int offset,
+        int count,
         CancellationToken cancellationToken) =>
         ReadAsync(
-            buffer.AsMemory(offset, count), 
+            buffer.AsMemory(offset, count),
             cancellationToken).AsTask();
 
     public override int ReadByte()
@@ -160,28 +117,80 @@ internal sealed class CountedHashStream : Stream
         return result;
     }
 
-    public override long Seek(long offset, SeekOrigin origin) => 
-        _underlyingStream.Seek(offset, origin);
+    public override long Seek(long offset, SeekOrigin origin) =>
+        throw new NotSupportedException();
 
-    public override void SetLength(long value) => 
-        _underlyingStream.SetLength(value);
+    public override void Write(
+        byte[] buffer, int offset, int count) =>
+        throw new NotSupportedException();
 
-    public override void Write(ReadOnlySpan<byte> buffer) => 
-        _underlyingStream.Write(buffer);
+    public override void SetLength(long value) =>
+        throw new NotSupportedException();
 
-    public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken) =>
-        _underlyingStream.WriteAsync(buffer, cancellationToken);
+    private void DisposeSha256Hasher()
+    {
+        try
+        {
+            _hashValue = _sha256hasher.GetCurrentHash();
+        }
+        finally
+        {
+            _sha256hasher.Dispose();
+        }
+    }
 
-    public override void Write(byte[] buffer, int offset, int count) => 
-        _underlyingStream.Write(buffer, offset, count);
+    protected override void Dispose(bool disposing)
+    {
+        try
+        {
+            if (disposing && !_disposed)
+            {
+                _disposed = true;
 
-    public override Task WriteAsync(
-        byte[] buffer, 
-        int offset, 
-        int count, 
-        CancellationToken cancellationToken) =>
-        _underlyingStream.WriteAsync(buffer, offset, count, cancellationToken);
+                try
+                {
+                    DisposeSha256Hasher();
+                }
+                finally
+                {
+                    if (!_leaveOpen)
+                    {
+                        _underlyingStream.Dispose();
+                    }
+                }
+            }
+        }
+        finally
+        {
+            base.Dispose(disposing);
+        }
+    }
 
-    public override void WriteByte(byte value) => 
-        _underlyingStream.WriteByte(value);
+    public override async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (!_disposed)
+            {
+                _disposed = true;
+
+                try
+                {
+                    DisposeSha256Hasher();
+                }
+                finally
+                {
+                    if (!_leaveOpen)
+                    {
+                        await _underlyingStream.DisposeAsync()
+                            .ConfigureAwait(false);
+                    }
+                }
+            }
+        }
+        finally
+        {
+            await base.DisposeAsync().ConfigureAwait(false);
+        }
+    }
 }

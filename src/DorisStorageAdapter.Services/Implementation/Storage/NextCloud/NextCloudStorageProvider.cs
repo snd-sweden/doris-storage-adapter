@@ -1,5 +1,4 @@
 ﻿using Microsoft.Extensions.Options;
-using Nerdbank.Streams;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -128,9 +127,11 @@ internal sealed class NextCloudStorageProvider : IStorageProvider
                 {
                     long bytesToRead = Math.Min(_configuration.ChunkedUploadChunkSize, bytesLeft);
 
+                    using var slicedStream = new ReadSliceStream(data, bytesToRead, leaveOpen: true);
+
                     EnsureSuccessStatusCode(await _webDavClient.PutFile(
                         new Uri(uri, chunk.ToString(CultureInfo.InvariantCulture)),
-                        data.ReadSlice(bytesToRead),
+                        slicedStream,
                         new PutFileParameters
                         {
                             CancellationToken = cancellationToken,

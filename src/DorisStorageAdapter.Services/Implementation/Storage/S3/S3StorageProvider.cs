@@ -107,7 +107,7 @@ internal sealed class S3StorageProvider(
                 // the SDK implementation) an exception is thrown so that operation
                 // fails fast and no data corruption can occur.
                 : new VirtualSeekableStream(
-                    data, size, VirtualSeekableStreamMode.ThrowOnSeek, leaveOpen: true),
+                    data, size, throwOnSeek: true, leaveOpen: true),
 
             PartSize = CalculatePartSize(size)
         };

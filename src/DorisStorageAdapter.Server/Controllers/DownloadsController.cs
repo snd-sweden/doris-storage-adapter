@@ -232,7 +232,7 @@ public sealed class DownloadsController(
         response = response with
         {
             Stream = new VirtualSeekableStream(
-                response.Stream, response.Size, VirtualSeekableStreamMode.AllowVirtualSeek)
+                response.Stream, response.Size, throwOnSeek: false)
         };
 
         return TypedResults.Stream(
