@@ -24,10 +24,12 @@ namespace DorisStorageAdapter.Server.Controllers;
 
 public sealed class DownloadsController(
     IFileService fileService,
+    ISystemService systemService,
     IOptions<SecurityConfiguration> securityConfiguration,
     ITenantResolver tenantResolver) : BaseController(tenantResolver)
 {
     private readonly IFileService _fileService = fileService;
+    private readonly ISystemService _systemService = systemService;
     private readonly SecurityConfiguration _securityConfiguration = securityConfiguration.Value;
 
     private const string CorsPrefix = nameof(DownloadsController) + "_";
@@ -248,12 +250,21 @@ public sealed class DownloadsController(
         FileAccessScope scope,
         CancellationToken cancellationToken)
     {
-        var contentDisposition = new ContentDispositionHeaderValue("attachment");
-        contentDisposition.SetHttpFileName(
-            datasetVersion.Identifier + '-' + datasetVersion.Version + ".zip");
-        Response.Headers.ContentDisposition = contentDisposition.ToString();
+        string fileName = $"{datasetVersion.Identifier}-{datasetVersion.Version}";
 
-        Response.Headers.ContentType = MediaTypeNames.Application.Zip;
+        if (scope == FileAccessScope.Draft)
+        {
+            var accessMode = _systemService.GetSystemInformation()
+                .DatasetAccessMode.ToString().ToLowerInvariant();
+
+            fileName += $"_{accessMode}";
+        }
+
+        var contentDisposition = new ContentDispositionHeaderValue("attachment");
+        contentDisposition.SetHttpFileName($"{fileName}.zip");
+
+        Response.Headers.ContentDisposition = contentDisposition.ToString();
+        Response.ContentType = MediaTypeNames.Application.Zip;
         Response.StatusCode = StatusCodes.Status200OK;
 
         bool written = await _fileService.TryWriteDataAsZipAsync(
@@ -263,13 +274,10 @@ public sealed class DownloadsController(
             scope: scope,
             cancellationToken: cancellationToken);
 
-        if (!written)
+        if (!written && !Response.HasStarted)
         {
-            if (!Response.HasStarted)
-            {
-                Response.Headers.Clear();
-                return TypedResults.NotFound();
-            }
+            Response.Headers.Clear();
+            return TypedResults.NotFound();
         }
 
         return Results.Empty;
