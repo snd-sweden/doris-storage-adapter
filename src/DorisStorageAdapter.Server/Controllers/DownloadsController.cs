@@ -14,25 +14,32 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Microsoft.Net.Http.Headers;
 using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net.Mime;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace DorisStorageAdapter.Server.Controllers;
 
-public sealed class DownloadsController(
+public sealed partial class DownloadsController(
     IFileService fileService,
+    ISystemService systemService,
     IOptions<SecurityConfiguration> securityConfiguration,
     ITenantResolver tenantResolver) : BaseController(tenantResolver)
 {
     private readonly IFileService _fileService = fileService;
+    private readonly ISystemService _systemService = systemService;
     private readonly SecurityConfiguration _securityConfiguration = securityConfiguration.Value;
 
     private const string CorsPrefix = nameof(DownloadsController) + "_";
     public const string DownloadPublicFileCorsPolicyName = CorsPrefix + nameof(DownloadPublicFileAsync);
     public const string DownloadPublicFilesAsZipCorsPolicyName = CorsPrefix + nameof(DownloadPublicFilesAsZip);
+
+    [GeneratedRegex(@"[<>:""/\\|?*\p{Cc}\p{Cf}]")]
+    private static partial Regex InvalidFileNameCharactersRegex();
 
     [HttpHead("downloads/draft/{identifier}/{version}/{**filePath}")]
     [HttpGet("downloads/draft/{identifier}/{version}/{**filePath}")]
@@ -116,7 +123,7 @@ public sealed class DownloadsController(
     public async Task<IResult> DownloadDraftFilesAsZip(
         string identifier,
         string version,
-        [FromQuery] string[] path,
+        [FromQuery] string? path,
         CancellationToken cancellationToken)
     {
         if (!_securityConfiguration.AllowReadDraftFiles)
@@ -133,7 +140,7 @@ public sealed class DownloadsController(
 
         return await TryWriteDataAsZip(
             datasetVersion: datasetVersion,
-            paths: path,
+            path: path,
             scope: FileAccessScope.Draft,
             cancellationToken: cancellationToken);
     }
@@ -146,14 +153,14 @@ public sealed class DownloadsController(
     public Task<IResult> DownloadPublicFilesAsZip(
         string identifier,
         string version,
-        [FromQuery] string[] path,
+        [FromQuery] string? path,
         CancellationToken cancellationToken)
     {
         var datasetVersion = CreateDatasetVersion(identifier, version);
 
         return TryWriteDataAsZip(
             datasetVersion: datasetVersion,
-            paths: path,
+            path: path,
             scope: FileAccessScope.Public,
             cancellationToken: cancellationToken);
     }
@@ -244,34 +251,83 @@ public sealed class DownloadsController(
 
     private async Task<IResult> TryWriteDataAsZip(
         DatasetVersion datasetVersion,
-        string[] paths,
+        string? path,
         FileAccessScope scope,
         CancellationToken cancellationToken)
     {
-        var contentDisposition = new ContentDispositionHeaderValue("attachment");
-        contentDisposition.SetHttpFileName(
-            datasetVersion.Identifier + '-' + datasetVersion.Version + ".zip");
-        Response.Headers.ContentDisposition = contentDisposition.ToString();
+        string fileName = $"{datasetVersion.Identifier}-{datasetVersion.Version}";
 
-        Response.Headers.ContentType = MediaTypeNames.Application.Zip;
+        if (scope == FileAccessScope.Draft)
+        {
+            var accessMode = _systemService.GetSystemInformation()
+                .DatasetAccessMode.ToString().ToLowerInvariant();
+
+            fileName += $"_{accessMode}";
+        }
+
+        if (!string.IsNullOrEmpty(path))
+        {
+            const int maxLength = 200;
+
+            string pathSuffix = path.TrimEnd('/');
+            if (pathSuffix.Length > 0)
+            {
+                pathSuffix = pathSuffix[(pathSuffix.LastIndexOf('/') + 1)..];
+            }
+            pathSuffix = InvalidFileNameCharactersRegex().Replace(pathSuffix, "-");
+            pathSuffix = TruncateUnicode(pathSuffix, maxLength);
+
+            if (pathSuffix.Length > 0)
+            {
+                fileName += $"_{pathSuffix}";
+            }
+        }
+
+        var contentDisposition = new ContentDispositionHeaderValue("attachment");
+        contentDisposition.SetHttpFileName($"{fileName}.zip");
+
+        Response.Headers.ContentDisposition = contentDisposition.ToString();
+        Response.ContentType = MediaTypeNames.Application.Zip;
         Response.StatusCode = StatusCodes.Status200OK;
 
         bool written = await _fileService.TryWriteDataAsZipAsync(
             datasetVersion: datasetVersion,
-            paths: paths,
+            path: path,
             stream: Response.BodyWriter.AsStream(),
             scope: scope,
             cancellationToken: cancellationToken);
 
-        if (!written)
+        if (!written && !Response.HasStarted)
         {
-            if (!Response.HasStarted)
-            {
-                Response.Headers.Clear();
-                return TypedResults.NotFound();
-            }
+            Response.Headers.Clear();
+            return TypedResults.NotFound();
         }
 
         return Results.Empty;
+    }
+
+    private static string TruncateUnicode(string value, int maxLength)
+    {
+        if (value.Length <= maxLength)
+        {
+            return value;
+        }
+
+        var enumerator = StringInfo.GetTextElementEnumerator(value);
+        int length = 0;
+
+        while (enumerator.MoveNext())
+        {
+            string element = enumerator.GetTextElement();
+
+            if (length + element.Length > maxLength)
+            {
+                break;
+            }
+
+            length += element.Length;
+        }
+
+        return value[..length];
     }
 }

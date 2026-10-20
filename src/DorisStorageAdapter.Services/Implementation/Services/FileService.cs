@@ -183,7 +183,7 @@ internal sealed class FileService(
             if (fetch.TryGetItem(pathInBag, out var fetchItem))
             {
                 // File is present in fetch.
-               
+
                 if (!manifestUpdated &&
                     await FetchTargetMatchesChecksumAsync(fetchItem))
                 {
@@ -589,20 +589,18 @@ internal sealed class FileService(
 
     public Task<bool> TryWriteDataAsZipAsync(
         DatasetVersion datasetVersion,
-        string[] paths,
+        string? path,
         Stream stream,
         FileAccessScope scope,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(paths);
-
         if (scope == FileAccessScope.Public)
         {
             // Do not audit public downloads.
 
             return TryWriteDataAsZipCoreAsync(
                 datasetVersion,
-                paths,
+                path,
                 stream,
                 scope,
                 new(),
@@ -614,9 +612,9 @@ internal sealed class FileService(
             ["AccessScope"] = scope,
         };
 
-        for (int i = 0; i < paths.Length; i++)
+        if (!string.IsNullOrEmpty(path))
         {
-            details[$"PathPrefix.{i}"] = paths[i];
+            details[$"Path"] = path;
         }
 
         return _audit.StartAsync(
@@ -630,7 +628,7 @@ internal sealed class FileService(
             {
                 bool written = await TryWriteDataAsZipCoreAsync(
                     datasetVersion,
-                    paths,
+                    path,
                     stream,
                     scope,
                     auditHandle.State,
@@ -648,14 +646,13 @@ internal sealed class FileService(
 
     public async Task<bool> TryWriteDataAsZipCoreAsync(
         DatasetVersion datasetVersion,
-        string[] paths,
+        string? path,
         Stream stream,
         FileAccessScope scope,
         AuditExecutionState auditState,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(datasetVersion);
-        ArgumentNullException.ThrowIfNull(paths);
         ArgumentNullException.ThrowIfNull(stream);
 
         if (!_datasetVersionValidator.IsValid(datasetVersion))
@@ -673,12 +670,24 @@ internal sealed class FileService(
             return false;
         }
 
-        var sent = new List<BagItManifestItem>();
+        if (!string.IsNullOrEmpty(path))
+        {
+            path = path.TrimEnd('/');
+
+            if (!PathValidation.HasOnlyValidComponents(path))
+            {
+                return false;
+            }
+
+            path += '/';
+        }
+
+        int sent = 0;
         long totalBytesRead = 0;
 
         void UpdateAuditCounts()
         {
-            auditState.Details["CompletedFileCount"] = sent.Count;
+            auditState.Details["CompletedFileCount"] = sent;
             auditState.Details["BytesRead"] = totalBytesRead;
         }
 
@@ -687,73 +696,68 @@ internal sealed class FileService(
         var payloadManifest = await bagContext
             .LoadBagItElementAsync<BagItPayloadManifest>(cancellationToken);
 
-        string versionPath = datasetVersion.Identifier + '-' + datasetVersion.Version;
-        var toSend = new List<(BagItManifestItem ManifestItem, string ZipFilePath)>();
+        var toSend = new List<(string BagFilePath, string ZipFilePath)>();
 
         foreach (var manifestItem in payloadManifest.Items)
         {
             string filePath = BagPathLayout.FromPathInBag(manifestItem.FilePath);
 
-            if (paths.Length == 0 ||
-                paths.Any(p => filePath.StartsWith(p, StringComparison.Ordinal)))
+            if (string.IsNullOrEmpty(path))
             {
-                toSend.Add((manifestItem, versionPath + '/' + filePath));
+                toSend.Add((manifestItem.FilePath, filePath));
+            }
+            else if (filePath.StartsWith(path, StringComparison.Ordinal))
+            {
+                toSend.Add((manifestItem.FilePath, filePath[path.Length..]));
             }
         }
 
         auditState.Details["SelectedFileCount"] = toSend.Count;
 
-        static Stream CreateZipEntryStream(ZipArchive zipArchive, string path)
+        if (!string.IsNullOrEmpty(path) && toSend.Count == 0)
+        {
+            return false;
+        }
+
+        static Task<Stream> CreateZipEntryStreamAsync(
+            ZipArchive zipArchive,
+            string path,
+            CancellationToken cancellationToken)
         {
             var entry = zipArchive.CreateEntry(path, CompressionLevel.NoCompression);
-            return entry.Open();
+            return entry.OpenAsync(cancellationToken);
         }
 
         var fetch = await bagContext.LoadBagItElementAsync<BagItFetch>(cancellationToken);
-        using var zipArchive = new ZipArchive(stream, ZipArchiveMode.Create, false);
+        await using var zipArchive = await ZipArchive.CreateAsync(
+            stream,
+            ZipArchiveMode.Create,
+            leaveOpen: true,
+            entryNameEncoding: null,
+            cancellationToken: cancellationToken);
 
-        foreach (var (manifestItem, zipFilePath) in toSend)
+        foreach (var (bagFilePath, zipFilePath) in toSend)
         {
-            (var fromBagContext, string pathInBag) = ResolvePath(bagContext, fetch, manifestItem.FilePath);
-            var fileData = await fromBagContext.GetFileDataAsync(pathInBag, null, cancellationToken);
+            (var fromBagContext, string pathInBag) =
+                ResolvePath(bagContext, fetch, bagFilePath);
 
-            if (fileData != null)
+            var fileData = await fromBagContext
+                .GetFileDataAsync(pathInBag, null, cancellationToken)
+                ?? throw new DatasetIntegrityException(
+                    "A file declared in the payload manifest could not be found.",
+                    [new("Missing payload file.", bagFilePath)]);
+
+            await using (var fileStream = fileData.Stream)
             {
-                await using var entryStream = CreateZipEntryStream(zipArchive, zipFilePath);
-                await using var fileStream = fileData.Stream;
+                await using var entryStream = await CreateZipEntryStreamAsync(
+                    zipArchive, zipFilePath, cancellationToken);
+
                 await fileStream.CopyToAsync(entryStream, cancellationToken);
-
-                sent.Add(new(zipFilePath, manifestItem.Checksum));
-                totalBytesRead += fileData.Size;
-
-                UpdateAuditCounts();
             }
-        }
 
-        if (sent.Count > 0)
-        {
-            // Send sha256.txt in the format used by UNIX utility sha256sum:
-            // one line per file separated by newline,
-            // each line composed of checksum + ' ' + file name.
-            // File names with backslash or newline are escaped by
-            // starting the line with a backslash and escaping \ as \\
-            // and newline as \n.
-
-            await using var entryStream = CreateZipEntryStream(zipArchive, "sha256.txt");
-
-            foreach (var file in sent)
-            {
-                string name = file.FilePath
-                    .Replace("\\", "\\\\", StringComparison.Ordinal)
-                    .Replace("\n", "\\n", StringComparison.Ordinal);
-
-                await entryStream.WriteAsync(Encoding.UTF8.GetBytes(
-                    (name.Length > file.FilePath.Length
-                        ? "\\"
-                        : "") +
-                    file.Checksum.HexString + ' ' + name + '\n'),
-                    cancellationToken);
-            }
+            sent++;
+            totalBytesRead += fileData.Size;
+            UpdateAuditCounts();
         }
 
         return true;

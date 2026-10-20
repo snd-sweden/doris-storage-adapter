@@ -24,6 +24,11 @@ internal sealed class ServiceExceptionHandler(IProblemDetailsService problemDeta
             return false;
         }
 
+        if (httpContext.Response.HasStarted)
+        {
+            return false;
+        }
+
         httpContext.Response.StatusCode = GetStatusCode(se);
 
         var problem = new ErrorProblemDetails
@@ -33,15 +38,12 @@ internal sealed class ServiceExceptionHandler(IProblemDetailsService problemDeta
             Errors = se.Errors
         };
 
-        // This writes using the registered ProblemDetails writers
-        await _problemDetailsService.WriteAsync(new ProblemDetailsContext
+        return await _problemDetailsService.TryWriteAsync(new ProblemDetailsContext
         {
             HttpContext = httpContext,
             ProblemDetails = problem,
             Exception = exception
         });
-
-        return true; // handled
     }
 
     private static int GetStatusCode(ServiceException ex) =>

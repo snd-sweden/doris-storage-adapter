@@ -44,7 +44,7 @@ public interface IFileService
 
     Task<bool> TryWriteDataAsZipAsync(
         DatasetVersion datasetVersion,
-        string[] paths,
+        string? path,
         Stream stream,
         FileAccessScope scope,
         CancellationToken cancellationToken);
