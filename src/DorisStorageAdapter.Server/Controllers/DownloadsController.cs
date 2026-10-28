@@ -14,15 +14,17 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Microsoft.Net.Http.Headers;
 using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net.Mime;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace DorisStorageAdapter.Server.Controllers;
 
-public sealed class DownloadsController(
+public sealed partial class DownloadsController(
     IFileService fileService,
     ISystemService systemService,
     IOptions<SecurityConfiguration> securityConfiguration,
@@ -35,6 +37,9 @@ public sealed class DownloadsController(
     private const string CorsPrefix = nameof(DownloadsController) + "_";
     public const string DownloadPublicFileCorsPolicyName = CorsPrefix + nameof(DownloadPublicFileAsync);
     public const string DownloadPublicFilesAsZipCorsPolicyName = CorsPrefix + nameof(DownloadPublicFilesAsZip);
+
+    [GeneratedRegex(@"[<>:""/\\|?*\p{Cc}\p{Cf}]")]
+    private static partial Regex InvalidFileNameCharactersRegex();
 
     [HttpHead("downloads/draft/{identifier}/{version}/{**filePath}")]
     [HttpGet("downloads/draft/{identifier}/{version}/{**filePath}")]
@@ -245,10 +250,10 @@ public sealed class DownloadsController(
     }
 
     private async Task<IResult> TryWriteDataAsZip(
-        DatasetVersion datasetVersion,
-        string[] paths,
-        FileAccessScope scope,
-        CancellationToken cancellationToken)
+       DatasetVersion datasetVersion,
+       string[] paths,
+       FileAccessScope scope,
+       CancellationToken cancellationToken)
     {
         string fileName = $"{datasetVersion.Identifier}-{datasetVersion.Version}";
 
@@ -258,6 +263,20 @@ public sealed class DownloadsController(
                 .DatasetAccessMode.ToString().ToLowerInvariant();
 
             fileName += $"_{accessMode}";
+        }
+
+        if (paths is [string path])
+        {
+            const int maxLength = 200;
+
+            path = path.Trim('/').Replace('/', '-');
+            path = InvalidFileNameCharactersRegex().Replace(path, "-");
+            path = TruncateUnicode(path, maxLength);
+
+            if (path.Length > 0)
+            {
+                fileName += $"_{path}";
+            }
         }
 
         var contentDisposition = new ContentDispositionHeaderValue("attachment");
@@ -281,5 +300,30 @@ public sealed class DownloadsController(
         }
 
         return Results.Empty;
+    }
+
+    private static string TruncateUnicode(string value, int maxLength)
+    {
+        if (value.Length <= maxLength)
+        {
+            return value;
+        }
+
+        var enumerator = StringInfo.GetTextElementEnumerator(value);
+        int length = 0;
+
+        while (enumerator.MoveNext())
+        {
+            string element = enumerator.GetTextElement();
+
+            if (length + element.Length > maxLength)
+            {
+                break;
+            }
+
+            length += element.Length;
+        }
+
+        return value[..length];
     }
 }
