@@ -13,11 +13,11 @@
       },
       "Microsoft.AspNetCore.OpenApi": {
         "type": "Direct",
-        "requested": "[10.0.13, )",
-        "resolved": "10.0.13",
-        "contentHash": "XVuqUBGjVUVyb4DXR5BrSkrW0Br7sYKq39f723ILhQLlFHCyhAgWe1PkJBc42R/5mKBIgHiKVSY+PN5/4XtcQw==",
+        "requested": "[10.0.15, )",
+        "resolved": "10.0.15",
+        "contentHash": "pptFDPMWyPDDtt68s/HsvLYeHJ0WQtntjyve6ztp/5MrLOEzdZvafYIyWSeErtexIGaB8XGYCnnUK8T/Vn4MwQ==",
         "dependencies": {
-          "Microsoft.OpenApi": "[2.12.2, 3.0.0)"
+          "Microsoft.OpenApi": "[2.13.0, 3.0.0)"
         }
       },
       "MinVer": {
@@ -28,40 +28,49 @@
       },
       "NetDevPack.Security.Jwt.AspNetCore": {
         "type": "Direct",
-        "requested": "[10.0.0, )",
-        "resolved": "10.0.0",
-        "contentHash": "5ENM38dAS2kF5krtgt1wQdZTDCjIz3kL2jF1GSuAZ2jNdJ3bY4kHkxlwUipbQG3e7jYJlU/HGLabkXPShrVuGQ==",
+        "requested": "[11.0.0, )",
+        "resolved": "11.0.0",
+        "contentHash": "H0K1DlBsFS3TqkC7Hy9TcBssUktR9MvKmDC+tu5qnKEFPV48z+GK0Rk1XZl8YzT6yjOzCwEyOKybJ30D1PgvFA==",
         "dependencies": {
-          "Microsoft.AspNetCore.Authentication.JwtBearer": "10.0.12",
-          "NetDevPack.Security.Jwt": "10.0.0",
+          "Microsoft.AspNetCore.Authentication.JwtBearer": "10.0.15",
+          "NetDevPack.Security.Jwt": "11.0.0",
           "System.IdentityModel.Tokens.Jwt": "8.23.0"
         }
       },
       "NetDevPack.Security.JwtExtensions": {
         "type": "Direct",
-        "requested": "[9.0.1, )",
-        "resolved": "9.0.1",
-        "contentHash": "ZwBhplMuBAs6nVn2TORg41Zq0SxIMzdr70OSx6EecCKHVbIfFC3YoZovW4VGc18Kx+n2D2LLRbkcgMBCXi3sDw==",
+        "requested": "[10.0.0, )",
+        "resolved": "10.0.0",
+        "contentHash": "S/ErR/mF/aJFbNEzAb0IFHngS2NrgRTSYZIYlOsJwNCAJQrs/hhEPZ5+W/VNZeDGUsXqVzb7fzvN+KTh5JTxNg==",
         "dependencies": {
-          "Microsoft.AspNetCore.Authentication.JwtBearer": "10.0.2",
-          "System.IdentityModel.Tokens.Jwt": "8.15.0"
+          "Microsoft.AspNetCore.Authentication.JwtBearer": "10.0.15",
+          "System.IdentityModel.Tokens.Jwt": "8.23.0"
         }
       },
       "Scalar.AspNetCore": {
         "type": "Direct",
-        "requested": "[2.18.0, )",
-        "resolved": "2.18.0",
-        "contentHash": "wwI3khcYNM7oL6axr4a41G29fJYOS3ckusgYZ4NiIccL8Amh2LOeu4HSK1SrQWiMJNrgoFqyWfDkOkunQCiRDw=="
+        "requested": "[3.3.0, )",
+        "resolved": "3.3.0",
+        "contentHash": "QlSfwIKJLpjIT8NO1gkKjlrqnt087UDIFZu267a9WEA/4nIH6fVYFn7Rr60mytmvce7pQpxAt0Tgp7t1MRaCHQ=="
       },
       "AWSSDK.Core": {
         "type": "Transitive",
-        "resolved": "4.0.102.11",
-        "contentHash": "K9PP9/qHQ7pqSB0lYwStJrpXQ8P1xc7Fbn3CyPg8EX78p4+yz8dhIiwiRc3aVbVrUZxmPAPRvmZm+ey1euIXGg=="
+        "resolved": "4.1.1.1",
+        "contentHash": "paZNy+g/hXMCsEpWvmOFr14x9gVzIY2JRSzSk+nXpKcnaASxEFBMWE4CNBuI/WwGN1ygTwojRTsPRn3yXuhSYQ==",
+        "dependencies": {
+          "AWSSDK.Extensions.Numerics": "[4.1.0, 5.0.0)",
+          "System.IO.Hashing": "11.0.0"
+        }
+      },
+      "AWSSDK.Extensions.Numerics": {
+        "type": "Transitive",
+        "resolved": "4.1.0",
+        "contentHash": "hhoiXT1aUyVgIiQbQoqG3L1EEneqXDh2GKyH5izUlO6Rzi9GAAi8S6mlLiVwow23+EGg77zHjdmUi+ia3RSUTg=="
       },
       "Microsoft.AspNetCore.Authentication.JwtBearer": {
         "type": "Transitive",
-        "resolved": "10.0.12",
-        "contentHash": "DeE+Bq2OqB3FikFkZk+7gFBeLOQhkSolejLrbi+a9zpfvXtW1Ff6Nd6DIvHXIm+pc4aM4+52vDy3jnuau0qoUQ==",
+        "resolved": "10.0.15",
+        "contentHash": "Y8VbPrQuABpTkMrqO/K2URdfqBBheri/YDcB+sO530arpqsy7vsd/go/YfEP8XaRkACWPQV2gPxedl7dnxp0zg==",
         "dependencies": {
           "Microsoft.IdentityModel.Protocols.OpenIdConnect": "8.19.2"
         }
@@ -73,8 +82,8 @@
       },
       "Microsoft.Extensions.Compliance.Abstractions": {
         "type": "Transitive",
-        "resolved": "10.11.0",
-        "contentHash": "2mjAb3Sm5k6uNeI+IyXpggYMpfdDDGgZSwUm9QQsm5QgZboJWbm2eU+6wNMrlfFEao11yq6JS1zXI7SVQQ0NuQ=="
+        "resolved": "10.11.1",
+        "contentHash": "2tjl8N8Nz8SbE78lW7bCDQjIneH8/WNsDtcJm/n/vTBpPbfdKq1sf8n+aliTNYbI93ZIkphUHLZA+td4q5tDBg=="
       },
       "Microsoft.IdentityModel.Abstractions": {
         "type": "Transitive",
@@ -125,15 +134,16 @@
       },
       "Microsoft.OpenApi": {
         "type": "Transitive",
-        "resolved": "2.12.2",
-        "contentHash": "ZkT7qiJe0Kj0+DTZOZo+xrDy1kNmdsWFQVPIQLNx9ZJ0T9cB2LG7r+Bi60so8/+yg1nkS7QCPadrzsTG4VPKrA=="
+        "resolved": "2.13.0",
+        "contentHash": "wavlgBYnn7uU/ZGhFHNl0UlDOlwz+6KRduKkqdCCbfxxANaQ1rmBpETVGdwXanAM6twQOxsvI3CBEGF4OScbeQ=="
       },
       "NetDevPack.Security.Jwt": {
         "type": "Transitive",
-        "resolved": "10.0.0",
-        "contentHash": "L960BiLNe0t38J7J+xxRLbk3ynMw2lEyRA3Uk/+dnTcDSlqzi9WU+iDtdjwzE3yAB2/u3ev5hhE4+LnbNhAijg==",
+        "resolved": "11.0.0",
+        "contentHash": "qMZ0B0ZK11Xfp1VWKF2iGhd6Bo2OEPvvu+XjsRtl3/ALCLNDfgd4bOAJcWR3n2BtmydQzdX4rAxV0ZVzVLcTWQ==",
         "dependencies": {
-          "System.IdentityModel.Tokens.Jwt": "8.23.0"
+          "System.IdentityModel.Tokens.Jwt": "8.23.0",
+          "System.Security.Cryptography.Pkcs": "10.0.15"
         }
       },
       "Nito.AsyncEx.Tasks": {
@@ -163,6 +173,16 @@
           "Microsoft.IdentityModel.Tokens": "8.23.0"
         }
       },
+      "System.IO.Hashing": {
+        "type": "Transitive",
+        "resolved": "11.0.0",
+        "contentHash": "U+Bv2qCYt6eONi+arSP0QIp4uTO6os6uceBsqiAwruZ+Wo2HrRhO/0tj38M9URJtS+4DhAtT3ka2TGNFYsnhyQ=="
+      },
+      "System.Security.Cryptography.Pkcs": {
+        "type": "Transitive",
+        "resolved": "10.0.15",
+        "contentHash": "4jEv/lXDuQkh60lPU3hlwASErXdv1ZMKmsxVuBfZWiVKT5Q2QGo58kTa6rN519+PU+m4Hsj1m3yT8fN+Xw0XZw=="
+      },
       "dorisstorageadapter.bagit": {
         "type": "Project"
       },
@@ -172,29 +192,29 @@
       "dorisstorageadapter.services": {
         "type": "Project",
         "dependencies": {
-          "AWSSDK.S3": "[4.0.104.4, )",
-          "AsyncKeyedLock": "[8.1.2, )",
+          "AWSSDK.S3": "[4.1.2.1, )",
+          "AsyncKeyedLock": "[8.1.3, )",
           "ByteSize": "[2.1.2, )",
           "DorisStorageAdapter.BagIt": "[1.0.0, )",
           "DorisStorageAdapter.Common": "[1.0.0, )",
-          "Microsoft.Extensions.Telemetry.Abstractions": "[10.11.0, )",
+          "Microsoft.Extensions.Telemetry.Abstractions": "[10.11.1, )",
           "Nito.AsyncEx.Coordination": "[5.1.2, )",
           "WebDav.Client": "[2.9.0, )"
         }
       },
       "AsyncKeyedLock": {
         "type": "CentralTransitive",
-        "requested": "[8.1.2, )",
-        "resolved": "8.1.2",
-        "contentHash": "FworLhWdK1fnSW8mbUtmQSqO2cSdQ7Ctb4q1WGZvNbu10xTHSS0WjuWk6UNLO3MbxtCk8uhduX8yu6HNoaI0Tw=="
+        "requested": "[8.1.3, )",
+        "resolved": "8.1.3",
+        "contentHash": "/4iI329KfH9KiQe09QjCf5iM4pTsOSNdVwTRxHyFRUXlOtEh4TwLFsX8isHpAAyz3HvmRRhs5eJRlwD7qcK7jA=="
       },
       "AWSSDK.S3": {
         "type": "CentralTransitive",
-        "requested": "[4.0.104.4, )",
-        "resolved": "4.0.104.4",
-        "contentHash": "Qi+NicEv1md8Vxm6c40zf5pRsQ9DzPm4UwewjxSk4zbHpdzAMZK8bDZJGdp4Za9/vHP8GTbSdnDuseZQ5h9tmw==",
+        "requested": "[4.1.2.1, )",
+        "resolved": "4.1.2.1",
+        "contentHash": "5NYXkjBc8uQz5RFtpubw6NcjFahIiVTIq4rucZv6y8q9QSaO33PWsJHnkxrtmXRCXft0Fke1gnv6gvMP5wR1nw==",
         "dependencies": {
-          "AWSSDK.Core": "[4.0.102.11, 5.0.0)"
+          "AWSSDK.Core": "[4.1.1.1, 5.0.0)"
         }
       },
       "ByteSize": {
@@ -205,11 +225,11 @@
       },
       "Microsoft.Extensions.Telemetry.Abstractions": {
         "type": "CentralTransitive",
-        "requested": "[10.11.0, )",
-        "resolved": "10.11.0",
-        "contentHash": "FzcHRan/C2g5X5KD0kPlL4tTROFRpM8sqcXfOIi6FGLsw/d2yoOYMbLJ5hyb8N5QgOVW7e1TdwEN4zVUfcwfdw==",
+        "requested": "[10.11.1, )",
+        "resolved": "10.11.1",
+        "contentHash": "d36MCo5y/IjxqX1C7pvvO98TlaM5LO8DmBIEdzT9TaX0omxywnmMaoUS6Q0dC/LafJCVOrfRJdwSr9YTU0uSNg==",
         "dependencies": {
-          "Microsoft.Extensions.Compliance.Abstractions": "10.11.0"
+          "Microsoft.Extensions.Compliance.Abstractions": "10.11.1"
         }
       },
       "Nito.AsyncEx.Coordination": {
