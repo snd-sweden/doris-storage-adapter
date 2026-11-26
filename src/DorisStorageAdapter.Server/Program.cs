@@ -2,6 +2,7 @@ using DorisStorageAdapter.Server;
 using DorisStorageAdapter.Server.Configuration;
 using DorisStorageAdapter.Server.Controllers;
 using DorisStorageAdapter.Server.Controllers.Attributes;
+using DorisStorageAdapter.Server.HealthChecks;
 using DorisStorageAdapter.Server.Tenancy;
 using DorisStorageAdapter.Services;
 using DorisStorageAdapter.Services.Contract.Audit;
@@ -57,6 +58,9 @@ builder.Services.AddProblemDetails(o =>
 });
 // Map ServiceExceptions to problem details response
 builder.Services.AddExceptionHandler<ServiceExceptionHandler>();
+
+builder.Services.AddHealthChecks()
+    .AddCheck<ReadinessHealthCheck>("readiness", tags: ["ready"]);
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<IAuditContextAccessor, AuditContextAccessor>();

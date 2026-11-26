@@ -33,6 +33,7 @@ public static class ServiceCollectionExtensions
             .ValidateDataAnnotations();
 
         services.TryAddSingleton(TimeProvider.System);
+        services.AddHybridCache();
 
         services.AddSingleton<ILockProvider, InProcessLockProvider>();
         services.AddSingleton<ISharedExclusiveLockProvider, InProcessSharedExclusiveLockProvider>();

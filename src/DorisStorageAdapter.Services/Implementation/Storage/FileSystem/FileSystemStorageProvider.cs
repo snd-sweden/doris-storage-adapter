@@ -38,6 +38,31 @@ internal sealed class FileSystemStorageProvider(
         TimeSpan.FromMilliseconds(500),
     ];
 
+    public Task<bool> IsAvailableAsync(
+       CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        try
+        {
+            using var enumerator = Directory
+                .EnumerateFileSystemEntries(_basePath)
+                .GetEnumerator();
+
+            enumerator.MoveNext();
+
+            return Task.FromResult(true);
+        }
+        catch (IOException)
+        {
+            return Task.FromResult(false);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Task.FromResult(false);
+        }
+    }
+
     public async Task StoreAsync(
         string filePath,
         Stream data,

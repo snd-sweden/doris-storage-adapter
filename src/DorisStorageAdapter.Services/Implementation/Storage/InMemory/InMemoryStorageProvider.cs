@@ -11,6 +11,9 @@ internal sealed class InMemoryStorageProvider(InMemoryStorage storage) : IStorag
 {
     private readonly InMemoryStorage _storage = storage;
 
+    public Task<bool> IsAvailableAsync(
+        CancellationToken cancellationToken) => Task.FromResult(true);
+
     public async Task StoreAsync(
         string filePath,
         Stream data,

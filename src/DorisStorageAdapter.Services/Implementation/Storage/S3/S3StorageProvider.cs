@@ -1,4 +1,5 @@
-﻿using Amazon.S3;
+﻿using Amazon.Runtime;
+using Amazon.S3;
 using Amazon.S3.Model;
 using Amazon.S3.Transfer;
 using DorisStorageAdapter.Common;
@@ -26,6 +27,30 @@ internal sealed class S3StorageProvider(
 
     private const int MultipartThreshold = 128 * 1024 * 1024;
     private const int PreferredPartSize = 64 * 1024 * 1024;
+
+    public async Task<bool> IsAvailableAsync(
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await _client.HeadBucketAsync(
+                new()
+                {
+                    BucketName = _configuration.BucketName
+                },
+                cancellationToken);
+
+            return response.HttpStatusCode == HttpStatusCode.OK;
+        }
+        catch (AmazonServiceException)
+        {
+            return false;
+        }
+        catch (AmazonClientException)
+        {
+            return false;
+        }
+    }
 
     public async Task StoreAsync(
         string filePath,

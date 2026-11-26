@@ -7,6 +7,9 @@ namespace DorisStorageAdapter.Services.Implementation.Storage;
 
 internal interface IStorageProvider
 {
+    Task<bool> IsAvailableAsync(
+        CancellationToken cancellationToken);
+
     Task StoreAsync(
         string filePath, 
         Stream data, 

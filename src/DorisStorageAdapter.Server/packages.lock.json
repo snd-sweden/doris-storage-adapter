@@ -197,6 +197,7 @@
           "ByteSize": "[2.1.2, )",
           "DorisStorageAdapter.BagIt": "[1.0.0, )",
           "DorisStorageAdapter.Common": "[1.0.0, )",
+          "Microsoft.Extensions.Caching.Hybrid": "[10.11.1, )",
           "Microsoft.Extensions.Telemetry.Abstractions": "[10.11.1, )",
           "Nito.AsyncEx.Coordination": "[5.1.2, )",
           "WebDav.Client": "[2.9.0, )"
@@ -222,6 +223,12 @@
         "requested": "[2.1.2, )",
         "resolved": "2.1.2",
         "contentHash": "dSiH9B0apNU5abV3OVUs3eTfHiidEAa8IMOLGW0eEl5tB8Ba1ngkGC7RT/RGy61ifGcPzCe7DMP78KB8pA5kNg=="
+      },
+      "Microsoft.Extensions.Caching.Hybrid": {
+        "type": "CentralTransitive",
+        "requested": "[10.11.1, )",
+        "resolved": "10.11.1",
+        "contentHash": "+EVDWK8EXhpkmgTf/TBD+OZG2DSVCLd8/NnUOmRBk2IMaGVSGePugEQ3jtkVYecwlOio66fxUPGfMVTxqUOwuQ=="
       },
       "Microsoft.Extensions.Telemetry.Abstractions": {
         "type": "CentralTransitive",

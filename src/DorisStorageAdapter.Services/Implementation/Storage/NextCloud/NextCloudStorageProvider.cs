@@ -52,6 +52,19 @@ internal sealed class NextCloudStorageProvider : IStorageProvider
         _chunkedUploadBaseUri = GetUri(_configuration.BaseUrl, $"remote.php/dav/uploads/{_configuration.User}/");
     }
 
+    public async Task<bool> IsAvailableAsync(
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await DirectoryExistsAsync(_storageBaseUri, cancellationToken);
+        }
+        catch (HttpRequestException)
+        {
+            return false;
+        }
+    }
+
     public async Task StoreAsync(
         string filePath,
         Stream data,
