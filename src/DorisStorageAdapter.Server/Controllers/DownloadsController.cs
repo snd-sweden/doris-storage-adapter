@@ -293,7 +293,7 @@ public sealed partial class DownloadsController(
         bool written = await _fileService.TryWriteDataAsZipAsync(
             datasetVersion: datasetVersion,
             path: path,
-            stream: Response.BodyWriter.AsStream(),
+            stream: Response.BodyWriter.AsStream(leaveOpen: true),
             scope: scope,
             cancellationToken: cancellationToken);
 
